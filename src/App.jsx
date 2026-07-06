@@ -350,8 +350,7 @@ function Home({ go, taken, testimonials }) {
             no contract: cancelling is simply not renewing.
           </p>
           <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0 }}>
-            Questions first? Call or text <a href={"tel:" + CONTACT.phoneIntl} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.phone}</a> or
-            email <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a>.
+            Questions first? Email <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a>.
           </p>
         </div>
       </section>
@@ -437,72 +436,152 @@ function Checkout({ planId, onDone, onCancel }) {
   );
 }
 
+/* ---------- calendar helpers ---------- */
+function monthMatrix(view) {
+  const startDow = (new Date(view.getFullYear(), view.getMonth(), 1).getDay() + 6) % 7; // Monday first
+  const cells = Array.from({ length: startDow }, () => null);
+  const dim = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  for (let d = 1; d <= dim; d++) cells.push(new Date(view.getFullYear(), view.getMonth(), d));
+  return cells;
+}
+const monthName = (d) => d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+const DOW = ["M", "T", "W", "T", "F", "S", "S"];
+
+/* ---------- student booking calendar ---------- */
 function BookingChart({ plan, store, subject, sel, setSel, mine }) {
-  const days = useMemo(() => upcomingDays(plan.days, 8), [plan.days]);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const horizon = new Date(today); horizon.setDate(horizon.getDate() + 56);
+  const wanted = plan.days === "weekend" ? [6, 0] : [3, 5];
+  const [view, setView] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [day, setDay] = useState(null);
+  const seats = plan.seats || 5;
   const monthStr = new Date().toISOString().slice(0, 7);
   const mineMonth = mine.filter((b) => b.date.startsWith(monthStr));
   const left = plan.lessons - mineMonth.length;
-
-  const seats = plan.seats || 5;
   const subjectFor = (d) => (plan.rotates ? weekSubject(d) : subject);
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
+  const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
+  const cells = monthMatrix(view);
+  const selDate = day ? new Date(day + "T00:00:00") : null;
+  const daySubj = selDate ? subjectFor(selDate) : null;
+  const dayCol = daySubj ? (SUBJECT_COLORS[daySubj] || SUBJECT_COLORS.Maths) : null;
+  const subjLeft = daySubj ? plan.perSubjectCap - mineMonth.filter((b) => b.subject === daySubj).length : 0;
+  const canPrev = view > new Date(today.getFullYear(), today.getMonth(), 1);
+  const canNext = new Date(view.getFullYear(), view.getMonth() + 1, 1) <= horizon;
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 16, fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px", flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 10, fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px", flexWrap: "wrap", alignItems: "center" }}>
         {plan.rotates && SUBJECT_CYCLE.map((s) => <SubjectChip key={s} subject={s} />)}
-        <span style={{ marginLeft: "auto" }}>15-min breaks between every block</span>
+        <span style={{ marginLeft: "auto" }}>{plan.days === "weekend" ? "Weekends only" : "Wed & Fri evenings"} · tap a highlighted date</span>
       </div>
 
-      <div className="it-card" style={{ padding: 16, overflowX: "auto" }}>
-        <table style={{ borderCollapse: "separate", borderSpacing: 8, width: "100%", minWidth: plan.blocks.length > 1 ? 680 : 400 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600, padding: "0 4px" }}>Date · subject</th>
-              {plan.blocks.map((bl) => (
-                <th key={bl.id} style={{ fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>{bl.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((d) => {
-              const dk = dateKey(d);
-              const subj = subjectFor(d);
-              const col = SUBJECT_COLORS[subj];
-              const subjLeft = plan.perSubjectCap - mineMonth.filter((b) => b.subject === subj).length;
+      <div className="it-card" style={{ padding: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <button className="it-btn ghost" style={{ padding: "6px 12px" }} disabled={!canPrev}
+            onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))}>‹</button>
+          <strong className="it-display" style={{ fontSize: 16 }}>{monthName(view)}</strong>
+          <button className="it-btn ghost" style={{ padding: "6px 12px" }} disabled={!canNext}
+            onClick={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))}>›</button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6 }}>
+          {DOW.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 11.5, fontWeight: 700, color: "var(--ink-soft)" }}>{d}</div>)}
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} />;
+            const dk = dateKey(d);
+            const valid = isValid(d);
+            const subj = valid ? subjectFor(d) : null;
+            const c = subj ? (SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths) : null;
+            const isSelDay = day === dk;
+            return (
+              <button key={i} disabled={!valid}
+                onClick={() => { setDay(isSelDay ? null : dk); setSel(null); }}
+                style={{
+                  aspectRatio: "1", borderRadius: 10, cursor: valid ? "pointer" : "default",
+                  border: isSelDay ? "2.5px solid " + c.border : valid ? "1.5px solid " + c.border : "1px solid transparent",
+                  background: valid ? (isSelDay ? c.border : c.bg) : "transparent",
+                  color: valid ? (isSelDay ? "#fff" : c.text) : "#C6D4D1",
+                  fontWeight: valid ? 800 : 500, fontSize: 13.5, transition: "all .15s",
+                }}>
+                {d.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {day && (
+        <div className="it-fade it-card" style={{ padding: 18, marginTop: 14, border: "1.5px solid " + dayCol.border }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            <strong className="it-display">{prettyDate(selDate)}</strong>
+            <SubjectChip subject={daySubj} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
+            {plan.blocks.map((bl) => {
+              const n = countAt(day, bl.id, daySubj);
+              const already = mine.some((b) => b.date === day && b.block === bl.id);
+              const isSel = sel && sel.date === day && sel.block === bl.id;
+              const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already;
               return (
-                <tr key={dk}>
-                  <td style={{ whiteSpace: "nowrap", padding: "0 4px" }}>
-                    <div className="it-display" style={{ fontWeight: 700, fontSize: 13.5 }}>{prettyDate(d)}</div>
-                    <SubjectChip subject={subj} />
-                  </td>
-                  {plan.blocks.map((bl) => {
-                    const n = countAt(dk, bl.id, subj);
-                    const already = mine.some((b) => b.date === dk && b.block === bl.id);
-                    const isSel = sel && sel.date === dk && sel.block === bl.id;
-                    const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already;
-                    return (
-                      <td key={bl.id}>
-                        <button className="it-slot"
-                          style={{ width: "100%", background: isSel ? col.border : col.bg, borderColor: col.border, color: isSel ? "#fff" : col.text }}
-                          disabled={disabled && !isSel}
-                          onClick={() => setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}>
-                          {already ? "Booked ✓" : n >= seats ? (seats === 1 ? "Taken" : "Full") : seats === 1 ? "Available" : `${seats - n} seats`}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
+                <button key={bl.id} className="it-slot"
+                  style={{ background: isSel ? dayCol.border : dayCol.bg, borderColor: dayCol.border, color: isSel ? "#fff" : dayCol.text }}
+                  disabled={disabled && !isSel}
+                  onClick={() => setSel(isSel ? null : { date: day, block: bl.id, label: bl.label, subject: daySubj })}>
+                  {bl.label}
+                  <div style={{ fontSize: 10.5, fontWeight: 600, opacity: 0.8 }}>
+                    {already ? "booked ✓" : n >= seats ? (seats === 1 ? "taken" : "full") : seats === 1 ? "available" : `${seats - n} seats`}
+                  </div>
+                </button>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      )}
+
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 10 }}>
         {left <= 0 ? "You've used all your lessons this month — more unlock next month."
           : `${left} lesson${left === 1 ? "" : "s"} left this month · max ${plan.perSubjectCap} per subject.`}
       </p>
+    </div>
+  );
+}
+
+/* ---------- admin bookings calendar ---------- */
+function AdminCalendar({ bookings, active, onPick }) {
+  const [view, setView] = useState(() => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), 1); });
+  const counts = {};
+  for (const b of bookings) counts[b.date] = (counts[b.date] || 0) + 1;
+  const cells = monthMatrix(view);
+  return (
+    <div className="it-card" style={{ padding: 18, marginTop: 12, maxWidth: 420 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <button className="it-btn ghost" style={{ padding: "5px 11px" }} onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))}>‹</button>
+        <strong className="it-display" style={{ fontSize: 15 }}>{monthName(view)}</strong>
+        <button className="it-btn ghost" style={{ padding: "5px 11px" }} onClick={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+        {DOW.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 10.5, fontWeight: 700, color: "var(--ink-soft)" }}>{d}</div>)}
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const dk = dateKey(d);
+          const n = counts[dk] || 0;
+          const on = active === dk;
+          return (
+            <button key={i} disabled={!n} onClick={() => onPick(dk)}
+              style={{
+                aspectRatio: "1", borderRadius: 8, position: "relative", fontSize: 12, fontWeight: n ? 800 : 500,
+                border: on ? "2px solid var(--mint-dark)" : n ? "1.5px solid var(--mint)" : "1px solid transparent",
+                background: on ? "var(--mint)" : n ? "var(--aqua)" : "transparent",
+                color: on ? "#fff" : n ? "var(--mint-dark)" : "#C6D4D1", cursor: n ? "pointer" : "default",
+              }}>
+              {d.getDate()}
+              {n > 0 && <span style={{ position: "absolute", top: 1, right: 3, fontSize: 8.5, fontWeight: 800 }}>{n}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {active && <button className="it-btn ghost" style={{ marginTop: 10, padding: "6px 12px", fontSize: 12.5, width: "100%" }} onClick={() => onPick(active)}>Show all dates</button>}
     </div>
   );
 }
@@ -636,7 +715,6 @@ function Contact({ addMessage }) {
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>Questions?</h1>
       <p style={{ color: "var(--ink-soft)" }}>Money worries, subjects, exam boards, availability — ask anything. I usually reply within a day.</p>
       <div className="it-card" style={{ padding: 18, margin: "14px 0 6px", display: "grid", gap: 8, fontSize: 14.5 }}>
-        <div>📞 Call or text: <a href={"tel:" + CONTACT.phoneIntl} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.phone}</a></div>
         <div>💬 WhatsApp: <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>message me directly</a></div>
         <div>✉️ Email: <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a></div>
       </div>
@@ -784,6 +862,7 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
   const [moving, setMoving] = useState(null);
   const [nf, setNf] = useState({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
   const [tf, setTf] = useState({ name: "", quote: "", detail: "" });
+  const [calFilter, setCalFilter] = useState(null);
   const [enroll, setEnroll] = useState(null); // {factorId, qr, secret}
   const [enrollCode, setEnrollCode] = useState("");
   const [hasMfa, setHasMfa] = useState(true);
@@ -953,9 +1032,10 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
       </div>
 
       <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800 }}>Timetable — who booked what & when</h2>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Paste a Google Meet link into any session — students instantly see it on their booking page. "Copy invite" gives you a ready-made message to send.</p>
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session — students instantly see it on their booking page.</p>
+      <AdminCalendar bookings={store.bookings} active={calFilter} onPick={(dk) => setCalFilter(calFilter === dk ? null : dk)} />
       {dates.length === 0 && <p style={{ color: "var(--ink-soft)" }}>No bookings yet.</p>}
-      {dates.map((dk) => {
+      {(calFilter ? dates.filter((d) => d === calFilter) : dates).map((dk) => {
         const d = new Date(dk + "T00:00:00");
         const total = Object.values(byDate[dk]).reduce((t, l) => t + l.length, 0);
         return (
@@ -1088,7 +1168,8 @@ export default function App() {
     if (error) { const e = new Error(error.message); e.status = error.code === "23505" ? 409 : 500; throw e; }
     const { data } = await supa.rpc("find_student", { p_email: s.email });
     const row = (data && data[0]) || { id: null, name: s.name, plan: s.plan, paid_until: s.paid_until };
-    setStore((st) => ({ ...st, subscribers: [...st.subscribers, { ...s, ...row }], takenCount: st.takenCount + (s.plan !== "ucat" ? 1 : 0) }));
+    // unconfirmed sign-ups do NOT count toward the cap until payment is confirmed
+    setStore((st) => ({ ...st, subscribers: [...st.subscribers, { ...s, ...row }] }));
     return row;
   };
   const addBooking = async (b) => {
@@ -1124,13 +1205,16 @@ export default function App() {
   const addStudentManual = async (s) => {
     const { data, error } = await supa.from("students").insert(s).select();
     if (error) throw new Error(error.message);
-    setStore((st) => ({ ...st, subscribers: [...st.subscribers, data[0]], takenCount: st.takenCount + (s.plan !== "ucat" ? 1 : 0) }));
+    setStore((st) => ({ ...st, subscribers: [...st.subscribers, data[0]], takenCount: st.takenCount + (s.plan !== "ucat" && s.paid_until ? 1 : 0) }));
     notify("Added " + data[0].name + " ✓");
   };
   const updatePaidUntil = async (id, paid_until) => {
     const { error } = await supa.from("students").update({ paid_until }).eq("id", id);
     if (error) throw new Error(error.message);
-    setStore((st) => ({ ...st, subscribers: st.subscribers.map((s) => s.id === id ? { ...s, paid_until } : s) }));
+    setStore((st) => {
+      const subscribers = st.subscribers.map((s) => s.id === id ? { ...s, paid_until } : s);
+      return { ...st, subscribers, takenCount: subscribers.filter((x) => x.plan !== "ucat" && x.paid_until).length };
+    });
   };
   const addTestimonial = async (t) => {
     const { data, error } = await supa.from("testimonials").insert(t).select();
@@ -1149,7 +1233,7 @@ export default function App() {
       ...st,
       subscribers: st.subscribers.filter((s) => s.id !== id),
       bookings: st.bookings.filter((b) => b.subscriberId !== id),
-      takenCount: st.takenCount - (gone && gone.plan !== "ucat" ? 1 : 0),
+      takenCount: st.takenCount - (gone && gone.plan !== "ucat" && gone.paid_until ? 1 : 0),
     }));
   };
 
@@ -1211,7 +1295,6 @@ export default function App() {
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, fontSize: 13.5, color: "var(--ink-soft)" }}>
           <span>
             © {new Date().getFullYear()} Isham Tuition · 5% of earnings to charity & food banks ·{" "}
-            <a href={"tel:" + CONTACT.phoneIntl} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.phone}</a> ·{" "}
             <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a> ·{" "}
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>

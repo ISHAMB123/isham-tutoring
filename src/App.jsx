@@ -16,7 +16,12 @@ const SUPABASE_KEY = "sb_publishable_uX2JC9t78GPJTMMgLcoeWA_9OVpc-8F";
 /* ---- STRIPE: when your payment links are ready, paste them
    here and the Join buttons will send people to real checkout.
    Leave as null to keep the demo checkout. ---- */
-const STRIPE_LINKS = { gcse3: null, gcse: null, alevel: null, ucat: null };
+const STRIPE_LINKS = {
+  gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
+  gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
+  alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
+  ucat:  "https://buy.stripe.com/7sYeVc0t58elbuX9CKes003",
+};
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
 const CAP = 40;
@@ -33,7 +38,10 @@ const WEEKEND_BLOCKS = [
   { id: "b4", label: "2:45 – 4:15pm · Isham" },
   { id: "c4", label: "2:45 – 4:15pm · Belal" },
 ];
-const EVENING_BLOCK = [{ id: "e1", label: "7:00 – 9:00pm" }];
+const EVENING_BLOCK = [
+  { id: "e1", label: "7:00 – 8:00pm" },
+  { id: "e2", label: "8:15 – 9:15pm" },
+];
 
 const SUBJECT_CYCLE = ["Maths", "Biology", "Chemistry", "Physics"];
 const CYCLE_EPOCH = Date.UTC(2026, 0, 5);
@@ -54,23 +62,23 @@ const PLANS = {
   gcse: {
     id: "gcse", name: "GCSE Plan", price: 40, per: "/month", lessons: 8, months: 1,
     blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month.",
-    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true,
+    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5,
     deal: "£5 a lesson · £3.33 an hour",
   },
   gcse3: {
     id: "gcse3", name: "Term Deal", price: 110, per: " / 3 months", lessons: 8, months: 3,
     blurb: "The same GCSE plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — for families who'd rather sort it once and forget it.",
-    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true,
+    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5,
   },
   alevel: {
     id: "alevel", name: "A-level Support", price: 40, per: "/month", lessons: 2, months: 1,
-    blurb: "2 evening lessons a month in your chosen subject. Wednesdays & Fridays, 7\u20139pm.",
-    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false,
+    blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject \u2014 just you and the tutor. Wednesdays & Fridays.",
+    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1,
   },
   ucat: {
     id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1, months: 0,
-    blurb: "One evening strategy session from someone who's just sat it — timing, tactics and the sections that trip people up.",
-    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "evening", blocks: EVENING_BLOCK, rotates: false,
+    blurb: "One private one-to-one 1-hour evening session from someone who's just sat it — timing, tactics and the sections that trip people up.",
+    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1,
   },
 };
 
@@ -275,7 +283,7 @@ function Home({ go, taken, testimonials }) {
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["40", "places across two tutors — me and a medical student at Imperial"],
-            ["5", "students max per group — everyone gets airtime"],
+            ["5", "max per GCSE group — A-level & UCAT are private 1-to-1"],
             ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
             ["5%", "of all earnings donated to charity & food banks"],
           ].map(([big, small]) => (
@@ -374,9 +382,9 @@ function Pricing({ startCheckout, taken }) {
               {p.subjects.map((s) => <SubjectChip key={s} subject={s} />)}
             </div>
             <ul style={{ padding: 0, listStyle: "none", margin: "0 0 18px", fontSize: 14, color: "var(--ink-soft)", lineHeight: 2 }}>
-              <li>✓ {p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × evening lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
-              <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7–9pm"}</li>
-              <li>✓ Groups of {MAX_PER_SLOT} max · Google Meet</li>
+              <li>✓ {p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
+              <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
+              <li>✓ {p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
             </ul>
             <button className="it-btn" disabled={full && p.id !== "ucat"} onClick={() => startCheckout(p.id)}>
               {p.id === "ucat" ? "Book UCAT session" : full ? "Programme full" : "Join plan"}
@@ -398,8 +406,8 @@ function Checkout({ planId, onDone, onCancel }) {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
     setPaying(true);
     try {
-      const paid_until = plan.months ? addMonths(plan.months) : null;
-      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until });
+      // paid_until stays null until Isham confirms the payment in the dashboard
+      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until: null });
       /* STRIPE: after saving the student, send them to real payment */
       if (STRIPE_LINKS[planId]) window.open(STRIPE_LINKS[planId], "_blank");
     } catch (e) {
@@ -435,9 +443,10 @@ function BookingChart({ plan, store, subject, sel, setSel, mine }) {
   const mineMonth = mine.filter((b) => b.date.startsWith(monthStr));
   const left = plan.lessons - mineMonth.length;
 
+  const seats = plan.seats || 5;
   const subjectFor = (d) => (plan.rotates ? weekSubject(d) : subject);
   const countAt = (dk, blockId, subj) =>
-    store.bookings.filter((b) => b.date === dk && b.block === blockId && b.subject === subj).length;
+    store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
 
   return (
     <div>
@@ -472,14 +481,14 @@ function BookingChart({ plan, store, subject, sel, setSel, mine }) {
                     const n = countAt(dk, bl.id, subj);
                     const already = mine.some((b) => b.date === dk && b.block === bl.id);
                     const isSel = sel && sel.date === dk && sel.block === bl.id;
-                    const disabled = n >= MAX_PER_SLOT || left <= 0 || subjLeft <= 0 || already;
+                    const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already;
                     return (
                       <td key={bl.id}>
                         <button className="it-slot"
                           style={{ width: "100%", background: isSel ? col.border : col.bg, borderColor: col.border, color: isSel ? "#fff" : col.text }}
                           disabled={disabled && !isSel}
                           onClick={() => setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}>
-                          {already ? "Booked ✓" : n >= MAX_PER_SLOT ? "Full" : `${MAX_PER_SLOT - n} seats`}
+                          {already ? "Booked ✓" : n >= seats ? (seats === 1 ? "Taken" : "Full") : seats === 1 ? "Available" : `${seats - n} seats`}
                         </button>
                       </td>
                     );
@@ -550,6 +559,11 @@ function Book({ store, addBooking, refresh, go }) {
   return (
     <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1000, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
+      {!me.paid_until && plan.months > 0 && (
+        <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 12 }}>
+          Payment being confirmed — you can book your slots now and they'll be held for you. If you haven't paid yet, check your email for the payment link.
+        </div>
+      )}
       {expired && (
         <div style={{ background: "#FFF1EF", border: "1px solid #F6C4BC", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#8A3126", marginBottom: 12 }}>
           Your plan ended on {me.paid_until}. Message Isham or renew to keep booking — your existing bookings are safe.
@@ -558,7 +572,7 @@ function Book({ store, addBooking, refresh, go }) {
       <p style={{ color: "var(--ink-soft)", marginBottom: 18 }}>
         {plan.name} — {plan.rotates
           ? "each week is one subject (see the colour on each date). Tap a slot to book."
-          : "pick a subject, then tap a slot. Wednesday & Friday evenings, 7–9pm."}
+          : "pick a subject, then tap a slot. Wednesday & Friday evenings — private 1-hour sessions."}
       </p>
 
       {!plan.rotates && plan.subjects.length > 1 && (
@@ -644,9 +658,9 @@ function Contact({ addMessage }) {
         {[
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
-          ["When are A-level & UCAT sessions?", "Wednesday and Friday evenings, 7–9pm."],
+          ["When are A-level & UCAT sessions?", "Wednesday and Friday evenings — two private 1-hour slots each night, 7:00–8:00pm and 8:15–9:15pm."],
           ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
-          ["How big are the groups?", "Never more than 5 students, so everyone gets time to ask questions."],
+          ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level and UCAT sessions are private one-to-one."],
           ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard — if your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
@@ -662,6 +676,7 @@ function Contact({ addMessage }) {
 }
 
 function SessionCard({ dk, block, list, subj, link, saveLink, onMove, emails }) {
+  const cap = (PLANS[(list[0] || {}).plan] || {}).seats || 5;
   const [draft, setDraft] = useState(link || "");
   const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
   const inviteMsg = () => `Hi! Your ${subj} lesson is on ${dk}, ${block.label}. Join here: ${draft || "(link coming soon)"} — Isham`;
@@ -679,8 +694,8 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, emails }) 
         <div>
           <strong style={{ color: c.text }}>{block.label}</strong>{" "}
           <SubjectChip subject={subj} />{" "}
-          <span style={{ fontSize: 13, fontWeight: 700, color: list.length >= MAX_PER_SLOT ? "var(--coral)" : c.text }}>
-            {list.length}/{MAX_PER_SLOT} booked
+          <span style={{ fontSize: 13, fontWeight: 700, color: list.length >= cap ? "var(--coral)" : c.text }}>
+            {cap === 1 ? "1-to-1" : `${list.length}/${cap} booked`}
           </span>
         </div>
       </div>
@@ -745,9 +760,10 @@ function MoveModal({ booking, onClose, onSave }) {
   );
 }
 
-function RenewBadge({ paidUntil }) {
+function RenewBadge({ paidUntil, plan }) {
+  if (plan === "ucat") return <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>one-off</span>;
+  if (!paidUntil) return <span className="it-chip" style={{ background: "#FFEDE9", color: "#C2402F", border: "1px solid #C2402F" }}>payment unconfirmed</span>;
   const dl = daysLeft(paidUntil);
-  if (dl === null) return <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>one-off</span>;
   const col = dl <= 0 ? "#C2402F" : dl <= 7 ? "#B87A14" : "var(--mint-dark)";
   const bg = dl <= 0 ? "#FFEDE9" : dl <= 7 ? "#FFF4E0" : "var(--aqua)";
   return (
@@ -989,9 +1005,15 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
                   <td style={{ padding: 6 }}>{PLANS[s.plan].name}</td>
                   <td style={{ padding: 6, color: "var(--ink-soft)" }}>{(s.joined || "").slice(0, 10)}</td>
                   <td style={{ padding: 6, whiteSpace: "nowrap" }}>
-                    <RenewBadge paidUntil={s.paid_until} />{" "}
-                    <button style={{ border: "none", background: "none", color: "var(--mint-dark)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                      onClick={async () => { const nd = prompt("Paid until (YYYY-MM-DD):", s.paid_until || addMonths(1)); if (nd) await updatePaidUntil(s.id, nd); }}>edit</button>
+                    <RenewBadge paidUntil={s.paid_until} plan={s.plan} />{" "}
+                    {!s.paid_until && s.plan !== "ucat" ? (
+                      <button style={{ border: "none", background: "var(--mint)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", borderRadius: 999, padding: "3px 10px" }}
+                        title="Check the payment arrived in Stripe first, then click"
+                        onClick={() => updatePaidUntil(s.id, addMonths(PLANS[s.plan].months || 1))}>Confirm paid ✓</button>
+                    ) : (
+                      <button style={{ border: "none", background: "none", color: "var(--mint-dark)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                        onClick={async () => { const nd = prompt("Paid until (YYYY-MM-DD):", s.paid_until || addMonths(1)); if (nd) await updatePaidUntil(s.id, nd); }}>edit</button>
+                    )}
                   </td>
                   <td style={{ padding: 6 }}><button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => { if (confirm(`Remove ${s.name} and all their bookings?`)) removeSubscriber(s.id); }}>Remove</button></td>
                 </tr>
@@ -1070,9 +1092,11 @@ export default function App() {
     return row;
   };
   const addBooking = async (b) => {
-    const { count } = await supa.from("bookings").select("id", { count: "exact", head: true })
-      .eq("date", b.date).eq("block", b.block).eq("subject", b.subject);
-    if ((count || 0) >= MAX_PER_SLOT) { await refresh(); throw new Error("slot full"); }
+    const pl = PLANS[b.plan] || PLANS.gcse;
+    let q = supa.from("bookings").select("id", { count: "exact", head: true }).eq("date", b.date).eq("block", b.block);
+    if ((pl.seats || 5) > 1) q = q.eq("subject", b.subject);
+    const { count } = await q;
+    if ((count || 0) >= (pl.seats || 5)) { await refresh(); throw new Error("slot full"); }
     const { data, error } = await supa.from("bookings").insert(b).select();
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, bookings: [...st.bookings, mapBooking(data[0])] }));

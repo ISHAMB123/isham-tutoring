@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 /* ============================================================
    Isham Tutoring — LIVE version, connected to Supabase.
@@ -15,16 +16,22 @@ const SUPABASE_KEY = "sb_publishable_uX2JC9t78GPJTMMgLcoeWA_9OVpc-8F";
 /* ---- STRIPE: when your payment links are ready, paste them
    here and the Join buttons will send people to real checkout.
    Leave as null to keep the demo checkout. ---- */
-const STRIPE_LINKS = { gcse: null, alevel: null, ucat: null };
+const STRIPE_LINKS = { gcse3: null, gcse: null, alevel: null, ucat: null };
 
-const CAP = 20;
-const MAX_PER_SLOT = 4;
+const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
+const CAP = 40;
+const TUTOR2 = "Belal Ghazalah (Imperial medical student)";
+const MAX_PER_SLOT = 5;
 
 const WEEKEND_BLOCKS = [
-  { id: "b1", label: "8:00 – 10:00am" },
-  { id: "b2", label: "10:15am – 12:15pm" },
-  { id: "b3", label: "12:30 – 2:30pm" },
-  { id: "b4", label: "2:45 – 4:45pm" },
+  { id: "b1", label: "9:00 – 10:30am · Isham" },
+  { id: "c1", label: "9:00 – 10:30am · Belal" },
+  { id: "b2", label: "10:45 – 12:15 · Isham" },
+  { id: "c2", label: "10:45 – 12:15 · Belal" },
+  { id: "b3", label: "1:00 – 2:30pm · Isham" },
+  { id: "c3", label: "1:00 – 2:30pm · Belal" },
+  { id: "b4", label: "2:45 – 4:15pm · Isham" },
+  { id: "c4", label: "2:45 – 4:15pm · Belal" },
 ];
 const EVENING_BLOCK = [{ id: "e1", label: "7:00 – 9:00pm" }];
 
@@ -45,38 +52,29 @@ const SUBJECT_COLORS = {
 
 const PLANS = {
   gcse: {
-    id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8,
-    blurb: "8 two-hour group lessons a month. Subjects rotate weekly — Maths week, then Biology, Chemistry, Physics — so you cover everything, twice each, every month.",
+    id: "gcse", name: "GCSE Plan", price: 40, per: "/month", lessons: 8, months: 1,
+    blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month.",
+    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true,
+    deal: "£5 a lesson · £3.33 an hour",
+  },
+  gcse3: {
+    id: "gcse3", name: "Term Deal", price: 110, per: " / 3 months", lessons: 8, months: 3,
+    blurb: "The same GCSE plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — for families who'd rather sort it once and forget it.",
     subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true,
   },
   alevel: {
-    id: "alevel", name: "A-level Support", price: 40, per: "/month", lessons: 2,
-    blurb: "2 evening lessons a month in your chosen subject. Wednesdays & Fridays, 7–9pm.",
+    id: "alevel", name: "A-level Support", price: 40, per: "/month", lessons: 2, months: 1,
+    blurb: "2 evening lessons a month in your chosen subject. Wednesdays & Fridays, 7\u20139pm.",
     subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false,
   },
   ucat: {
-    id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1,
+    id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1, months: 0,
     blurb: "One evening strategy session from someone who's just sat it — timing, tactics and the sections that trip people up.",
     subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "evening", blocks: EVENING_BLOCK, rotates: false,
   },
 };
 
-/* ---------- Supabase REST helpers ---------- */
-async function sb(path, opts = {}) {
-  const headers = {
-    apikey: SUPABASE_KEY,
-    Authorization: "Bearer " + SUPABASE_KEY,
-    "Content-Type": "application/json",
-  };
-  if (opts.method === "POST") headers.Prefer = opts.upsert ? "resolution=merge-duplicates,return=representation" : "return=representation";
-  const res = await fetch(SUPABASE_URL + "/rest/v1/" + path, { ...opts, headers });
-  if (!res.ok) {
-    const t = await res.text();
-    const err = new Error(t); err.status = res.status; throw err;
-  }
-  const txt = await res.text();
-  return txt ? JSON.parse(txt) : null;
-}
+const supa = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const mapBooking = (r) => ({
   id: r.id, subscriberId: r.student_id, name: r.student_name, plan: r.plan,
@@ -84,26 +82,30 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [students, bookings, messages, links, settings] = await Promise.all([
-    sb("students?select=*&order=joined.asc"),
-    sb("bookings?select=*&order=date.asc"),
-    sb("messages?select=*&order=created.asc"),
-    sb("meet_links?select=*"),
-    sb("settings?select=*").catch(() => []),
+  const [st, bk, ms, ml, ts, taken] = await Promise.all([
+    supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
+    supa.from("bookings").select("*").order("date"),
+    supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
+    supa.from("meet_links").select("*"),
+    supa.from("testimonials").select("*").order("created"),
+    supa.rpc("get_taken"),                                    // safe public count for the capacity meter
   ]);
   const meetLinks = {};
-  for (const l of links) meetLinks[l.slot] = l.link;
-  const pinRow = (settings || []).find((s) => s.key === "admin_pin");
+  for (const l of ml.data || []) meetLinks[l.slot] = l.link;
+  const subscribers = st.data || [];
   return {
-    subscribers: students,
-    bookings: bookings.map(mapBooking),
-    messages,
+    subscribers,
+    bookings: (bk.data || []).map(mapBooking),
+    messages: ms.data || [],
     meetLinks,
-    adminPin: pinRow ? pinRow.value : null,
+    testimonials: ts.data || [],
+    takenCount: typeof taken.data === "number" ? taken.data : subscribers.filter((s) => s.plan !== "ucat").length,
   };
 }
 
 /* ---------- misc helpers ---------- */
+const addMonths = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+const daysLeft = (paidUntil) => paidUntil ? Math.ceil((new Date(paidUntil + "T00:00:00") - new Date()) / 864e5) : null;
 const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const dateKey = (d) => d.toISOString().slice(0, 10);
 const prettyDate = (d) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
@@ -174,7 +176,7 @@ function CapacityMeter({ taken }) {
       </div>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: 0 }}>
         <strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>
-          {Math.max(CAP - taken, 0)} of {CAP} places left
+          {Math.max(CAP - taken, 0)} of {CAP} places left this month
         </strong> — capped so groups stay tiny and prices stay low.
       </p>
     </div>
@@ -195,17 +197,19 @@ function CharityBanner() {
   );
 }
 
-function Home({ go, taken }) {
+function Home({ go, taken, testimonials }) {
   return (
     <div className="it-fade">
       <section style={{ padding: "70px 24px 44px", maxWidth: 1000, margin: "0 auto" }}>
-        <span className="it-tag">Built for families who can't afford £30/hour tutors</span>
+        <span className="it-tag">Dental student · ranked top of my school for grades</span>
         <h1 className="it-display" style={{ fontSize: "clamp(34px,5.5vw,60px)", lineHeight: 1.07, margin: "18px 0 14px", fontWeight: 800 }}>
           Top-grade tuition, <span className="it-grad">£5 a lesson.</span><br />Because money shouldn't decide your grades.
         </h1>
         <p style={{ fontSize: 18, color: "var(--ink-soft)", maxWidth: 660, lineHeight: 1.65 }}>
-          I was born to a single mum and we were made homeless when I was 3. This September I start dental school.
-          Tutoring got me nothing — hard work and free help did. This is that free-ish help, for the next kid like me.
+          I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
+          and this September I start dental school. Tutoring got me nothing — hard work and free help did.
+          This is that help for the next kid like me: £40 a month, 12 hours of live teaching — £3.33 an hour,
+          a tenth of what a private tutor charges.
         </p>
         <div style={{ display: "flex", gap: 12, margin: "26px 0 36px", flexWrap: "wrap" }}>
           <button className="it-btn" onClick={() => go("book")}>Book a lesson</button>
@@ -228,10 +232,21 @@ function Home({ go, taken }) {
           </div>
           <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
             This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
+            {" "}Every slot runs two parallel rooms — one taught by me, one by {TUTOR2} — so twice the places without bigger groups.
           </p>
         </div>
       </section>
 
+
+      <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
+        <div className="it-card" style={{ padding: "22px 26px", borderLeft: "5px solid #7C6CF0" }}>
+          <span className="it-tag" style={{ background: "#F1EBFE", color: "#5B3EC4" }}>Coming soon</span>
+          <h3 className="it-display" style={{ margin: "10px 0 6px", fontSize: 19, fontWeight: 800 }}>Humanities is on the way</h3>
+          <p style={{ margin: 0, fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6 }}>
+            We're teaming up with a Cambridge student — 9 A* at GCSE and 4 A* at A-level — to bring the same £5-a-lesson model to humanities subjects. Send a message if you want first dibs when it launches.
+          </p>
+        </div>
+      </section>
       <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
         <CharityBanner />
       </section>
@@ -243,8 +258,8 @@ function Home({ go, taken }) {
             {[
               ["Age 3", "Made homeless. Raised by a single mum who never let me feel it."],
               ["GCSEs", "No tutors, no quiet desk — just library sessions and free resources. It worked."],
-              ["Sixth form", "Predicted A*AA, AB in AS Chemistry & Maths, tutored 50+ students along the way."],
-              ["This September", "Incoming dental student. Now I teach the way I wish someone had taught me."],
+              ["Sixth form", "Ranked top of my school for grades — A*AA predicted, AB in AS Chemistry & Maths — all while running a tutoring service teaching around 50 students a month."],
+              ["This September", "Dental school. Now I teach the way I wish someone had taught me."],
             ].map(([t, b]) => (
               <div key={t}>
                 <div className="it-display it-grad" style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>{t}</div>
@@ -258,9 +273,10 @@ function Home({ go, taken }) {
       <section style={{ background: "var(--aqua)", padding: "40px 24px" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
           {[
-            ["50+", "students tutored across GCSE science & maths"],
-            ["4", "students max per group — everyone gets airtime"],
-            ["2 hrs", "per lesson, weekends 8am–4:45pm on Google Meet"],
+            ["50/mo", "students I taught on average running my previous tutoring service"],
+            ["40", "places across two tutors — me and a medical student at Imperial"],
+            ["5", "students max per group — everyone gets airtime"],
+            ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
             ["5%", "of all earnings donated to charity & food banks"],
           ].map(([big, small]) => (
             <div key={big}>
@@ -271,12 +287,63 @@ function Home({ go, taken }) {
         </div>
       </section>
 
-      <section style={{ padding: "56px 24px 64px", maxWidth: 1000, margin: "0 auto" }}>
+      {testimonials.length > 0 && (
+        <section style={{ padding: "56px 24px 0", maxWidth: 1000, margin: "0 auto" }}>
+          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 18 }}>What students say</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
+            {testimonials.map((t) => (
+              <div key={t.id} className="it-card" style={{ padding: 24 }}>
+                <div style={{ fontSize: 22, color: "var(--mint)", lineHeight: 1 }}>"</div>
+                <p style={{ fontSize: 14.5, lineHeight: 1.65, margin: "6px 0 12px" }}>{t.quote}</p>
+                <strong className="it-display" style={{ fontSize: 14 }}>{t.name}</strong>
+                {t.detail && <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{t.detail}</div>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* what every lesson includes */}
+      <section style={{ padding: "56px 24px 0", maxWidth: 1000, margin: "0 auto" }}>
+        <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 18 }}>Every lesson includes</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 16 }}>
+          {[
+            ["📋", "Exam-board specific", "Taught to your exact spec — AQA, Edexcel or OCR — not generic content. Tell me your board when you join."],
+            ["📝", "Past-paper practice", "Real exam questions in every session, with mark-scheme walkthroughs so you learn how examiners think."],
+            ["🎯", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know — the stuff school never has time for."],
+            ["📈", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week — to you and your parents."],
+          ].map(([icon, t, b]) => (
+            <div key={t} className="it-card" style={{ padding: 22 }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
+              <h3 className="it-display" style={{ fontSize: 16.5, fontWeight: 800, margin: "0 0 6px" }}>{t}</h3>
+              <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.6, margin: 0 }}>{b}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ padding: "40px 24px 64px", maxWidth: 1000, margin: "0 auto" }}>
         <div className="it-card" style={{ padding: 32 }}>
-          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 10px" }}>The Grade Promise</h2>
-          <p style={{ color: "var(--ink-soft)", lineHeight: 1.65, margin: 0, maxWidth: 720, fontSize: 15.5 }}>
-            Turn up, do the work I set, and I'm confident you'll be on track for a grade 7+ (A).
-            If after a full term you don't feel your grades are moving, I'll refund your last month — no arguments.
+          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 10px" }}>The Grade A Guarantee</h2>
+          <p style={{ color: "var(--ink-soft)", lineHeight: 1.65, margin: "0 0 14px", maxWidth: 760, fontSize: 15.5 }}>
+            Put the work in with me and I back the result with money. If a student meets all of the conditions below
+            and their average across our assessments still isn't a grade 7 (A) or above, I'll refund their most
+            recent 3 months of fees. To qualify, the student must have:
+          </p>
+          <ul style={{ color: "var(--ink-soft)", lineHeight: 1.9, margin: "0 0 14px", maxWidth: 760, fontSize: 15, paddingLeft: 22 }}>
+            <li>been enrolled for a minimum of 6 months;</li>
+            <li>attended the lessons they booked;</li>
+            <li>followed the study guidance set in lessons;</li>
+            <li>submitted every piece of homework on time, completed to a genuine standard.</li>
+          </ul>
+          <p style={{ color: "var(--ink-soft)", lineHeight: 1.65, margin: "0 0 12px", maxWidth: 760, fontSize: 14 }}>
+            This isn't small print designed to wriggle out — homework and attendance are tracked from day one, so
+            whether you qualify is a matter of record, not my opinion. Separately, plans are monthly or 3-monthly with
+            no contract: cancelling is simply not renewing.
+          </p>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0 }}>
+            Questions first? Call or text <a href={"tel:" + CONTACT.phoneIntl} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.phone}</a> or
+            email <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a>.
           </p>
         </div>
       </section>
@@ -295,8 +362,8 @@ function Pricing({ startCheckout, taken }) {
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20 }}>
         {Object.values(PLANS).map((p) => (
-          <div key={p.id} className="it-card" style={{ padding: 28, display: "flex", flexDirection: "column", ...(p.id === "gcse" ? { border: "2px solid var(--mint)" } : {}) }}>
-            {p.id === "gcse" && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10 }}>Most popular</span>}
+          <div key={p.id} className="it-card" style={{ padding: 28, display: "flex", flexDirection: "column", ...(p.id === "gcse" ? { border: "2px solid var(--coral)" } : {}) }}>
+            {p.deal && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10, background: "#FFEDE9", color: "#C2402F" }}>{p.deal} — places go fast</span>}
             <h3 className="it-display" style={{ fontSize: 21, fontWeight: 800, margin: "0 0 6px" }}>{p.name}</h3>
             <div style={{ margin: "6px 0 12px" }}>
               <span className="it-display" style={{ fontSize: 38, fontWeight: 800 }}>{gbp(p.price)}</span>
@@ -307,8 +374,8 @@ function Pricing({ startCheckout, taken }) {
               {p.subjects.map((s) => <SubjectChip key={s} subject={s} />)}
             </div>
             <ul style={{ padding: 0, listStyle: "none", margin: "0 0 18px", fontSize: 14, color: "var(--ink-soft)", lineHeight: 2 }}>
-              <li>✓ {p.lessons} × 2-hour lesson{p.lessons > 1 ? "s" : ""}{p.id !== "ucat" ? " / month" : ""}</li>
-              <li>✓ {p.days === "weekend" ? "Weekends, 8am–4:45pm" : "Wed & Fri evenings, 7–9pm"}</li>
+              <li>✓ {p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × evening lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
+              <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7–9pm"}</li>
               <li>✓ Groups of {MAX_PER_SLOT} max · Google Meet</li>
             </ul>
             <button className="it-btn" disabled={full && p.id !== "ucat"} onClick={() => startCheckout(p.id)}>
@@ -331,7 +398,8 @@ function Checkout({ planId, onDone, onCancel }) {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
     setPaying(true);
     try {
-      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId });
+      const paid_until = plan.months ? addMonths(plan.months) : null;
+      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until });
       /* STRIPE: after saving the student, send them to real payment */
       if (STRIPE_LINKS[planId]) window.open(STRIPE_LINKS[planId], "_blank");
     } catch (e) {
@@ -439,7 +507,8 @@ function Book({ store, addBooking, refresh, go }) {
 
   const find = async () => {
     await refresh();
-    const s = store.subscribers.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
+    const { data } = await supa.rpc("find_student", { p_email: email.trim().toLowerCase() });
+    const s = data && data[0];
     if (!s) return alert("No plan found for that email — join a plan first on the Plans page.");
     setMe(s); setSubject(PLANS[s.plan].subjects[0]);
   };
@@ -459,8 +528,10 @@ function Book({ store, addBooking, refresh, go }) {
 
   const plan = PLANS[me.plan];
   const mine = store.bookings.filter((b) => b.subscriberId === me.id);
+  const expired = plan.months > 0 && me.paid_until && daysLeft(me.paid_until) <= 0;
 
   const confirm = async () => {
+    if (expired) return alert("Your plan has expired — renew (or message Isham) to book new lessons.");
     if (!sel || busy) return;
     setBusy(true);
     try {
@@ -479,6 +550,11 @@ function Book({ store, addBooking, refresh, go }) {
   return (
     <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1000, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
+      {expired && (
+        <div style={{ background: "#FFF1EF", border: "1px solid #F6C4BC", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#8A3126", marginBottom: 12 }}>
+          Your plan ended on {me.paid_until}. Message Isham or renew to keep booking — your existing bookings are safe.
+        </div>
+      )}
       <p style={{ color: "var(--ink-soft)", marginBottom: 18 }}>
         {plan.name} — {plan.rotates
           ? "each week is one subject (see the colour on each date). Tap a slot to book."
@@ -545,6 +621,11 @@ function Contact({ addMessage }) {
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 560, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>Questions?</h1>
       <p style={{ color: "var(--ink-soft)" }}>Money worries, subjects, exam boards, availability — ask anything. I usually reply within a day.</p>
+      <div className="it-card" style={{ padding: 18, margin: "14px 0 6px", display: "grid", gap: 8, fontSize: 14.5 }}>
+        <div>📞 Call or text: <a href={"tel:" + CONTACT.phoneIntl} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.phone}</a></div>
+        <div>💬 WhatsApp: <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>message me directly</a></div>
+        <div>✉️ Email: <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a></div>
+      </div>
       {sent ? (
         <div className="it-card" style={{ padding: 24, marginTop: 16 }}>
           <strong>Message sent ✓</strong>
@@ -562,11 +643,13 @@ function Contact({ addMessage }) {
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Quick answers</h3>
         {[
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
-          ["When are GCSE lessons?", "Weekends, in 2-hour blocks between 8am and 4:45pm, with 15-minute breaks between groups."],
+          ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level & UCAT sessions?", "Wednesday and Friday evenings, 7–9pm."],
           ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
-          ["How big are the groups?", "Never more than 4 students, so everyone gets time to ask questions."],
-          ["Can I cancel?", "Yes — plans are monthly with no contract. Just don't renew."],
+          ["How big are the groups?", "Never more than 5 students, so everyone gets time to ask questions."],
+          ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
+          ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard — if your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
+          ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
         ].map(([q, a]) => (
           <div key={q} style={{ borderBottom: "1px solid var(--line)", padding: "14px 0" }}>
             <strong style={{ fontSize: 15 }}>{q}</strong>
@@ -578,13 +661,17 @@ function Contact({ addMessage }) {
   );
 }
 
-function SessionCard({ dk, block, list, subj, link, saveLink }) {
+function SessionCard({ dk, block, list, subj, link, saveLink, onMove, emails }) {
   const [draft, setDraft] = useState(link || "");
   const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
+  const inviteMsg = () => `Hi! Your ${subj} lesson is on ${dk}, ${block.label}. Join here: ${draft || "(link coming soon)"} — Isham`;
   const copyInvite = () => {
-    const msg = `Hi! Your ${subj} lesson is on ${dk}, ${block.label}. Join here: ${draft || "(link coming soon)"} — Isham`;
-    if (navigator.clipboard) navigator.clipboard.writeText(msg).then(() => alert("Invite message copied — paste it into email or WhatsApp."));
-    else alert(msg);
+    if (navigator.clipboard) navigator.clipboard.writeText(inviteMsg()).then(() => alert("Invite message copied — paste it into email or WhatsApp."));
+    else alert(inviteMsg());
+  };
+  const emailInvite = () => {
+    const to = (emails || []).filter(Boolean).join(",");
+    window.location.href = `mailto:${to}?subject=${encodeURIComponent(`Your ${subj} lesson — ${dk}`)}&body=${encodeURIComponent(inviteMsg())}`;
   };
   return (
     <div style={{ border: "1.5px solid " + c.border, background: c.bg, borderRadius: 14, padding: 14, marginTop: 10 }}>
@@ -597,8 +684,14 @@ function SessionCard({ dk, block, list, subj, link, saveLink }) {
           </span>
         </div>
       </div>
-      <div style={{ fontSize: 13.5, margin: "8px 0", color: "var(--ink)" }}>
-        {list.length ? list.map((b) => b.name).join(" · ") : "No students yet"}
+      <div style={{ fontSize: 13.5, margin: "8px 0", color: "var(--ink)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {list.length ? list.map((b) => (
+          <span key={b.id} style={{ background: "#fff", border: "1px solid " + c.border, borderRadius: 999, padding: "4px 6px 4px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {b.name}
+            <button onClick={() => onMove(b)} title="Move this student to a different session"
+              style={{ border: "none", background: c.bg, color: c.text, borderRadius: 999, fontSize: 11.5, fontWeight: 800, padding: "3px 9px", cursor: "pointer" }}>Move</button>
+          </span>
+        )) : "No students yet"}
       </div>
       {list.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -606,46 +699,169 @@ function SessionCard({ dk, block, list, subj, link, saveLink }) {
             value={draft} onChange={(e) => setDraft(e.target.value)} />
           <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13 }} onClick={async () => { await saveLink(draft.trim()); alert("Saved — students now see this link on their booking page."); }}>Save link</button>
           <button className="it-btn" style={{ padding: "8px 14px", fontSize: 13 }} onClick={copyInvite}>Copy invite</button>
+          <button className="it-btn" style={{ padding: "8px 14px", fontSize: 13 }} onClick={emailInvite}>✉️ Email invites</button>
         </div>
       )}
     </div>
   );
 }
 
-function Admin({ store, setPin, saveMeet, removeSubscriber, refresh }) {
-  const [pin, setPinInput] = useState("");
-  const [pin2, setPin2] = useState("");
-  const [ok, setOk] = useState(false);
+
+function MoveModal({ booking, onClose, onSave }) {
+  const plan = PLANS[booking.plan] || PLANS.gcse;
+  const days = upcomingDays(plan.days, 8);
+  const [saving, setSaving] = useState(false);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
+      <div className="it-card it-fade" style={{ padding: 26, width: 560, maxWidth: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+        <h3 className="it-display" style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>Move {booking.name}</h3>
+        <p style={{ color: "var(--ink-soft)", margin: "0 0 16px", fontSize: 14 }}>
+          Currently: {booking.subject} · {booking.date} · {booking.blockLabel}. Pick the new session:
+        </p>
+        <div style={{ display: "grid", gap: 10 }}>
+          {days.map((d) => {
+            const dk = dateKey(d);
+            const subj = plan.rotates ? weekSubject(d) : booking.subject;
+            const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
+            return (
+              <div key={dk}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }} className="it-display">{prettyDate(d)} <SubjectChip subject={subj} /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 6 }}>
+                  {plan.blocks.map((bl) => (
+                    <button key={bl.id} className="it-slot" disabled={saving || (dk === booking.date && bl.id === booking.block)}
+                      style={{ background: c.bg, borderColor: c.border, color: c.text, fontSize: 12.5, padding: "9px 4px" }}
+                      onClick={async () => { setSaving(true); await onSave(booking, { date: dk, block: bl.id, block_label: bl.label, subject: subj }); }}>
+                      {bl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button className="it-btn ghost" style={{ marginTop: 16, width: "100%" }} onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function RenewBadge({ paidUntil }) {
+  const dl = daysLeft(paidUntil);
+  if (dl === null) return <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>one-off</span>;
+  const col = dl <= 0 ? "#C2402F" : dl <= 7 ? "#B87A14" : "var(--mint-dark)";
+  const bg = dl <= 0 ? "#FFEDE9" : dl <= 7 ? "#FFF4E0" : "var(--aqua)";
+  return (
+    <span className="it-chip" style={{ background: bg, color: col, border: "1px solid " + col }}>
+      {dl <= 0 ? `expired ${-dl}d ago` : `${dl}d left`}
+    </span>
+  );
+}
+
+function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial }) {
+  const [step, setStep] = useState("checking"); // checking | login | challenge | in
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [challenge, setChallenge] = useState(null); // {factorId, challengeId}
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [moving, setMoving] = useState(null);
+  const [nf, setNf] = useState({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
+  const [tf, setTf] = useState({ name: "", quote: "", detail: "" });
+  const [enroll, setEnroll] = useState(null); // {factorId, qr, secret}
+  const [enrollCode, setEnrollCode] = useState("");
+  const [hasMfa, setHasMfa] = useState(true);
 
-  useEffect(() => { refresh(); }, []);
+  const finishLogin = async () => {
+    const { data: f } = await supa.auth.mfa.listFactors();
+    setHasMfa((f && f.totp && f.totp.length > 0) || false);
+    setStep("in");
+    await refresh(); // protected data (emails, messages) only loads once logged in
+  };
 
-  if (!store.adminPin && !ok)
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supa.auth.getSession();
+      if (!session) return setStep("login");
+      const { data: aal } = await supa.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") return setStep("login");
+      await finishLogin();
+    })();
+  }, []);
+
+  const doLogin = async () => {
+    setBusy(true); setErr("");
+    const { error } = await supa.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) { setBusy(false); return setErr("Wrong email or password."); }
+    const { data: aal } = await supa.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      const { data: f } = await supa.auth.mfa.listFactors();
+      const factor = f.totp && f.totp[0];
+      if (factor) {
+        const { data: ch, error: chErr } = await supa.auth.mfa.challenge({ factorId: factor.id });
+        if (chErr) { setBusy(false); return setErr(chErr.message); }
+        setChallenge({ factorId: factor.id, challengeId: ch.id });
+        setBusy(false);
+        return setStep("challenge");
+      }
+    }
+    setBusy(false);
+    await finishLogin();
+  };
+
+  const doVerify = async () => {
+    setBusy(true); setErr("");
+    const { error } = await supa.auth.mfa.verify({ factorId: challenge.factorId, challengeId: challenge.challengeId, code: code.trim() });
+    setBusy(false);
+    if (error) return setErr("Wrong code — check your authenticator app.");
+    await finishLogin();
+  };
+
+  const startEnroll = async () => {
+    setErr("");
+    const { data, error } = await supa.auth.mfa.enroll({ factorType: "totp" });
+    if (error) return setErr(error.message);
+    setEnroll({ factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+  };
+  const confirmEnroll = async () => {
+    setBusy(true); setErr("");
+    const { data: ch, error: chErr } = await supa.auth.mfa.challenge({ factorId: enroll.factorId });
+    if (chErr) { setBusy(false); return setErr(chErr.message); }
+    const { error } = await supa.auth.mfa.verify({ factorId: enroll.factorId, challengeId: ch.id, code: enrollCode.trim() });
+    setBusy(false);
+    if (error) return setErr("Code didn't match — try the newest code in your app.");
+    setEnroll(null); setEnrollCode(""); setHasMfa(true);
+    alert("2FA is on ✓ — from now on, logging in needs your password AND a code from your app.");
+  };
+  const signOut = async () => { await supa.auth.signOut(); setStep("login"); setPassword(""); setCode(""); };
+
+  if (step === "checking")
+    return <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Checking login…</p>;
+
+  if (step === "login")
     return (
       <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 400, margin: "0 auto" }}>
-        <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800 }}>Set up tutor access</h1>
-        <p style={{ color: "var(--ink-soft)", fontSize: 14.5 }}>First time here — create a PIN only you know.</p>
+        <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800 }}>Tutor login</h1>
+        <p style={{ color: "var(--ink-soft)", fontSize: 14 }}>Sign in with the admin account you created in Supabase.</p>
         <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-          <input className="it-input" type="password" placeholder="Create a PIN (6+ characters)" value={pin} onChange={(e) => setPinInput(e.target.value)} />
-          <input className="it-input" type="password" placeholder="Repeat PIN" value={pin2} onChange={(e) => setPin2(e.target.value)} />
-          <button className="it-btn" onClick={async () => {
-            if (pin.length < 6) return setErr("Use at least 6 characters.");
-            if (pin !== pin2) return setErr("PINs don't match.");
-            await setPin(pin); setOk(true); setErr("");
-          }}>Create PIN & open dashboard</button>
+          <input className="it-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="it-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doLogin()} />
+          <button className="it-btn" onClick={doLogin} disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
         </div>
       </div>
     );
 
-  if (!ok)
+  if (step === "challenge")
     return (
-      <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 380, margin: "0 auto" }}>
-        <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800 }}>Tutor login</h1>
+      <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 400, margin: "0 auto" }}>
+        <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800 }}>Two-factor code</h1>
+        <p style={{ color: "var(--ink-soft)", fontSize: 14 }}>Open your authenticator app and enter the 6-digit code.</p>
         <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-          <input className="it-input" type="password" placeholder="PIN" value={pin} onChange={(e) => setPinInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (pin === store.adminPin ? setOk(true) : setErr("Wrong PIN."))} />
-          <button className="it-btn" onClick={() => (pin === store.adminPin ? setOk(true) : setErr("Wrong PIN."))}>Enter</button>
+          <input className="it-input" inputMode="numeric" placeholder="123456" value={code} onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doVerify()} style={{ letterSpacing: "0.3em", fontSize: 18, textAlign: "center" }} />
+          <button className="it-btn" onClick={doVerify} disabled={busy}>{busy ? "Checking…" : "Verify"}</button>
           {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
         </div>
       </div>
@@ -672,13 +888,37 @@ function Admin({ store, setPin, saveMeet, removeSubscriber, refresh }) {
         <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>Dashboard</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={refresh}>↻ Refresh</button>
-          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={async () => {
-            const np = prompt("New PIN (6+ characters):");
-            if (np && np.length >= 6) { await setPin(np); alert("PIN updated."); }
-            else if (np) alert("Too short — PIN unchanged.");
-          }}>Change PIN</button>
+          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={signOut}>Sign out</button>
         </div>
       </div>
+
+      {!hasMfa && (
+        <div className="it-card" style={{ padding: 20, marginBottom: 20, border: "1.5px solid var(--coral)" }}>
+          <h3 className="it-display" style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800 }}>🔐 Turn on two-factor authentication</h3>
+          {!enroll ? (
+            <>
+              <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 10px" }}>
+                Protect the student list with a 6-digit code from your phone. You'll need a free authenticator app (Google Authenticator, Authy, or iPhone's built-in Passwords app).
+              </p>
+              <button className="it-btn" style={{ padding: "9px 16px", fontSize: 13.5 }} onClick={startEnroll}>Set up 2FA</button>
+            </>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
+                Step 1: scan this QR code with your authenticator app — or type the secret in manually. Step 2: enter the 6-digit code it shows.
+              </p>
+              <img src={enroll.qr} alt="2FA QR code" style={{ width: 170, height: 170, background: "#fff", borderRadius: 8, border: "1px solid var(--line)" }} />
+              <code style={{ fontSize: 12, background: "var(--aqua)", padding: "6px 10px", borderRadius: 8, wordBreak: "break-all" }}>{enroll.secret}</code>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input className="it-input" inputMode="numeric" placeholder="123456" style={{ maxWidth: 140, textAlign: "center", letterSpacing: "0.2em" }}
+                  value={enrollCode} onChange={(e) => setEnrollCode(e.target.value)} />
+                <button className="it-btn" style={{ padding: "9px 16px", fontSize: 13.5 }} onClick={confirmEnroll} disabled={busy}>{busy ? "Checking…" : "Confirm & enable"}</button>
+              </div>
+              {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30 }}>
         {[
@@ -711,17 +951,36 @@ function Admin({ store, setPin, saveMeet, removeSubscriber, refresh }) {
             {Object.entries(byDate[dk]).sort().map(([blockId, list]) => (
               <SessionCard key={blockId} dk={dk} block={blockDef(blockId)} list={list} subj={list[0].subject}
                 link={store.meetLinks[slotKey(dk, blockId)]}
-                saveLink={(l) => saveMeet(slotKey(dk, blockId), l)} />
+                saveLink={(l) => saveMeet(slotKey(dk, blockId), l)} onMove={setMoving}
+                emails={list.map((b) => (subs.find((s) => s.id === b.subscriberId) || {}).email)} />
             ))}
           </div>
         );
       })}
 
       <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34 }}>Students</h2>
+      <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
+        <strong style={{ fontSize: 14.5 }}>Add a student manually</strong>
+        <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 10px" }}>For anyone who paid or arranged differently (bank transfer, cash, DM) — adds them so they can book like everyone else.</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input className="it-input" style={{ flex: 2, minWidth: 140 }} placeholder="Name" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} />
+          <input className="it-input" style={{ flex: 2, minWidth: 160 }} placeholder="Email" value={nf.email} onChange={(e) => setNf({ ...nf, email: e.target.value })} />
+          <select className="it-input" style={{ flex: 1, minWidth: 130 }} value={nf.plan}
+            onChange={(e) => { const pl = e.target.value; setNf({ ...nf, plan: pl, paid_until: PLANS[pl].months ? addMonths(PLANS[pl].months) : "" }); }}>
+            {Object.values(PLANS).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <input className="it-input" type="date" style={{ flex: 1, minWidth: 140 }} value={nf.paid_until || ""} onChange={(e) => setNf({ ...nf, paid_until: e.target.value })} />
+          <button className="it-btn" style={{ padding: "10px 18px" }} onClick={async () => {
+            if (!nf.name.trim() || !nf.email.includes("@")) return alert("Name and a valid email needed.");
+            try { await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null }); setNf({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) }); }
+            catch (e) { alert(String(e).includes("duplicate") ? "That email is already registered." : "Couldn't add — try again."); }
+          }}>Add</button>
+        </div>
+      </div>
       <div className="it-card" style={{ padding: 18, marginTop: 12, overflowX: "auto" }}>
         {subs.length === 0 ? <p style={{ color: "var(--ink-soft)", margin: 0 }}>No sign-ups yet.</p> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 6 }}>Name</th><th style={{ padding: 6 }}>Email</th><th style={{ padding: 6 }}>Plan</th><th style={{ padding: 6 }}>Joined</th><th /></tr></thead>
+            <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 6 }}>Name</th><th style={{ padding: 6 }}>Email</th><th style={{ padding: 6 }}>Plan</th><th style={{ padding: 6 }}>Joined</th><th style={{ padding: 6 }}>Renewal</th><th /></tr></thead>
             <tbody>
               {subs.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid var(--line)" }}>
@@ -729,11 +988,43 @@ function Admin({ store, setPin, saveMeet, removeSubscriber, refresh }) {
                   <td style={{ padding: 6 }}>{s.email}</td>
                   <td style={{ padding: 6 }}>{PLANS[s.plan].name}</td>
                   <td style={{ padding: 6, color: "var(--ink-soft)" }}>{(s.joined || "").slice(0, 10)}</td>
+                  <td style={{ padding: 6, whiteSpace: "nowrap" }}>
+                    <RenewBadge paidUntil={s.paid_until} />{" "}
+                    <button style={{ border: "none", background: "none", color: "var(--mint-dark)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                      onClick={async () => { const nd = prompt("Paid until (YYYY-MM-DD):", s.paid_until || addMonths(1)); if (nd) await updatePaidUntil(s.id, nd); }}>edit</button>
+                  </td>
                   <td style={{ padding: 6 }}><button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => { if (confirm(`Remove ${s.name} and all their bookings?`)) removeSubscriber(s.id); }}>Remove</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34 }}>Testimonials</h2>
+      <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
+        <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" }}>
+          Only add real quotes with the student's (or parent's) permission — these show publicly on the home page. Ask past students today; three honest lines beat any design tweak.
+        </p>
+        <div style={{ display: "grid", gap: 8 }}>
+          <input className="it-input" placeholder="Student / parent name (e.g. Amira K.)" value={tf.name} onChange={(e) => setTf({ ...tf, name: e.target.value })} />
+          <input className="it-input" placeholder="Detail (e.g. GCSE Maths — grade 5 → 8)" value={tf.detail} onChange={(e) => setTf({ ...tf, detail: e.target.value })} />
+          <textarea className="it-input" rows={2} placeholder="Their quote, in their words" value={tf.quote} onChange={(e) => setTf({ ...tf, quote: e.target.value })} />
+          <button className="it-btn" style={{ justifySelf: "start" }} onClick={async () => {
+            if (!tf.name.trim() || !tf.quote.trim()) return alert("Name and quote needed.");
+            await addTestimonial({ name: tf.name.trim(), quote: tf.quote.trim(), detail: tf.detail.trim() || null });
+            setTf({ name: "", quote: "", detail: "" });
+          }}>Add testimonial</button>
+        </div>
+        {(store.testimonials || []).length > 0 && (
+          <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
+            {store.testimonials.map((t) => (
+              <div key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", background: "var(--aqua)", borderRadius: 10, padding: "9px 12px", fontSize: 13.5 }}>
+                <span>"{t.quote}" — <strong>{t.name}</strong>{t.detail ? ` (${t.detail})` : ""}</span>
+                <button className="it-btn ghost" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => removeTestimonial(t.id)}>Remove</button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -747,6 +1038,9 @@ function Admin({ store, setPin, saveMeet, removeSubscriber, refresh }) {
           </div>
         ))}
       </div>
+
+      {moving && <MoveModal booking={moving} onClose={() => setMoving(null)}
+        onSave={async (b, upd) => { await moveBooking(b, upd); setMoving(null); }} />}
     </div>
   );
 }
@@ -754,7 +1048,7 @@ function Admin({ store, setPin, saveMeet, removeSubscriber, refresh }) {
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState("home");
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, adminPin: null });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], takenCount: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
@@ -768,37 +1062,74 @@ export default function App() {
   const notify = (t) => { setToast(t); setTimeout(() => setToast(null), 3200); };
 
   const addStudent = async (s) => {
-    const [row] = await sb("students", { method: "POST", body: JSON.stringify(s) });
-    setStore((st) => ({ ...st, subscribers: [...st.subscribers, row] }));
+    const { error } = await supa.from("students").insert(s);
+    if (error) { const e = new Error(error.message); e.status = error.code === "23505" ? 409 : 500; throw e; }
+    const { data } = await supa.rpc("find_student", { p_email: s.email });
+    const row = (data && data[0]) || { id: null, name: s.name, plan: s.plan, paid_until: s.paid_until };
+    setStore((st) => ({ ...st, subscribers: [...st.subscribers, { ...s, ...row }], takenCount: st.takenCount + (s.plan !== "ucat" ? 1 : 0) }));
     return row;
   };
   const addBooking = async (b) => {
-    const [row] = await sb("bookings", { method: "POST", body: JSON.stringify(b) });
-    setStore((st) => ({ ...st, bookings: [...st.bookings, mapBooking(row)] }));
+    const { count } = await supa.from("bookings").select("id", { count: "exact", head: true })
+      .eq("date", b.date).eq("block", b.block).eq("subject", b.subject);
+    if ((count || 0) >= MAX_PER_SLOT) { await refresh(); throw new Error("slot full"); }
+    const { data, error } = await supa.from("bookings").insert(b).select();
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, bookings: [...st.bookings, mapBooking(data[0])] }));
     notify("Lesson booked ✓ — your Meet link will appear here");
   };
   const addMessage = async (m) => {
-    const [row] = await sb("messages", { method: "POST", body: JSON.stringify(m) });
-    setStore((st) => ({ ...st, messages: [...st.messages, row] }));
+    const { error } = await supa.from("messages").insert(m);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, messages: [...st.messages, { ...m, id: "local-" + Date.now(), created: new Date().toISOString() }] }));
   };
   const saveMeet = async (slot, link) => {
-    await sb("meet_links?on_conflict=slot", { method: "POST", upsert: true, body: JSON.stringify({ slot, link }) });
+    const { error } = await supa.from("meet_links").upsert({ slot, link });
+    if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, meetLinks: { ...st.meetLinks, [slot]: link } }));
   };
-  const setPin = async (value) => {
-    await sb("settings?on_conflict=key", { method: "POST", upsert: true, body: JSON.stringify({ key: "admin_pin", value }) });
-    setStore((st) => ({ ...st, adminPin: value }));
+  const moveBooking = async (b, upd) => {
+    const { error } = await supa.from("bookings").update(upd).eq("id", b.id);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({
+      ...st,
+      bookings: st.bookings.map((x) => x.id === b.id ? { ...x, date: upd.date, block: upd.block, blockLabel: upd.block_label, subject: upd.subject } : x),
+    }));
+    notify("Moved " + b.name + " ✓");
+  };
+  const addStudentManual = async (s) => {
+    const { data, error } = await supa.from("students").insert(s).select();
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, subscribers: [...st.subscribers, data[0]], takenCount: st.takenCount + (s.plan !== "ucat" ? 1 : 0) }));
+    notify("Added " + data[0].name + " ✓");
+  };
+  const updatePaidUntil = async (id, paid_until) => {
+    const { error } = await supa.from("students").update({ paid_until }).eq("id", id);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, subscribers: st.subscribers.map((s) => s.id === id ? { ...s, paid_until } : s) }));
+  };
+  const addTestimonial = async (t) => {
+    const { data, error } = await supa.from("testimonials").insert(t).select();
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, testimonials: [...(st.testimonials || []), data[0]] }));
+    notify("Testimonial added ✓ — now live on the home page");
+  };
+  const removeTestimonial = async (id) => {
+    await supa.from("testimonials").delete().eq("id", id);
+    setStore((st) => ({ ...st, testimonials: (st.testimonials || []).filter((t) => t.id !== id) }));
   };
   const removeSubscriber = async (id) => {
-    await sb("students?id=eq." + id, { method: "DELETE" });
+    const gone = store.subscribers.find((s) => s.id === id);
+    await supa.from("students").delete().eq("id", id);
     setStore((st) => ({
       ...st,
       subscribers: st.subscribers.filter((s) => s.id !== id),
       bookings: st.bookings.filter((b) => b.subscriberId !== id),
+      takenCount: st.takenCount - (gone && gone.plan !== "ucat" ? 1 : 0),
     }));
   };
 
-  const taken = store.subscribers.filter((s) => s.plan !== "ucat").length;
+  const taken = store.takenCount || 0;
   const nav = [["home", "Home"], ["pricing", "Plans"], ["book", "Book"], ["contact", "Questions"]];
 
   return (
@@ -807,7 +1138,7 @@ export default function App() {
       <header style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,253,253,.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid var(--line)" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px" }}>
           <button onClick={() => setPage("home")} className="it-display" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 19, fontWeight: 800, color: "var(--ink)" }}>
-            isham<span className="it-grad">.tutoring</span>
+            isham<span className="it-grad">.tuition</span>
           </button>
           <nav style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             {nav.map(([id, label]) => (
@@ -826,7 +1157,7 @@ export default function App() {
       {!loaded ? (
         <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Loading…</p>
       ) : page === "home" ? (
-        <Home go={setPage} taken={taken} />
+        <Home go={setPage} taken={taken} testimonials={store.testimonials || []} />
       ) : page === "pricing" ? (
         <Pricing taken={taken} startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
@@ -834,7 +1165,7 @@ export default function App() {
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
       ) : (
-        <Admin store={store} setPin={setPin} saveMeet={saveMeet} removeSubscriber={removeSubscriber} refresh={refresh} />
+        <Admin store={store} saveMeet={saveMeet} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} />
       )}
 
       {checkoutPlan && (
@@ -854,7 +1185,15 @@ export default function App() {
 
       <footer style={{ borderTop: "1px solid var(--line)", padding: "28px 24px", marginTop: 40 }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, fontSize: 13.5, color: "var(--ink-soft)" }}>
-          <span>© {new Date().getFullYear()} Isham Tutoring · 5% of earnings to charity & food banks · TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a></span>
+          <span>
+            © {new Date().getFullYear()} Isham Tuition · 5% of earnings to charity & food banks ·{" "}
+            <a href={"tel:" + CONTACT.phoneIntl} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.phone}</a> ·{" "}
+            <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a> ·{" "}
+            TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
+          </span>
+          <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+            Privacy: I collect only names, emails and lesson bookings — used solely to run your lessons and contact you about them. Nothing is sold or shared with anyone, and you can ask me to delete your data at any time via the contact details above.
+          </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>
         </div>
       </footer>

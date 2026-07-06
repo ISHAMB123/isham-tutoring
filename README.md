@@ -1,19 +1,16 @@
-# Isham Tutoring — live site
+# Isham Tutoring — live site (v6: real login + 2FA)
 
-Already wired to your Supabase database. To deploy:
+Wired to Supabase with proper authentication:
+- Public: booking chart, sign-up, contact form, testimonials, Meet links.
+- Protected (login required): student emails, messages, all admin edits.
+- Admin login = Supabase Auth (email+password) with optional TOTP 2FA.
 
-1. Run the extra SQL (below) in Supabase SQL Editor once.
-2. Push this folder to GitHub (or drag-drop into Vercel).
-3. On vercel.com: New Project -> import the repo -> Framework: Vite -> Deploy.
-4. When your Stripe Payment Links exist, paste them into STRIPE_LINKS at the top of src/App.jsx and redeploy.
+Deploy: push to GitHub -> Vercel auto-detects Vite -> Deploy.
+Stripe: paste your Payment Links into STRIPE_LINKS in src/App.jsx.
 
-Extra SQL to run once (adds the settings table + delete permissions for the dashboard):
-
-create table settings (key text primary key, value text not null);
-alter table settings enable row level security;
-create policy "read settings"   on settings for select using (true);
-create policy "write settings"  on settings for insert with check (true);
-create policy "update settings" on settings for update using (true);
-create policy "del students" on students for delete using (true);
-create policy "del bookings" on bookings for delete using (true);
-create policy "update meet"  on meet_links for update using (true);
+REQUIRED SUPABASE SETUP (do once):
+1. Authentication -> Users -> Add user -> your email + a strong password
+   (tick auto-confirm). This is the only account that can see student data.
+2. Run the SQL in supabase_v6.sql (SQL Editor).
+3. First login on the site -> dashboard shows "Set up 2FA" -> scan QR
+   with Google Authenticator / Authy / iPhone Passwords -> done.

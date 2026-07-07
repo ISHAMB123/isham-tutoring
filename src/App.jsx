@@ -111,6 +111,10 @@ async function fetchAll() {
   };
 }
 
+const notifyServer = (payload) => {
+  try { fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => {}); } catch (e) {}
+};
+
 /* ---------- misc helpers ---------- */
 const addMonths = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
 const daysLeft = (paidUntil) => paidUntil ? Math.ceil((new Date(paidUntil + "T00:00:00") - new Date()) / 864e5) : null;
@@ -407,6 +411,7 @@ function Checkout({ planId, onDone, onCancel }) {
     try {
       // paid_until stays null until Isham confirms the payment in the dashboard
       await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until: null });
+      notifyServer({ type: "signup", name: name.trim(), email: email.trim().toLowerCase(), plan: plan.name });
       /* STRIPE: after saving the student, send them to real payment */
       if (STRIPE_LINKS[planId]) window.open(STRIPE_LINKS[planId], "_blank");
     } catch (e) {
@@ -627,6 +632,7 @@ function Book({ store, addBooking, refresh, go }) {
         student_id: me.id, student_name: me.name, plan: me.plan,
         subject: sel.subject || subject, date: sel.date, block: sel.block, block_label: sel.label,
       });
+      notifyServer({ type: "booking", name: me.name, email: email.trim().toLowerCase(), subject: sel.subject || subject, date: sel.date, time: sel.label });
       setSel(null);
     } catch (e) {
       alert("Couldn't save that booking — the seat may have just been taken. The chart has been refreshed.");
@@ -707,7 +713,7 @@ function Contact({ addMessage }) {
   const [sent, setSent] = useState(false);
   const submit = async () => {
     if (!f.name.trim() || !f.text.trim()) return alert("Please add your name and a message.");
-    try { await addMessage(f); setSent(true); }
+    try { await addMessage(f); notifyServer({ type: "message", name: f.name, email: f.email, text: f.text }); setSent(true); }
     catch (e) { alert("Couldn't send — please try again."); }
   };
   return (

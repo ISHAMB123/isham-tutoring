@@ -13,72 +13,119 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://tmsvtiavhodtlvvaugdr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_uX2JC9t78GPJTMMgLcoeWA_9OVpc-8F";
 
-/* ---- STRIPE: when your payment links are ready, paste them
-   here and the Join buttons will send people to real checkout.
-   Leave as null to keep the demo checkout. ---- */
-const STRIPE_LINKS = {
-  gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
-  gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
-  alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
-  ucat:  "https://buy.stripe.com/7sYeVc0t58elbuX9CKes003",
+/* ---- TUTORS & STRIPE ----
+   Each tutor has their OWN Stripe account and payment links.
+   Fill in Belal's and Daniella's real login emails and Stripe links below.
+   Money goes directly to each tutor; dashboards report the platform fee each tutor owes (see FEES below). */
+const TUTORS = {
+  isham:    { id: "isham",    name: "Isham Bari",      email: "ishambari6@gmail.com",      dept: "stem", master: true },
+  belal:    { id: "belal",    name: "Belal Ghazalah",  email: "bghazala01@gmail.com",      dept: "stem" },
+  daniella: { id: "daniella", name: "Daniella",        email: "DANIELLA_LOGIN_EMAIL_HERE", dept: "hum" },
+};
+const FEES = { isham: 0, belal: 0.15, daniella: 0.10 };
+const feeRate = (tid) => FEES[tid] || 0;
+
+const STRIPE = {
+  isham: {
+    gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
+    gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
+    alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
+    ucat:  "https://buy.stripe.com/7sYeVc0t58elbuX9CKes003",
+  },
+  belal:    { gcse: null, gcse3: null, alevel: null, ucat: null },
+  daniella: { hgcse: null, halevel: null, hinterview: null },
 };
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
-const CAP = 40;
-const TUTOR2 = "Belal Ghazalah (Imperial medical student)";
-const MAX_PER_SLOT = 5;
+const CAPS = { stem: 40, hum: 20 };
+const CAP = 60;
 
 const WEEKEND_BLOCKS = [
-  { id: "b1", label: "9:00 – 10:30am · Isham" },
-  { id: "c1", label: "9:00 – 10:30am · Belal" },
-  { id: "b2", label: "10:45 – 12:15 · Isham" },
-  { id: "c2", label: "10:45 – 12:15 · Belal" },
-  { id: "b3", label: "1:00 – 2:30pm · Isham" },
-  { id: "c3", label: "1:00 – 2:30pm · Belal" },
-  { id: "b4", label: "2:45 – 4:15pm · Isham" },
-  { id: "c4", label: "2:45 – 4:15pm · Belal" },
+  { id: "b1", label: "9:00 – 10:30am · Isham",  s: 540,  e: 630 },
+  { id: "c1", label: "9:00 – 10:30am · Belal",  s: 540,  e: 630 },
+  { id: "b2", label: "10:45 – 12:15 · Isham",   s: 645,  e: 735 },
+  { id: "c2", label: "10:45 – 12:15 · Belal",   s: 645,  e: 735 },
+  { id: "b3", label: "1:00 – 2:30pm · Isham",   s: 780,  e: 870 },
+  { id: "c3", label: "1:00 – 2:30pm · Belal",   s: 780,  e: 870 },
+  { id: "b4", label: "2:45 – 4:15pm · Isham",   s: 885,  e: 975 },
+  { id: "c4", label: "2:45 – 4:15pm · Belal",   s: 885,  e: 975 },
 ];
 const EVENING_BLOCK = [
-  { id: "e1", label: "7:00 – 8:00pm" },
-  { id: "e2", label: "8:15 – 9:15pm" },
+  { id: "e1", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
+  { id: "e2", label: "8:15 – 9:15pm", s: 1215, e: 1275 },
 ];
+const HUM_BLOCKS = [
+  { id: "h1", label: "6:00 – 8:00pm",  s: 1080, e: 1200 },
+  { id: "h2", label: "8:00 – 10:00pm", s: 1200, e: 1320 },
+];
+const HUM_1TO1 = [
+  { id: "q1", label: "6:00 – 7:00pm", s: 1080, e: 1140 },
+  { id: "q2", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
+  { id: "q3", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
+  { id: "q4", label: "9:00 – 10:00pm", s: 1260, e: 1320 },
+];
+const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK, ...HUM_BLOCKS, ...HUM_1TO1];
 
 const SUBJECT_CYCLE = ["Maths", "Biology", "Chemistry", "Physics"];
+const HUM_CYCLE = ["English Language", "English Literature", "History", "RE"];
 const CYCLE_EPOCH = Date.UTC(2026, 0, 5);
-function weekSubject(d) {
+function weekSubject(d, cycle = SUBJECT_CYCLE) {
   const week = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - CYCLE_EPOCH) / (7 * 864e5));
-  return SUBJECT_CYCLE[((week % 4) + 4) % 4];
+  return cycle[((week % cycle.length) + cycle.length) % cycle.length];
 }
 
 const SUBJECT_COLORS = {
-  Maths:           { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
-  Biology:         { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
-  Chemistry:       { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
-  Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
-  "UCAT Strategy": { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
+  Maths:                { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
+  Biology:              { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
+  Chemistry:            { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
+  Physics:              { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
+  "UCAT Strategy":      { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
+  "English Language":   { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
+  "English Literature": { bg: "#FDEAF3", border: "#D6479A", text: "#A82F74" },
+  History:              { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
+  RE:                   { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
+  Politics:             { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
+  Sociology:            { bg: "#FDEAF3", border: "#D6479A", text: "#A82F74" },
+  "Cambridge Interview Prep": { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
 };
 
 const PLANS = {
   gcse: {
-    id: "gcse", name: "GCSE Plan", price: 40, per: "/month", lessons: 8, months: 1,
+    id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
     blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month.",
-    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5,
+    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
     deal: "£5 a lesson · £3.33 an hour",
   },
   gcse3: {
-    id: "gcse3", name: "Term Deal", price: 110, per: " / 3 months", lessons: 8, months: 3,
-    blurb: "The same GCSE plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — for families who'd rather sort it once and forget it.",
-    subjects: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5,
+    id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 8, months: 3,
+    blurb: "The same GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — sort it once and forget it.",
+    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
+  },
+  hgcse: {
+    id: "hgcse", hidden: true, name: "GCSE Humanities & English", price: 50, per: "/month", lessons: 5, months: 1,
+    blurb: "5 two-hour group lessons a month (£5 an hour) with Daniella, our Cambridge offer-holder. Rotating weekly: English Language, English Literature, History, RE. Weekday evenings.",
+    subjects: HUM_CYCLE, cycle: HUM_CYCLE, perSubjectCap: 2, days: "weekday", blocks: HUM_BLOCKS, rotates: true, seats: 5, dept: "hum",
+    deal: "New · taught by a Cambridge offer-holder",
   },
   alevel: {
-    id: "alevel", name: "A-level Support", price: 40, per: "/month", lessons: 2, months: 1,
-    blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject \u2014 just you and the tutor. Wednesdays & Fridays.",
-    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1,
+    id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
+    blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject — just you and the tutor. Wednesdays & Fridays.",
+    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
+  },
+  halevel: {
+    id: "halevel", hidden: true, name: "A-level Humanities 1-to-1", price: 20, per: " per session", lessons: 1, months: 0,
+    blurb: "A private one-to-one hour with Daniella — 3 A*s and a Cambridge offer — in History, Politics or Sociology. Weekday evenings.",
+    subjects: ["History", "Politics", "Sociology"], perSubjectCap: 1, days: "weekday", blocks: HUM_1TO1, rotates: false, seats: 1, dept: "hum",
+  },
+  hinterview: {
+    id: "hinterview", hidden: true, name: "Cambridge Interview Prep", price: 20, per: " per session", lessons: 1, months: 0,
+    blurb: "A private one-to-one hour with someone who's just been through Cambridge admissions — mock questions, thinking-out-loud technique, what interviewers actually want.",
+    subjects: ["Cambridge Interview Prep"], perSubjectCap: 1, days: "weekday", blocks: HUM_1TO1, rotates: false, seats: 1, dept: "hum",
   },
   ucat: {
     id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1, months: 0,
     blurb: "One private one-to-one 1-hour evening session from someone who's just sat it — timing, tactics and the sections that trip people up.",
-    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1,
+    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
   },
 };
 
@@ -90,41 +137,64 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [st, bk, ms, ml, ts, taken] = await Promise.all([
+  const [st, bk, ms, ml, ts, caps] = await Promise.all([
     supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
     supa.from("bookings").select("*").order("date"),
     supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
     supa.from("meet_links").select("*"),
     supa.from("testimonials").select("*").order("created"),
-    supa.rpc("get_taken"),                                    // safe public count for the capacity meter
+    supa.rpc("get_caps"),                                     // safe public per-department counts for the capacity meters
   ]);
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
   const subscribers = st.data || [];
+  const cnt = (dept) => subscribers.filter((x) => (PLANS[x.plan] || {}).dept === dept && (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
+  const capsRow = (caps.data && caps.data[0]) || null;
   return {
     subscribers,
     bookings: (bk.data || []).map(mapBooking),
     messages: ms.data || [],
     meetLinks,
     testimonials: ts.data || [],
-    takenCount: typeof taken.data === "number" ? taken.data : subscribers.filter((s) => s.plan !== "ucat").length,
+    takenStem: capsRow ? capsRow.stem : cnt("stem"),
+    takenHum: capsRow ? capsRow.hum : cnt("hum"),
   };
+}
+
+/* ---------- misc helpers ---------- */
+const addMonths = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+const daysLeft = (paidUntil) => paidUntil ? Math.ceil((new Date(paidUntil + "T00:00:00") - new Date()) / 864e5) : null;
+
+const blockById = (id) => ALL_BLOCKS.find((b) => b.id === id) || { id, label: id, s: 0, e: 0 };
+const overlaps = (a, b) => a.s < b.e && b.s < a.e;
+
+/* Billing-period allowance: lessons count against the student's own paid month,
+   not the calendar month — joining on the 25th no longer loses 6 lessons a week later. */
+function periodFor(me) {
+  const months = (PLANS[me.plan] || {}).months || 1;
+  let anchor;
+  if (me.paid_until) {
+    const end = new Date(me.paid_until + "T00:00:00");
+    anchor = new Date(end); anchor.setMonth(anchor.getMonth() - months);
+  } else {
+    anchor = new Date(((me.joined || new Date().toISOString()).slice(0, 10)) + "T00:00:00");
+  }
+  const now = new Date();
+  let k = 0, s = new Date(anchor), e = new Date(anchor); e.setMonth(e.getMonth() + 1);
+  while (e <= now && k < 36) { k++; s.setMonth(s.getMonth() + 1); e.setMonth(e.getMonth() + 1); }
+  return { start: dateKey(s), end: dateKey(e) };
 }
 
 const notifyServer = (payload) => {
   try { fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => {}); } catch (e) {}
 };
-
-/* ---------- misc helpers ---------- */
-const addMonths = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
-const daysLeft = (paidUntil) => paidUntil ? Math.ceil((new Date(paidUntil + "T00:00:00") - new Date()) / 864e5) : null;
 const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const dateKey = (d) => d.toISOString().slice(0, 10);
 const prettyDate = (d) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 const slotKey = (date, block) => date + "|" + block;
 
 function upcomingDays(mode, count = 8) {
-  const wanted = mode === "weekend" ? [6, 0] : [3, 5];
+  const wanted = mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
   const days = [];
   const d = new Date(); d.setHours(0, 0, 0, 0);
   while (days.length < count) {
@@ -178,19 +248,25 @@ const SubjectChip = ({ subject }) => {
   return <span className="it-chip" style={{ background: c.bg, color: c.text, border: "1px solid " + c.border }}>{subject}</span>;
 };
 
-function CapacityMeter({ taken }) {
+function DeptMeter({ label, taken, cap }) {
   return (
-    <div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-        {Array.from({ length: CAP }).map((_, i) => (
-          <div key={i} className={"it-pip" + (i < taken ? " on" : "")} style={{ transitionDelay: `${i * 40}ms` }} />
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }}>
+        {Array.from({ length: cap }).map((_, i) => (
+          <div key={i} className={"it-pip" + (i < taken ? " on" : "")} style={{ width: 10, height: 14, transitionDelay: `${i * 25}ms` }} />
         ))}
       </div>
-      <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: 0 }}>
-        <strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>
-          {Math.max(CAP - taken, 0)} of {CAP} places left this month
-        </strong> — capped so groups stay tiny and prices stay low.
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0 }}>
+        <strong style={{ color: taken >= cap ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(cap - taken, 0)} of {cap} {label} places left</strong>
       </p>
+    </div>
+  );
+}
+function CapacityMeter({ takenStem, takenHum }) {
+  return (
+    <div>
+      <DeptMeter label="Sciences & Maths" taken={takenStem} cap={CAPS.stem} />
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0 }}>Capped so groups stay tiny and prices stay low.</p>
     </div>
   );
 }
@@ -209,7 +285,7 @@ function CharityBanner() {
   );
 }
 
-function Home({ go, taken, testimonials }) {
+function Home({ go, takenStem, takenHum, testimonials }) {
   return (
     <div className="it-fade">
       <section style={{ padding: "70px 24px 44px", maxWidth: 1000, margin: "0 auto" }}>
@@ -227,7 +303,7 @@ function Home({ go, taken, testimonials }) {
           <button className="it-btn" onClick={() => go("book")}>Book a lesson</button>
           <button className="it-btn ghost" onClick={() => go("pricing")}>See plans</button>
         </div>
-        <CapacityMeter taken={taken} />
+        <CapacityMeter takenStem={takenStem} takenHum={takenHum} />
       </section>
 
       <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
@@ -244,7 +320,7 @@ function Home({ go, taken, testimonials }) {
           </div>
           <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
             This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
-            {" "}Every slot runs two parallel rooms — one taught by me, one by {TUTOR2} — so twice the places without bigger groups.
+            {" "}Science weekends run two parallel rooms — one taught by me, one by {TUTORS.belal.name} (medical student at a top UK university) — so twice the places without bigger groups.
           </p>
         </div>
       </section>
@@ -253,9 +329,9 @@ function Home({ go, taken, testimonials }) {
       <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
         <div className="it-card" style={{ padding: "22px 26px", borderLeft: "5px solid #7C6CF0" }}>
           <span className="it-tag" style={{ background: "#F1EBFE", color: "#5B3EC4" }}>Coming soon</span>
-          <h3 className="it-display" style={{ margin: "10px 0 6px", fontSize: 19, fontWeight: 800 }}>Humanities is on the way</h3>
+          <h3 className="it-display" style={{ margin: "10px 0 6px", fontSize: 19, fontWeight: 800 }}>Humanities & English is on the way</h3>
           <p style={{ margin: 0, fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6 }}>
-            We're teaming up with a Cambridge student — 9 A* at GCSE and 4 A* at A-level — to bring the same £5-a-lesson model to humanities subjects. Send a message if you want first dibs when it launches.
+            GCSE English, History and RE at the same £5-an-hour model — send a message if you want first dibs when it launches.
           </p>
         </div>
       </section>
@@ -270,7 +346,7 @@ function Home({ go, taken, testimonials }) {
             {[
               ["Age 3", "Made homeless. Raised by a single mum who never let me feel it."],
               ["GCSEs", "No tutors, no quiet desk — just library sessions and free resources. It worked."],
-              ["Sixth form", "Ranked top of my school for grades — A*AA predicted, AB in AS Chemistry & Maths — all while running a tutoring service teaching around 50 students a month."],
+              ["Sixth form", "Ranked top of my school for grades — predicted A*A*A, AB in AS Chemistry & Maths — all while running a tutoring service teaching around 50 students a month."],
               ["This September", "Dental school. Now I teach the way I wish someone had taught me."],
             ].map(([t, b]) => (
               <div key={t}>
@@ -286,7 +362,7 @@ function Home({ go, taken, testimonials }) {
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
-            ["40", "places across two tutors — me and a medical student at Imperial"],
+            ["40", "places across two tutors — me and a medic at a top university"],
             ["5", "max per GCSE group — A-level & UCAT are private 1-to-1"],
             ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
             ["5%", "of all earnings donated to charity & food banks"],
@@ -362,17 +438,17 @@ function Home({ go, taken, testimonials }) {
   );
 }
 
-function Pricing({ startCheckout, taken }) {
-  const full = taken >= CAP;
+function Pricing({ startCheckout, takenStem, takenHum }) {
+  const fullFor = (p) => (p.dept === "hum" ? takenHum >= CAPS.hum : takenStem >= CAPS.stem);
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1000, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>Plans</h1>
       <p style={{ color: "var(--ink-soft)", marginBottom: 28 }}>
         Priced for families who can't stretch to normal tutoring. No contracts — cancel any month.{" "}
-        {full ? "The programme is currently full — send a message to join the waitlist." : `${CAP - taken} places left.`}
+        {`${Math.max(CAPS.stem - takenStem, 0)} of ${CAPS.stem} places left.`}
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20 }}>
-        {Object.values(PLANS).map((p) => (
+        {Object.values(PLANS).filter((p) => !p.hidden).map((p) => (
           <div key={p.id} className="it-card" style={{ padding: 28, display: "flex", flexDirection: "column", ...(p.id === "gcse" ? { border: "2px solid var(--coral)" } : {}) }}>
             {p.deal && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10, background: "#FFEDE9", color: "#C2402F" }}>{p.deal} — places go fast</span>}
             <h3 className="it-display" style={{ fontSize: 21, fontWeight: 800, margin: "0 0 6px" }}>{p.name}</h3>
@@ -389,8 +465,8 @@ function Pricing({ startCheckout, taken }) {
               <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
               <li>✓ {p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
             </ul>
-            <button className="it-btn" disabled={full && p.id !== "ucat"} onClick={() => startCheckout(p.id)}>
-              {p.id === "ucat" ? "Book UCAT session" : full ? "Programme full" : "Join plan"}
+            <button className="it-btn" disabled={fullFor(p) && p.months > 0} onClick={() => startCheckout(p.id)}>
+              {p.months === 0 ? "Book session" : fullFor(p) ? "Programme full" : "Join plan"}
             </button>
           </div>
         ))}
@@ -405,15 +481,18 @@ function Checkout({ planId, onDone, onCancel }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [paying, setPaying] = useState(false);
+  const stemChoice = plan.id === "gcse"; // only the £40/month course offers the tutor choice
+  const [tutor, setTutor] = useState(plan.dept === "hum" ? "daniella" : "isham");
+  const payLink = (STRIPE[tutor] || {})[planId] || null;
   const submit = async () => {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
     setPaying(true);
     try {
       // paid_until stays null until Isham confirms the payment in the dashboard
-      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until: null });
+      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until: null, tutor });
       notifyServer({ type: "signup", name: name.trim(), email: email.trim().toLowerCase(), plan: plan.name });
-      /* STRIPE: after saving the student, send them to real payment */
-      if (STRIPE_LINKS[planId]) window.open(STRIPE_LINKS[planId], "_blank");
+      /* send them to the chosen tutor's Stripe checkout */
+      if (payLink) window.open(payLink, "_blank");
     } catch (e) {
       setPaying(false);
       if (String(e).includes("duplicate") || e.status === 409) alert("That email already has a plan — go to Book and enter it there.");
@@ -422,18 +501,38 @@ function Checkout({ planId, onDone, onCancel }) {
   };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
-      <div className="it-card it-fade" style={{ padding: 30, width: 420, maxWidth: "100%" }}>
+      <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto" }}>
         <h3 className="it-display" style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>{plan.name}</h3>
         <p style={{ color: "var(--ink-soft)", margin: "0 0 18px" }}>{gbp(plan.price)}{plan.per} · 5% goes to charity & food banks</p>
         <div style={{ display: "grid", gap: 12 }}>
           <input className="it-input" placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
           <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          {!STRIPE_LINKS[planId] && (
+          {stemChoice && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Choose your tutor — same lessons, same price:</p>
+              {[
+                { id: "isham", name: "Isham Bari", lines: ["Incoming dental student", "Predicted A*A*A · ranked top of his school", "Offers for Medicine & Dentistry at top universities"] },
+                { id: "belal", name: "Belal Ghazalah", lines: ["Medical student at one of the UK's top universities", "A*A*A — Biology, Chemistry & Business", "Ranked top of his class"] },
+              ].map((t) => (
+                <button key={t.id} type="button" onClick={() => setTutor(t.id)}
+                  style={{ textAlign: "left", borderRadius: 12, padding: "12px 14px", cursor: "pointer", transition: "all .15s",
+                    border: tutor === t.id ? "2px solid var(--mint)" : "1.5px solid var(--line)",
+                    background: tutor === t.id ? "var(--aqua)" : "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong className="it-display" style={{ fontSize: 15 }}>{t.name}</strong>
+                    {tutor === t.id && <span style={{ color: "var(--mint-dark)", fontWeight: 800, fontSize: 13 }}>Selected ✓</span>}
+                  </div>
+                  {t.lines.map((l) => <div key={l} style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>• {l}</div>)}
+                </button>
+              ))}
+            </div>
+          )}
+          {!payLink && (
             <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
               Demo checkout — no card is charged yet. Payment details will be arranged by email until online payment goes live.
             </div>
           )}
-          <button className="it-btn" onClick={submit} disabled={paying}>{paying ? "Saving…" : STRIPE_LINKS[planId] ? `Continue to payment — ${gbp(plan.price)}` : `Join — ${gbp(plan.price)}`}</button>
+          <button className="it-btn" onClick={submit} disabled={paying}>{paying ? "Saving…" : payLink ? `Continue to payment — ${gbp(plan.price)}` : `Join — ${gbp(plan.price)}`}</button>
           <button className="it-btn ghost" onClick={onCancel}>Cancel</button>
         </div>
       </div>
@@ -453,19 +552,24 @@ const monthName = (d) => d.toLocaleDateString("en-GB", { month: "long", year: "n
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 
 /* ---------- student booking calendar ---------- */
-function BookingChart({ plan, store, subject, sel, setSel, mine }) {
+function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const horizon = new Date(today); horizon.setDate(horizon.getDate() + 56);
-  const wanted = plan.days === "weekend" ? [6, 0] : [3, 5];
+  const wanted = plan.days === "weekend" ? [6, 0] : plan.days === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
   const [view, setView] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [day, setDay] = useState(null);
   const seats = plan.seats || 5;
-  const monthStr = new Date().toISOString().slice(0, 7);
-  const mineMonth = mine.filter((b) => b.date.startsWith(monthStr));
+  const period = periodFor(me);
+  const mineMonth = mine.filter((b) => b.date >= period.start && b.date < period.end);
   const left = plan.lessons - mineMonth.length;
-  const subjectFor = (d) => (plan.rotates ? weekSubject(d) : subject);
+  const subjectFor = (d) => (plan.rotates ? weekSubject(d, plan.cycle) : subject);
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
+  const humClash = (dk, blockId) => {
+    if (plan.dept !== "hum") return false;
+    const me_ = blockById(blockId);
+    return store.bookings.some((b) => b.date === dk && b.block !== blockId && (PLANS[b.plan] || {}).dept === "hum" && overlaps(blockById(b.block), me_));
+  };
   const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
   const cells = monthMatrix(view);
   const selDate = day ? new Date(day + "T00:00:00") : null;
@@ -503,7 +607,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine }) {
               <button key={i} disabled={!valid}
                 onClick={() => { setDay(isSelDay ? null : dk); setSel(null); }}
                 style={{
-                  aspectRatio: "1", borderRadius: 10, cursor: valid ? "pointer" : "default",
+                  aspectRatio: "1", minHeight: 34, borderRadius: 10, cursor: valid ? "pointer" : "default",
                   border: isSelDay ? "2.5px solid " + c.border : valid ? "1.5px solid " + c.border : "1px solid transparent",
                   background: valid ? (isSelDay ? c.border : c.bg) : "transparent",
                   color: valid ? (isSelDay ? "#fff" : c.text) : "#C6D4D1",
@@ -527,15 +631,15 @@ function BookingChart({ plan, store, subject, sel, setSel, mine }) {
               const n = countAt(day, bl.id, daySubj);
               const already = mine.some((b) => b.date === day && b.block === bl.id);
               const isSel = sel && sel.date === day && sel.block === bl.id;
-              const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already;
+              const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already || humClash(day, bl.id);
               return (
                 <button key={bl.id} className="it-slot"
                   style={{ background: isSel ? dayCol.border : dayCol.bg, borderColor: dayCol.border, color: isSel ? "#fff" : dayCol.text }}
                   disabled={disabled && !isSel}
                   onClick={() => setSel(isSel ? null : { date: day, block: bl.id, label: bl.label, subject: daySubj })}>
                   {bl.label}
-                  <div style={{ fontSize: 10.5, fontWeight: 600, opacity: 0.8 }}>
-                    {already ? "booked ✓" : n >= seats ? (seats === 1 ? "taken" : "full") : seats === 1 ? "available" : `${seats - n} seats`}
+                  <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.8, whiteSpace: "nowrap" }}>
+                    {already ? "booked ✓" : humClash(day, bl.id) ? "tutor busy" : n >= seats ? (seats === 1 ? "taken" : "full") : seats === 1 ? "available" : `${seats - n} seats`}
                   </div>
                 </button>
               );
@@ -545,8 +649,8 @@ function BookingChart({ plan, store, subject, sel, setSel, mine }) {
       )}
 
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 10 }}>
-        {left <= 0 ? "You've used all your lessons this month — more unlock next month."
-          : `${left} lesson${left === 1 ? "" : "s"} left this month · max ${plan.perSubjectCap} per subject.`}
+        {left <= 0 ? "You've used all the lessons in your current paid month — more unlock when it renews."
+          : `${left} lesson${left === 1 ? "" : "s"} left in your paid month (to ${period.end}) · max ${plan.perSubjectCap} per subject.`}
       </p>
     </div>
   );
@@ -575,7 +679,7 @@ function AdminCalendar({ bookings, active, onPick }) {
           return (
             <button key={i} disabled={!n} onClick={() => onPick(dk)}
               style={{
-                aspectRatio: "1", borderRadius: 8, position: "relative", fontSize: 12, fontWeight: n ? 800 : 500,
+                aspectRatio: "1", minHeight: 30, borderRadius: 8, position: "relative", fontSize: 12, fontWeight: n ? 800 : 500,
                 border: on ? "2px solid var(--mint-dark)" : n ? "1.5px solid var(--mint)" : "1px solid transparent",
                 background: on ? "var(--mint)" : n ? "var(--aqua)" : "transparent",
                 color: on ? "#fff" : n ? "var(--mint-dark)" : "#C6D4D1", cursor: n ? "pointer" : "default",
@@ -642,7 +746,7 @@ function Book({ store, addBooking, refresh, go }) {
   };
 
   return (
-    <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1000, margin: "0 auto" }}>
+    <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 1000, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
       {!me.paid_until && plan.months > 0 && (
         <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 12 }}>
@@ -675,7 +779,7 @@ function Book({ store, addBooking, refresh, go }) {
         </div>
       )}
 
-      <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} />
+      <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} />
 
       <div style={{ position: "sticky", bottom: 16, marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
         <button className="it-btn" disabled={!sel || busy} onClick={confirm}>
@@ -686,18 +790,33 @@ function Book({ store, addBooking, refresh, go }) {
       {mine.length > 0 && (
         <div style={{ marginTop: 28 }}>
           <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Your upcoming lessons</h3>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "2px 0 8px" }}>You can cancel and rebook any lesson up to 24 hours before it starts.</p>
           <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
             {[...mine].sort((a, b) => a.date.localeCompare(b.date)).map((b) => {
               const link = store.meetLinks[slotKey(b.date, b.block)];
               const c = SUBJECT_COLORS[b.subject] || SUBJECT_COLORS.Maths;
+              const blk = blockById(b.block);
+              const startMs = new Date(b.date + "T00:00:00").getTime() + blk.s * 60000;
+              const cancellable = startMs - Date.now() > 24 * 3600 * 1000;
               return (
                 <li key={b.id} style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 12, padding: "12px 14px", fontSize: 14, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                   <span><strong style={{ color: c.text }}>{b.subject}</strong> — {b.date} · {b.blockLabel}</span>
-                  {link ? (
-                    <a href={link} target="_blank" rel="noreferrer" className="it-btn" style={{ padding: "8px 16px", fontSize: 13.5, textDecoration: "none" }}>Join Google Meet →</a>
-                  ) : (
-                    <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears here before the lesson</span>
-                  )}
+                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {link ? (
+                      <a href={link} target="_blank" rel="noreferrer" className="it-btn" style={{ padding: "8px 16px", fontSize: 13.5, textDecoration: "none" }}>Join Google Meet →</a>
+                    ) : (
+                      <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears before the lesson</span>
+                    )}
+                    {cancellable && (
+                      <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
+                        onClick={async () => {
+                          if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed — you can rebook a different slot.")) return;
+                          const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: email.trim().toLowerCase() });
+                          if (error || data === false) alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance.");
+                          else await refresh();
+                        }}>Cancel</button>
+                    )}
+                  </span>
                 </li>
               );
             })}
@@ -820,7 +939,7 @@ function MoveModal({ booking, onClose, onSave }) {
         <div style={{ display: "grid", gap: 10 }}>
           {days.map((d) => {
             const dk = dateKey(d);
-            const subj = plan.rotates ? weekSubject(d) : booking.subject;
+            const subj = plan.rotates ? weekSubject(d, plan.cycle) : booking.subject;
             const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
             return (
               <div key={dk}>
@@ -873,11 +992,26 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
   const [enrollCode, setEnrollCode] = useState("");
   const [hasMfa, setHasMfa] = useState(true);
 
+  const [role, setRole] = useState(null);
   const finishLogin = async () => {
+    const { data: { session } } = await supa.auth.getSession();
+    const em = ((session && session.user && session.user.email) || "").toLowerCase();
+    const r = Object.values(TUTORS).find((t) => t.email.toLowerCase() === em);
+    if (!r) { setErr("This account isn't a tutor on this site."); await supa.auth.signOut(); return setStep("login"); }
+    setRole(r);
     const { data: f } = await supa.auth.mfa.listFactors();
     setHasMfa((f && f.totp && f.totp.length > 0) || false);
     setStep("in");
-    await refresh(); // protected data (emails, messages) only loads once logged in
+    const d = await refresh();
+    if (d) {
+      const cutoff = Date.now() - 48 * 3600 * 1000;
+      const ghosts = d.bookings.filter((b) => {
+        const s = d.subscribers.find((x) => x.id === b.subscriberId);
+        return s && !s.paid_until && (PLANS[s.plan] || {}).months > 0 && new Date(b.created).getTime() < cutoff;
+      });
+      for (const g of ghosts) await supa.from("bookings").delete().eq("id", g.id);
+      if (ghosts.length) { await refresh(); alert(`Auto-cleared ${ghosts.length} unpaid booking hold${ghosts.length > 1 ? "s" : ""} (older than 48h).`); }
+    }
   };
 
   useEffect(() => {
@@ -968,20 +1102,37 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
       </div>
     );
 
-  const subs = store.subscribers;
-  const monthly = subs.reduce((t, s) => t + (s.plan === "ucat" ? 0 : PLANS[s.plan].price), 0);
-  const ucatRevenue = subs.filter((s) => s.plan === "ucat").length * PLANS.ucat.price;
-  const charity = (monthly + ucatRevenue) * 0.05;
-  const capped = subs.filter((s) => s.plan !== "ucat").length;
+  const isMaster = !!(role && role.master);
+  const myDept = role ? role.dept : "stem";
+  const inDept = (planId) => isMaster || (PLANS[planId] || {}).dept === myDept;
+  const tutorOf = (s) => ((PLANS[s.plan] || {}).dept === "hum" ? "daniella" : (s.tutor || "isham"));
+  // Scoped to this tutor's own students, not the whole department — a non-master tutor
+  // must not see or manage another tutor's students, even within the same subject.
+  const subs = store.subscribers.filter((s) => isMaster || tutorOf(s) === role.id);
+  const mySubIds = new Set(subs.map((s) => s.id));
+  const deptBookings = store.bookings.filter((b) => isMaster || mySubIds.has(b.subscriberId));
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const grossFor = (tid) => store.subscribers.reduce((t, s) => {
+    if (tutorOf(s) !== tid) return t;
+    const p = PLANS[s.plan] || {};
+    if (p.months > 0) return t + (s.paid_until ? p.price / p.months : 0);
+    return t + ((s.joined || "").startsWith(thisMonth) ? p.price : 0);
+  }, 0);
+  const payersFor = (tid) => store.subscribers.filter((s) => tutorOf(s) === tid && ((PLANS[s.plan] || {}).months > 0 ? s.paid_until : (s.joined || "").startsWith(thisMonth))).length;
+  const stripeEst = (tid) => grossFor(tid) * 0.015 + 0.20 * payersFor(tid);
+  const myGross = grossFor(role.id);
+  const myFee = isMaster ? 0 : myGross * feeRate(role.id);
+  const feesToMaster = grossFor("belal") * feeRate("belal") + grossFor("daniella") * feeRate("daniella");
+  const charity = grossFor("isham") * 0.05; // Isham's 5% charity pledge on his own earnings
 
   const byDate = {};
-  for (const b of store.bookings) {
+  for (const b of deptBookings) {
     byDate[b.date] = byDate[b.date] || {};
     byDate[b.date][b.block] = byDate[b.date][b.block] || [];
     byDate[b.date][b.block].push(b);
   }
   const dates = Object.keys(byDate).sort();
-  const blockDef = (id) => WEEKEND_BLOCKS.concat(EVENING_BLOCK).find((x) => x.id === id) || { id, label: id };
+  const blockDef = (id) => blockById(id);
 
   return (
     <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1000, margin: "0 auto" }}>
@@ -1022,20 +1173,53 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30 }}>
-        {[
-          ["Recurring / month", gbp(monthly)],
-          ["UCAT (one-off)", gbp(ucatRevenue)],
+        {(isMaster ? [
+          ["My gross / month", "£" + grossFor("isham").toFixed(0)],
+          ["Fees from tutors", "£" + feesToMaster.toFixed(2)],
+          ["My total", "£" + (grossFor("isham") + feesToMaster).toFixed(2)],
           ["Charity pot (5%)", "£" + charity.toFixed(2)],
-          ["Students on plans", `${capped} / ${CAP}`],
+          ["STEM places", `${store.takenStem || 0} / ${CAPS.stem}`],
+          ["Humanities places", `${store.takenHum || 0} / ${CAPS.hum}`],
           ["Lessons booked", String(store.bookings.length)],
           ["Messages", String(store.messages.length)],
-        ].map(([k, v]) => (
+        ] : [
+          ["Your gross / month", "£" + myGross.toFixed(2)],
+          [`Platform fee (${Math.round(feeRate(role.id) * 100)}%)`, "£" + myFee.toFixed(2)],
+          ["Stripe fees (est.)", "£" + stripeEst(role.id).toFixed(2)],
+          ["You keep (approx)", "£" + Math.max(myGross - myFee - stripeEst(role.id), 0).toFixed(2)],
+          ["Your students", String(subs.filter((s) => tutorOf(s) === role.id).length)],
+          ["Lessons booked", String(deptBookings.length)],
+        ]).map(([k, v]) => (
           <div key={k} className="it-card" style={{ padding: 20 }}>
             <div style={{ fontSize: 12.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>{k}</div>
             <div className="it-display" style={{ fontSize: 27, fontWeight: 800, color: "var(--mint-dark)" }}>{v}</div>
           </div>
         ))}
       </div>
+
+      {isMaster && (
+        <div className="it-card" style={{ padding: 18, marginBottom: 26 }}>
+          <strong className="it-display" style={{ fontSize: 15 }}>Per-tutor breakdown (monthly-equivalent)</strong>
+          <table style={{ width: "100%", marginTop: 10, borderCollapse: "collapse", fontSize: 13.5 }}>
+            <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 5 }}>Tutor</th><th style={{ padding: 5 }}>Gross</th><th style={{ padding: 5 }}>Stripe (est.)</th><th style={{ padding: 5 }}>Fee to you</th><th style={{ padding: 5 }}>They keep</th></tr></thead>
+            <tbody>
+              {Object.values(TUTORS).map((t) => {
+                const g = grossFor(t.id), se = stripeEst(t.id), fee = g * feeRate(t.id);
+                return (
+                  <tr key={t.id} style={{ borderTop: "1px solid var(--line)" }}>
+                    <td style={{ padding: 5, fontWeight: 700 }}>{t.name}{t.master ? " (you)" : ""}</td>
+                    <td style={{ padding: 5 }}>£{g.toFixed(2)}</td>
+                    <td style={{ padding: 5, color: "var(--ink-soft)" }}>£{se.toFixed(2)}</td>
+                    <td style={{ padding: 5 }}>£{fee.toFixed(2)}</td>
+                    <td style={{ padding: 5 }}>£{Math.max(g - fee - se, 0).toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "8px 0 0" }}>Stripe fees are estimates (1.5% + 20p per payment) — exact figures live in each tutor's own Stripe dashboard. Term Deal shown as £36.67/month equivalent.</p>
+        </div>
+      )}
 
       <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800 }}>Timetable — who booked what & when</h2>
       <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session — students instantly see it on their booking page.</p>
@@ -1069,12 +1253,16 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
           <input className="it-input" style={{ flex: 2, minWidth: 160 }} placeholder="Email" value={nf.email} onChange={(e) => setNf({ ...nf, email: e.target.value })} />
           <select className="it-input" style={{ flex: 1, minWidth: 130 }} value={nf.plan}
             onChange={(e) => { const pl = e.target.value; setNf({ ...nf, plan: pl, paid_until: PLANS[pl].months ? addMonths(PLANS[pl].months) : "" }); }}>
-            {Object.values(PLANS).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {Object.values(PLANS).filter((p) => inDept(p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <input className="it-input" type="date" style={{ flex: 1, minWidth: 140 }} value={nf.paid_until || ""} onChange={(e) => setNf({ ...nf, paid_until: e.target.value })} />
           <button className="it-btn" style={{ padding: "10px 18px" }} onClick={async () => {
             if (!nf.name.trim() || !nf.email.includes("@")) return alert("Name and a valid email needed.");
-            try { await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null }); setNf({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) }); }
+            try {
+              const t = (PLANS[nf.plan] || {}).dept === "hum" ? "daniella" : (role.id === "belal" ? "belal" : "isham");
+              await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null, tutor: t });
+              setNf({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
+            }
             catch (e) { alert(String(e).includes("duplicate") ? "That email is already registered." : "Couldn't add — try again."); }
           }}>Add</button>
         </div>
@@ -1109,6 +1297,7 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
         )}
       </div>
 
+      {isMaster && (<>
       <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34 }}>Testimonials</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
         <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" }}>
@@ -1147,6 +1336,8 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
         ))}
       </div>
 
+      </>)}
+
       {moving && <MoveModal booking={moving} onClose={() => setMoving(null)}
         onSave={async (b, upd) => { await moveBooking(b, upd); setMoving(null); }} />}
     </div>
@@ -1156,7 +1347,7 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState("home");
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], takenCount: 0 });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], takenStem: 0, takenHum: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
@@ -1184,6 +1375,13 @@ export default function App() {
     if ((pl.seats || 5) > 1) q = q.eq("subject", b.subject);
     const { count } = await q;
     if ((count || 0) >= (pl.seats || 5)) { await refresh(); throw new Error("slot full"); }
+    if (pl.dept === "hum") { // one tutor: block overlapping humanities sessions
+      const { data: same } = await supa.from("bookings").select("block,plan").eq("date", b.date);
+      const mine_ = blockById(b.block);
+      if ((same || []).some((x) => x.block !== b.block && (PLANS[x.plan] || {}).dept === "hum" && overlaps(blockById(x.block), mine_))) {
+        await refresh(); throw new Error("tutor busy");
+      }
+    }
     const { data, error } = await supa.from("bookings").insert(b).select();
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, bookings: [...st.bookings, mapBooking(data[0])] }));
@@ -1211,7 +1409,11 @@ export default function App() {
   const addStudentManual = async (s) => {
     const { data, error } = await supa.from("students").insert(s).select();
     if (error) throw new Error(error.message);
-    setStore((st) => ({ ...st, subscribers: [...st.subscribers, data[0]], takenCount: st.takenCount + (s.plan !== "ucat" && s.paid_until ? 1 : 0) }));
+    setStore((st) => {
+      const subscribers = [...st.subscribers, data[0]];
+      const cnt = (dept) => subscribers.filter((x) => (PLANS[x.plan] || {}).dept === dept && (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
+      return { ...st, subscribers, takenStem: cnt("stem"), takenHum: cnt("hum") };
+    });
     notify("Added " + data[0].name + " ✓");
   };
   const updatePaidUntil = async (id, paid_until) => {
@@ -1219,7 +1421,8 @@ export default function App() {
     if (error) throw new Error(error.message);
     setStore((st) => {
       const subscribers = st.subscribers.map((s) => s.id === id ? { ...s, paid_until } : s);
-      return { ...st, subscribers, takenCount: subscribers.filter((x) => x.plan !== "ucat" && x.paid_until).length };
+      const cnt = (dept) => subscribers.filter((x) => (PLANS[x.plan] || {}).dept === dept && (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
+      return { ...st, subscribers, takenStem: cnt("stem"), takenHum: cnt("hum") };
     });
   };
   const addTestimonial = async (t) => {
@@ -1239,11 +1442,14 @@ export default function App() {
       ...st,
       subscribers: st.subscribers.filter((s) => s.id !== id),
       bookings: st.bookings.filter((b) => b.subscriberId !== id),
-      takenCount: st.takenCount - (gone && gone.plan !== "ucat" && gone.paid_until ? 1 : 0),
+      takenStem: st.takenStem - (gone && (PLANS[gone.plan] || {}).dept === "stem" && (PLANS[gone.plan] || {}).months > 0 && gone.paid_until ? 1 : 0),
+      takenHum:  st.takenHum  - (gone && (PLANS[gone.plan] || {}).dept === "hum"  && (PLANS[gone.plan] || {}).months > 0 && gone.paid_until ? 1 : 0),
     }));
   };
 
-  const taken = store.takenCount || 0;
+  const takenStem = store.takenStem || 0;
+  const takenHum = store.takenHum || 0;
+  const taken = takenStem + takenHum;
   const nav = [["home", "Home"], ["pricing", "Plans"], ["book", "Book"], ["contact", "Questions"]];
 
   return (
@@ -1271,9 +1477,9 @@ export default function App() {
       {!loaded ? (
         <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Loading…</p>
       ) : page === "home" ? (
-        <Home go={setPage} taken={taken} testimonials={store.testimonials || []} />
+        <Home go={setPage} takenStem={takenStem} takenHum={takenHum} testimonials={store.testimonials || []} />
       ) : page === "pricing" ? (
-        <Pricing taken={taken} startCheckout={(id) => setCheckoutPlan(id)} />
+        <Pricing takenStem={takenStem} takenHum={takenHum} startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
         <Book store={store} go={setPage} addBooking={addBooking} refresh={refresh} />
       ) : page === "contact" ? (

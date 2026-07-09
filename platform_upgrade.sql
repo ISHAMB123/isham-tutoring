@@ -16,7 +16,7 @@ language sql security definer set search_path = public as $$
 $$;
 
 -- 3. Students can cancel their own lesson more than 24h before it starts.
---    Start times mirror the WEEKEND_BLOCKS / EVENING_BLOCK / HUM_BLOCKS / HUM_1TO1
+--    Start times mirror the WEEKEND_BLOCKS / EVENING_BLOCK / UCAT_BLOCKS
 --    minute offsets in src/App.jsx — keep the two in sync if slots ever change.
 create or replace function cancel_booking(p_booking uuid, p_email text)
 returns boolean
@@ -48,12 +48,10 @@ begin
     when 'b4' then 885  when 'c4' then 885
     when 'e1' then 1140
     when 'e2' then 1215
-    when 'h1' then 1080
-    when 'h2' then 1200
-    when 'q1' then 1080
-    when 'q2' then 1140
-    when 'q3' then 1200
-    when 'q4' then 1260
+    when 'u1' then 1080
+    when 'u2' then 1140
+    when 'u3' then 1200
+    when 'u4' then 1260
     else null
   end;
 

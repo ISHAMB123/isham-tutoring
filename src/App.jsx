@@ -15,14 +15,12 @@ const SUPABASE_KEY = "sb_publishable_uX2JC9t78GPJTMMgLcoeWA_9OVpc-8F";
 
 /* ---- TUTORS & STRIPE ----
    Each tutor has their OWN Stripe account and payment links.
-   Fill in Belal's and Daniella's real login emails and Stripe links below.
    Money goes directly to each tutor; dashboards report the platform fee each tutor owes (see FEES below). */
 const TUTORS = {
-  isham:    { id: "isham",    name: "Isham Bari",      email: "ishambari6@gmail.com",      dept: "stem", master: true },
-  belal:    { id: "belal",    name: "Belal Ghazalah",  email: "bghazala01@gmail.com",      dept: "stem" },
-  daniella: { id: "daniella", name: "Daniella",        email: "DANIELLA_LOGIN_EMAIL_HERE", dept: "hum" },
+  isham: { id: "isham", name: "Isham Bari",     email: "ishambari6@gmail.com", dept: "stem", master: true },
+  belal: { id: "belal", name: "Belal Ghazalah", email: "bghazala01@gmail.com", dept: "stem" },
 };
-const FEES = { isham: 0, belal: 0.15, daniella: 0.10 };
+const FEES = { isham: 0, belal: 0.15 };
 const feeRate = (tid) => FEES[tid] || 0;
 
 const STRIPE = {
@@ -32,13 +30,11 @@ const STRIPE = {
     alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
     ucat:  "https://buy.stripe.com/7sYeVc0t58elbuX9CKes003",
   },
-  belal:    { gcse: null, gcse3: null, alevel: null, ucat: null },
-  daniella: { hgcse: null, halevel: null, hinterview: null },
+  belal: { gcse: null, gcse3: null, alevel: null, ucat: null },
 };
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
-const CAPS = { stem: 40, hum: 20 };
-const CAP = 60;
+const CAP = 40;
 
 const WEEKEND_BLOCKS = [
   { id: "b1", label: "9:00 – 10:30am · Isham",  s: 540,  e: 630 },
@@ -54,20 +50,15 @@ const EVENING_BLOCK = [
   { id: "e1", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
   { id: "e2", label: "8:15 – 9:15pm", s: 1215, e: 1275 },
 ];
-const HUM_BLOCKS = [
-  { id: "h1", label: "6:00 – 8:00pm",  s: 1080, e: 1200 },
-  { id: "h2", label: "8:00 – 10:00pm", s: 1200, e: 1320 },
+const UCAT_BLOCKS = [
+  { id: "u1", label: "6:00 – 7:00pm", s: 1080, e: 1140 },
+  { id: "u2", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
+  { id: "u3", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
+  { id: "u4", label: "9:00 – 10:00pm", s: 1260, e: 1320 },
 ];
-const HUM_1TO1 = [
-  { id: "q1", label: "6:00 – 7:00pm", s: 1080, e: 1140 },
-  { id: "q2", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
-  { id: "q3", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
-  { id: "q4", label: "9:00 – 10:00pm", s: 1260, e: 1320 },
-];
-const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK, ...HUM_BLOCKS, ...HUM_1TO1];
+const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK, ...UCAT_BLOCKS];
 
 const SUBJECT_CYCLE = ["Maths", "Biology", "Chemistry", "Physics"];
-const HUM_CYCLE = ["English Language", "English Literature", "History", "RE"];
 const CYCLE_EPOCH = Date.UTC(2026, 0, 5);
 function weekSubject(d, cycle = SUBJECT_CYCLE) {
   const week = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - CYCLE_EPOCH) / (7 * 864e5));
@@ -75,18 +66,11 @@ function weekSubject(d, cycle = SUBJECT_CYCLE) {
 }
 
 const SUBJECT_COLORS = {
-  Maths:                { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
-  Biology:              { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
-  Chemistry:            { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
-  Physics:              { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
-  "UCAT Strategy":      { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
-  "English Language":   { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
-  "English Literature": { bg: "#FDEAF3", border: "#D6479A", text: "#A82F74" },
-  History:              { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
-  RE:                   { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
-  Politics:             { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
-  Sociology:            { bg: "#FDEAF3", border: "#D6479A", text: "#A82F74" },
-  "Cambridge Interview Prep": { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
+  Maths:           { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
+  Biology:         { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
+  Chemistry:       { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
+  Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
+  "UCAT Strategy": { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
 };
 
 const PLANS = {
@@ -101,31 +85,15 @@ const PLANS = {
     blurb: "The same GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — sort it once and forget it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
   },
-  hgcse: {
-    id: "hgcse", hidden: true, name: "GCSE Humanities & English", price: 50, per: "/month", lessons: 5, months: 1,
-    blurb: "5 two-hour group lessons a month (£5 an hour) with Daniella, our Cambridge offer-holder. Rotating weekly: English Language, English Literature, History, RE. Weekday evenings.",
-    subjects: HUM_CYCLE, cycle: HUM_CYCLE, perSubjectCap: 2, days: "weekday", blocks: HUM_BLOCKS, rotates: true, seats: 5, dept: "hum",
-    deal: "New · taught by a Cambridge offer-holder",
-  },
   alevel: {
     id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
     blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject — just you and the tutor. Wednesdays & Fridays.",
-    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
-  },
-  halevel: {
-    id: "halevel", hidden: true, name: "A-level Humanities 1-to-1", price: 20, per: " per session", lessons: 1, months: 0,
-    blurb: "A private one-to-one hour with Daniella — 3 A*s and a Cambridge offer — in History, Politics or Sociology. Weekday evenings.",
-    subjects: ["History", "Politics", "Sociology"], perSubjectCap: 1, days: "weekday", blocks: HUM_1TO1, rotates: false, seats: 1, dept: "hum",
-  },
-  hinterview: {
-    id: "hinterview", hidden: true, name: "Cambridge Interview Prep", price: 20, per: " per session", lessons: 1, months: 0,
-    blurb: "A private one-to-one hour with someone who's just been through Cambridge admissions — mock questions, thinking-out-loud technique, what interviewers actually want.",
-    subjects: ["Cambridge Interview Prep"], perSubjectCap: 1, days: "weekday", blocks: HUM_1TO1, rotates: false, seats: 1, dept: "hum",
+    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem", person: "isham",
   },
   ucat: {
     id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1, months: 0,
-    blurb: "One private one-to-one 1-hour evening session from someone who's just sat it — timing, tactics and the sections that trip people up.",
-    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
+    blurb: "One private one-to-one 1-hour evening session from someone who's just sat it — timing, tactics and the sections that trip people up. Weekday evenings.",
+    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "weekday", blocks: UCAT_BLOCKS, rotates: false, seats: 1, dept: "stem", person: "isham",
   },
 };
 
@@ -148,7 +116,8 @@ async function fetchAll() {
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
   const subscribers = st.data || [];
-  const cnt = (dept) => subscribers.filter((x) => (PLANS[x.plan] || {}).dept === dept && (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
+  // get_caps() may still return a "hum" field from the old dept split — ignore it, we only use "stem" now.
+  const cnt = () => subscribers.filter((x) => (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
   const capsRow = (caps.data && caps.data[0]) || null;
   return {
     subscribers,
@@ -156,8 +125,7 @@ async function fetchAll() {
     messages: ms.data || [],
     meetLinks,
     testimonials: ts.data || [],
-    takenStem: capsRow ? capsRow.stem : cnt("stem"),
-    takenHum: capsRow ? capsRow.hum : cnt("hum"),
+    takenCount: capsRow ? (capsRow.stem || 0) : cnt(),
   };
 }
 
@@ -248,25 +216,17 @@ const SubjectChip = ({ subject }) => {
   return <span className="it-chip" style={{ background: c.bg, color: c.text, border: "1px solid " + c.border }}>{subject}</span>;
 };
 
-function DeptMeter({ label, taken, cap }) {
+function CapacityMeter({ taken }) {
   return (
-    <div style={{ marginBottom: 10 }}>
+    <div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }}>
-        {Array.from({ length: cap }).map((_, i) => (
+        {Array.from({ length: CAP }).map((_, i) => (
           <div key={i} className={"it-pip" + (i < taken ? " on" : "")} style={{ width: 10, height: 14, transitionDelay: `${i * 25}ms` }} />
         ))}
       </div>
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0 }}>
-        <strong style={{ color: taken >= cap ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(cap - taken, 0)} of {cap} {label} places left</strong>
+        <strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(CAP - taken, 0)} of {CAP} places left</strong> — capped so groups stay tiny and prices stay low.
       </p>
-    </div>
-  );
-}
-function CapacityMeter({ takenStem, takenHum }) {
-  return (
-    <div>
-      <DeptMeter label="Sciences & Maths" taken={takenStem} cap={CAPS.stem} />
-      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0 }}>Capped so groups stay tiny and prices stay low.</p>
     </div>
   );
 }
@@ -285,7 +245,7 @@ function CharityBanner() {
   );
 }
 
-function Home({ go, takenStem, takenHum, testimonials }) {
+function Home({ go, taken, testimonials }) {
   return (
     <div className="it-fade">
       <section style={{ padding: "70px 24px 44px", maxWidth: 1000, margin: "0 auto" }}>
@@ -303,7 +263,7 @@ function Home({ go, takenStem, takenHum, testimonials }) {
           <button className="it-btn" onClick={() => go("book")}>Book a lesson</button>
           <button className="it-btn ghost" onClick={() => go("pricing")}>See plans</button>
         </div>
-        <CapacityMeter takenStem={takenStem} takenHum={takenHum} />
+        <CapacityMeter taken={taken} />
       </section>
 
       <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
@@ -325,16 +285,6 @@ function Home({ go, takenStem, takenHum, testimonials }) {
         </div>
       </section>
 
-
-      <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
-        <div className="it-card" style={{ padding: "22px 26px", borderLeft: "5px solid #7C6CF0" }}>
-          <span className="it-tag" style={{ background: "#F1EBFE", color: "#5B3EC4" }}>Coming soon</span>
-          <h3 className="it-display" style={{ margin: "10px 0 6px", fontSize: 19, fontWeight: 800 }}>Humanities & English is on the way</h3>
-          <p style={{ margin: 0, fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6 }}>
-            GCSE English, History and RE at the same £5-an-hour model — send a message if you want first dibs when it launches.
-          </p>
-        </div>
-      </section>
       <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
         <CharityBanner />
       </section>
@@ -438,14 +388,14 @@ function Home({ go, takenStem, takenHum, testimonials }) {
   );
 }
 
-function Pricing({ startCheckout, takenStem, takenHum }) {
-  const fullFor = (p) => (p.dept === "hum" ? takenHum >= CAPS.hum : takenStem >= CAPS.stem);
+function Pricing({ startCheckout, taken }) {
+  const fullFor = (p) => taken >= CAP;
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1000, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>Plans</h1>
       <p style={{ color: "var(--ink-soft)", marginBottom: 28 }}>
         Priced for families who can't stretch to normal tutoring. No contracts — cancel any month.{" "}
-        {`${Math.max(CAPS.stem - takenStem, 0)} of ${CAPS.stem} places left.`}
+        {`${Math.max(CAP - taken, 0)} of ${CAP} places left.`}
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20 }}>
         {Object.values(PLANS).filter((p) => !p.hidden).map((p) => (
@@ -462,7 +412,7 @@ function Pricing({ startCheckout, takenStem, takenHum }) {
             </div>
             <ul style={{ padding: 0, listStyle: "none", margin: "0 0 18px", fontSize: 14, color: "var(--ink-soft)", lineHeight: 2 }}>
               <li>✓ {p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
-              <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
+              <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : p.days === "weekday" ? "Weekday evenings, 6:00–10:00pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
               <li>✓ {p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
             </ul>
             <button className="it-btn" disabled={fullFor(p) && p.months > 0} onClick={() => startCheckout(p.id)}>
@@ -476,29 +426,55 @@ function Pricing({ startCheckout, takenStem, takenHum }) {
   );
 }
 
-function Checkout({ planId, onDone, onCancel }) {
+function Checkout({ planId, onDone, onFinish, onCancel }) {
   const plan = PLANS[planId];
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [paying, setPaying] = useState(false);
+  const [done, setDone] = useState(false);
   const stemChoice = plan.id === "gcse" || plan.id === "gcse3"; // GCSE sciences plans offer the tutor choice
-  const [tutor, setTutor] = useState(plan.dept === "hum" ? "daniella" : "isham");
+  const [tutor, setTutor] = useState("isham");
   const payLink = (STRIPE[tutor] || {})[planId] || null;
   const submit = async () => {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
+    if (password.length < 8) return alert("Password must be at least 8 characters.");
+    if (password !== password2) return alert("Passwords don't match.");
     setPaying(true);
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      const { error: authErr } = await supa.auth.signUp({
+        email: cleanEmail, password, options: { emailRedirectTo: "https://www.ishamtuition.com" },
+      });
+      if (authErr) throw authErr;
       // paid_until stays null until Isham confirms the payment in the dashboard
-      await onDone({ name: name.trim(), email: email.trim().toLowerCase(), plan: planId, paid_until: null, tutor });
-      notifyServer({ type: "signup", name: name.trim(), email: email.trim().toLowerCase(), plan: plan.name });
+      await onDone({ name: name.trim(), email: cleanEmail, plan: planId, paid_until: null, tutor });
+      notifyServer({ type: "signup", name: name.trim(), email: cleanEmail, plan: plan.name });
       /* send them to the chosen tutor's Stripe checkout */
       if (payLink) window.open(payLink, "_blank");
+      setDone(true);
     } catch (e) {
       setPaying(false);
-      if (String(e).includes("duplicate") || e.status === 409) alert("That email already has a plan — go to Book and enter it there.");
-      else alert("Something went wrong saving your details — please try again.");
+      if (String(e).includes("duplicate") || e.status === 409) alert("That email already has a plan — go to Book and sign in there.");
+      else alert(e.message || "Something went wrong saving your details — please try again.");
     }
   };
+
+  if (done) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
+        <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%" }}>
+          <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800 }}>Almost there ✓</h3>
+          <p style={{ color: "var(--ink-soft)", margin: "0 0 20px" }}>
+            Check your inbox to verify your email — then once payment is confirmed you can book your lessons.
+          </p>
+          <button className="it-btn" onClick={onFinish}>Done</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
       <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto" }}>
@@ -507,6 +483,8 @@ function Checkout({ planId, onDone, onCancel }) {
         <div style={{ display: "grid", gap: 12 }}>
           <input className="it-input" placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
           <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="it-input" placeholder="Password (min 8 characters)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input className="it-input" placeholder="Repeat password" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
           {stemChoice && (
             <div style={{ display: "grid", gap: 8 }}>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Choose your tutor — same lessons, same price:</p>
@@ -565,10 +543,10 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const subjectFor = (d) => (plan.rotates ? weekSubject(d, plan.cycle) : subject);
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
-  const humClash = (dk, blockId) => {
-    if (plan.dept !== "hum") return false;
+  const personClash = (dk, blockId) => {
+    if (!plan.person) return false;
     const me_ = blockById(blockId);
-    return store.bookings.some((b) => b.date === dk && b.block !== blockId && (PLANS[b.plan] || {}).dept === "hum" && overlaps(blockById(b.block), me_));
+    return store.bookings.some((b) => b.date === dk && b.block !== blockId && (PLANS[b.plan] || {}).person === plan.person && overlaps(blockById(b.block), me_));
   };
   const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
   const cells = monthMatrix(view);
@@ -631,7 +609,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
               const n = countAt(day, bl.id, daySubj);
               const already = mine.some((b) => b.date === day && b.block === bl.id);
               const isSel = sel && sel.date === day && sel.block === bl.id;
-              const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already || humClash(day, bl.id);
+              const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already || personClash(day, bl.id);
               return (
                 <button key={bl.id} className="it-slot"
                   style={{ background: isSel ? dayCol.border : dayCol.bg, borderColor: dayCol.border, color: isSel ? "#fff" : dayCol.text }}
@@ -639,7 +617,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
                   onClick={() => setSel(isSel ? null : { date: day, block: bl.id, label: bl.label, subject: daySubj })}>
                   {bl.label}
                   <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.8, whiteSpace: "nowrap" }}>
-                    {already ? "booked ✓" : humClash(day, bl.id) ? "tutor busy" : n >= seats ? (seats === 1 ? "taken" : "full") : seats === 1 ? "available" : `${seats - n} seats`}
+                    {already ? "booked ✓" : personClash(day, bl.id) ? "tutor busy" : n >= seats ? (seats === 1 ? "taken" : "full") : seats === 1 ? "available" : `${seats - n} seats`}
                   </div>
                 </button>
               );
@@ -695,30 +673,152 @@ function AdminCalendar({ bookings, active, onPick }) {
   );
 }
 
+/* ---------- community chat ---------- */
+function ChatPanel({ sender, isTutor }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const load = async () => {
+    const { data } = await supa.from("chat_messages").select("*").order("created", { ascending: false }).limit(50);
+    setMessages((data || []).slice().reverse());
+  };
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const send = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    const { error } = await supa.from("chat_messages").insert({ sender, is_tutor: isTutor, text: text.trim() });
+    setSending(false);
+    if (!error) { setText(""); load(); }
+  };
+
+  return (
+    <div className="it-card" style={{ padding: 18, marginTop: 20 }}>
+      <strong className="it-display" style={{ fontSize: 16 }}>Group Q&A</strong>
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 12px" }}>
+        Group Q&A — visible to all students and tutors. Keep it to study questions.
+      </p>
+      <div style={{ maxHeight: 320, overflowY: "auto", display: "grid", gap: 8, marginBottom: 12 }}>
+        {messages.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: 0 }}>No messages yet — ask the first question.</p>}
+        {messages.map((m) => (
+          <div key={m.id} style={{ fontSize: 13.5, lineHeight: 1.5 }}>
+            <strong>{m.sender}</strong>{" "}
+            {m.is_tutor && <span className="it-chip" style={{ background: "var(--aqua)", color: "var(--mint-dark)", fontSize: 10, padding: "2px 8px", marginRight: 4 }}>TUTOR</span>}
+            <span style={{ color: "var(--ink-soft)" }}>{m.text}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input className="it-input" placeholder="Ask a question…" value={text} onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()} />
+        <button className="it-btn" style={{ padding: "10px 18px" }} onClick={send} disabled={sending || !text.trim()}>Send</button>
+      </div>
+    </div>
+  );
+}
+
 function Book({ store, addBooking, refresh, go }) {
-  const [email, setEmail] = useState("");
+  const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
   const [me, setMe] = useState(null);
+  const [meChecked, setMeChecked] = useState(false);
+  const [mode, setMode] = useState("signin"); // signin | signup
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authErr, setAuthErr] = useState("");
   const [subject, setSubject] = useState(null);
   const [sel, setSel] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const find = async () => {
-    await refresh();
-    const { data } = await supa.rpc("find_student", { p_email: email.trim().toLowerCase() });
-    const s = data && data[0];
-    if (!s) return alert("No plan found for that email — join a plan first on the Plans page.");
-    setMe(s); setSubject(PLANS[s.plan].subjects[0]);
+  useEffect(() => {
+    supa.auth.getSession().then(({ data: { session } }) => setSession(session || null));
+    const { data: sub } = supa.auth.onAuthStateChange((_evt, sess) => setSession(sess || null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      if (!session || !session.user || !session.user.email) { setMe(null); setMeChecked(true); return; }
+      setMeChecked(false);
+      await refresh();
+      const { data } = await supa.rpc("find_student", { p_email: session.user.email.toLowerCase() });
+      const s = data && data[0];
+      setMe(s || null);
+      if (s) setSubject(PLANS[s.plan].subjects[0]);
+      setMeChecked(true);
+    })();
+  }, [session]);
+
+  const doSignIn = async () => {
+    if (!email.includes("@") || !password) return setAuthErr("Enter your email and password.");
+    setAuthBusy(true); setAuthErr("");
+    const { error } = await supa.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    setAuthBusy(false);
+    if (error) setAuthErr("Wrong email or password.");
   };
+  const doSignUp = async () => {
+    if (!email.includes("@") || password.length < 8) return setAuthErr("Enter your email and a password of at least 8 characters.");
+    setAuthBusy(true); setAuthErr("");
+    const { error } = await supa.auth.signUp({ email: email.trim().toLowerCase(), password, options: { emailRedirectTo: "https://www.ishamtuition.com" } });
+    setAuthBusy(false);
+    if (error) return setAuthErr(error.message);
+    alert("Check your inbox to verify your email, then sign in.");
+    setMode("signin");
+  };
+  const doForgot = async () => {
+    if (!email.includes("@")) return setAuthErr("Enter your email first.");
+    setAuthErr("");
+    const { error } = await supa.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: "https://www.ishamtuition.com" });
+    if (error) setAuthErr(error.message);
+    else alert("Reset link sent");
+  };
+  const signOut = async () => { await supa.auth.signOut(); };
+
+  if (session === undefined || (session && !meChecked))
+    return <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Loading…</p>;
+
+  if (!session)
+    return (
+      <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 420, margin: "0 auto" }}>
+        <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>{mode === "signup" ? "Create your account" : "Sign in to book"}</h1>
+        <p style={{ color: "var(--ink-soft)" }}>
+          {mode === "signup"
+            ? "Already joined a plan but never made a login? Use the same email — once verified, we'll find your existing plan."
+            : "Use the email and password you signed up with."}
+        </p>
+        <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+          <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="it-input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (mode === "signup" ? doSignUp() : doSignIn())} />
+          <button className="it-btn" onClick={mode === "signup" ? doSignUp : doSignIn} disabled={authBusy}>
+            {authBusy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+          </button>
+          {authErr && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{authErr}</p>}
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 13 }}>
+            <button className="it-navlink" style={{ padding: 0 }} onClick={doForgot}>Forgot password?</button>
+            <button className="it-navlink" style={{ padding: 0 }} onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setAuthErr(""); }}>
+              {mode === "signup" ? "Already have an account? Sign in" : "Already a student but no account yet?"}
+            </button>
+          </div>
+          <button className="it-btn ghost" onClick={() => go("pricing")}>I don't have a plan yet</button>
+        </div>
+      </div>
+    );
 
   if (!me)
     return (
       <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 460, margin: "0 auto" }}>
-        <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>Book your lessons</h1>
-        <p style={{ color: "var(--ink-soft)" }}>Enter the email you joined with to open the booking chart.</p>
+        <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>No plan found yet</h1>
+        <p style={{ color: "var(--ink-soft)" }}>We couldn't find a plan for {session.user.email} — join a plan first on the Plans page.</p>
         <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-          <input className="it-input" placeholder="Your email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && find()} />
-          <button className="it-btn" onClick={find}>Open my booking chart</button>
-          <button className="it-btn ghost" onClick={() => go("pricing")}>I don't have a plan yet</button>
+          <button className="it-btn" onClick={() => go("pricing")}>See plans</button>
+          <button className="it-btn ghost" onClick={signOut}>Sign out</button>
         </div>
       </div>
     );
@@ -726,8 +826,9 @@ function Book({ store, addBooking, refresh, go }) {
   const plan = PLANS[me.plan];
   const mine = store.bookings.filter((b) => b.subscriberId === me.id);
   const expired = plan.months > 0 && me.paid_until && daysLeft(me.paid_until) <= 0;
+  const locked = plan.months > 0 && !me.paid_until;
 
-  const confirm = async () => {
+  const confirmBooking = async () => {
     if (expired) return alert("Your plan has expired — renew (or message Isham) to book new lessons.");
     if (!sel || busy) return;
     setBusy(true);
@@ -736,7 +837,7 @@ function Book({ store, addBooking, refresh, go }) {
         student_id: me.id, student_name: me.name, plan: me.plan,
         subject: sel.subject || subject, date: sel.date, block: sel.block, block_label: sel.label,
       });
-      notifyServer({ type: "booking", name: me.name, email: email.trim().toLowerCase(), subject: sel.subject || subject, date: sel.date, time: sel.label });
+      notifyServer({ type: "booking", name: me.name, email: session.user.email, subject: sel.subject || subject, date: sel.date, time: sel.label });
       setSel(null);
     } catch (e) {
       alert("Couldn't save that booking — the seat may have just been taken. The chart has been refreshed.");
@@ -747,10 +848,13 @@ function Book({ store, addBooking, refresh, go }) {
 
   return (
     <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 1000, margin: "0 auto" }}>
-      <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
-      {!me.paid_until && plan.months > 0 && (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+        <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
+        <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={signOut}>Sign out</button>
+      </div>
+      {locked && (
         <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 12 }}>
-          Payment being confirmed — you can book your slots now and they'll be held for you. If you haven't paid yet, check your email for the payment link.
+          Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours.
         </div>
       )}
       {expired && (
@@ -761,31 +865,37 @@ function Book({ store, addBooking, refresh, go }) {
       <p style={{ color: "var(--ink-soft)", marginBottom: 18 }}>
         {plan.name} — {plan.rotates
           ? "each week is one subject (see the colour on each date). Tap a slot to book."
-          : "pick a subject, then tap a slot. Wednesday & Friday evenings — private 1-hour sessions."}
+          : plan.days === "weekday"
+            ? "pick a subject, then tap a slot — weekday evenings, private 1-hour sessions."
+            : "pick a subject, then tap a slot. Wednesday & Friday evenings — private 1-hour sessions."}
       </p>
 
-      {!plan.rotates && plan.subjects.length > 1 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 20px" }}>
-          {plan.subjects.map((s) => {
-            const c = SUBJECT_COLORS[s];
-            const on = subject === s;
-            return (
-              <button key={s} className="it-slot" style={{ padding: "9px 18px", background: on ? c.border : c.bg, borderColor: c.border, color: on ? "#fff" : c.text }}
-                onClick={() => { setSubject(s); setSel(null); }}>
-                {s}
-              </button>
-            );
-          })}
-        </div>
+      {!locked && (
+        <>
+          {!plan.rotates && plan.subjects.length > 1 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 20px" }}>
+              {plan.subjects.map((s) => {
+                const c = SUBJECT_COLORS[s];
+                const on = subject === s;
+                return (
+                  <button key={s} className="it-slot" style={{ padding: "9px 18px", background: on ? c.border : c.bg, borderColor: c.border, color: on ? "#fff" : c.text }}
+                    onClick={() => { setSubject(s); setSel(null); }}>
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} />
+
+          <div style={{ position: "sticky", bottom: 16, marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
+            <button className="it-btn" disabled={!sel || busy} onClick={confirmBooking}>
+              {busy ? "Booking…" : sel ? `Confirm ${sel.subject || subject} · ${sel.label}` : "Select a slot on the chart"}
+            </button>
+          </div>
+        </>
       )}
-
-      <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} />
-
-      <div style={{ position: "sticky", bottom: 16, marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-        <button className="it-btn" disabled={!sel || busy} onClick={confirm}>
-          {busy ? "Booking…" : sel ? `Confirm ${sel.subject || subject} · ${sel.label}` : "Select a slot on the chart"}
-        </button>
-      </div>
 
       {mine.length > 0 && (
         <div style={{ marginTop: 28 }}>
@@ -811,7 +921,7 @@ function Book({ store, addBooking, refresh, go }) {
                       <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
                         onClick={async () => {
                           if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed — you can rebook a different slot.")) return;
-                          const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: email.trim().toLowerCase() });
+                          const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
                           if (error || data === false) alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance.");
                           else await refresh();
                         }}>Cancel</button>
@@ -823,6 +933,8 @@ function Book({ store, addBooking, refresh, go }) {
           </ul>
         </div>
       )}
+
+      <ChatPanel sender={me.name} isTutor={false} />
     </div>
   );
 }
@@ -861,7 +973,7 @@ function Contact({ addMessage }) {
         {[
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
-          ["When are A-level & UCAT sessions?", "Wednesday and Friday evenings — two private 1-hour slots each night, 7:00–8:00pm and 8:15–9:15pm."],
+          ["When are A-level & UCAT sessions?", "A-level: Wednesday and Friday evenings, two private 1-hour slots each night (7:00–8:00pm and 8:15–9:15pm). UCAT: weekday evenings, four private 1-hour slots between 6:00pm and 10:00pm."],
           ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
           ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level and UCAT sessions are private one-to-one."],
           ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
@@ -1103,10 +1215,8 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
     );
 
   const isMaster = !!(role && role.master);
-  const myDept = role ? role.dept : "stem";
-  const inDept = (planId) => isMaster || (PLANS[planId] || {}).dept === myDept;
-  const tutorOf = (s) => ((PLANS[s.plan] || {}).dept === "hum" ? "daniella" : (s.tutor || "isham"));
-  // Scoped to this tutor's own students, not the whole department — a non-master tutor
+  const tutorOf = (s) => s.tutor || "isham";
+  // Scoped to this tutor's own students, not every student — a non-master tutor
   // must not see or manage another tutor's students, even within the same subject.
   const subs = store.subscribers.filter((s) => isMaster || tutorOf(s) === role.id);
   const mySubIds = new Set(subs.map((s) => s.id));
@@ -1122,7 +1232,7 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
   const stripeEst = (tid) => grossFor(tid) * 0.015 + 0.20 * payersFor(tid);
   const myGross = grossFor(role.id);
   const myFee = isMaster ? 0 : myGross * feeRate(role.id);
-  const feesToMaster = grossFor("belal") * feeRate("belal") + grossFor("daniella") * feeRate("daniella");
+  const feesToMaster = grossFor("belal") * feeRate("belal");
   const charity = grossFor("isham") * 0.05; // Isham's 5% charity pledge on his own earnings
 
   const byDate = {};
@@ -1178,8 +1288,8 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
           ["Fees from tutors", "£" + feesToMaster.toFixed(2)],
           ["My total", "£" + (grossFor("isham") + feesToMaster).toFixed(2)],
           ["Charity pot (5%)", "£" + charity.toFixed(2)],
-          ["STEM places", `${store.takenStem || 0} / ${CAPS.stem}`],
-          ["Humanities places", `${store.takenHum || 0} / ${CAPS.hum}`],
+          ["Places", `${store.takenCount || 0} / ${CAP}`],
+          ["Registered students", String(store.subscribers.length)],
           ["Lessons booked", String(store.bookings.length)],
           ["Messages", String(store.messages.length)],
         ] : [
@@ -1196,6 +1306,8 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
           </div>
         ))}
       </div>
+
+      <ChatPanel sender={role.name} isTutor={true} />
 
       {isMaster && (
         <div className="it-card" style={{ padding: 18, marginBottom: 26 }}>
@@ -1253,13 +1365,13 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
           <input className="it-input" style={{ flex: 2, minWidth: 160 }} placeholder="Email" value={nf.email} onChange={(e) => setNf({ ...nf, email: e.target.value })} />
           <select className="it-input" style={{ flex: 1, minWidth: 130 }} value={nf.plan}
             onChange={(e) => { const pl = e.target.value; setNf({ ...nf, plan: pl, paid_until: PLANS[pl].months ? addMonths(PLANS[pl].months) : "" }); }}>
-            {Object.values(PLANS).filter((p) => inDept(p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {Object.values(PLANS).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <input className="it-input" type="date" style={{ flex: 1, minWidth: 140 }} value={nf.paid_until || ""} onChange={(e) => setNf({ ...nf, paid_until: e.target.value })} />
           <button className="it-btn" style={{ padding: "10px 18px" }} onClick={async () => {
             if (!nf.name.trim() || !nf.email.includes("@")) return alert("Name and a valid email needed.");
             try {
-              const t = (PLANS[nf.plan] || {}).dept === "hum" ? "daniella" : (role.id === "belal" ? "belal" : "isham");
+              const t = role.id === "belal" ? "belal" : "isham";
               await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null, tutor: t });
               setNf({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
             }
@@ -1344,20 +1456,67 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
   );
 }
 
+function PasswordRecoveryOverlay({ onDone }) {
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(false);
+  const submit = async () => {
+    if (pw.length < 8) return setErr("Password must be at least 8 characters.");
+    if (pw !== pw2) return setErr("Passwords don't match.");
+    setBusy(true); setErr("");
+    const { error } = await supa.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setDone(true);
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }}>
+      <div className="it-card it-fade" style={{ padding: 30, width: 400, maxWidth: "100%" }}>
+        {done ? (
+          <>
+            <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>Password updated ✓</h3>
+            <p style={{ color: "var(--ink-soft)", margin: "0 0 16px" }}>You can now sign in with your new password.</p>
+            <button className="it-btn" onClick={onDone}>Done</button>
+          </>
+        ) : (
+          <>
+            <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>Set a new password</h3>
+            <div style={{ display: "grid", gap: 12 }}>
+              <input className="it-input" type="password" placeholder="New password (min 8 characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
+              <input className="it-input" type="password" placeholder="Repeat password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+              <button className="it-btn" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Update password"}</button>
+              {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState("home");
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], takenStem: 0, takenHum: 0 });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], takenCount: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
   const [toast, setToast] = useState(null);
+  const [recovery, setRecovery] = useState(false);
 
   const refresh = async () => {
     try { const d = await fetchAll(); setStore(d); setLoadErr(false); return d; }
     catch (e) { console.error(e); setLoadErr(true); }
   };
   useEffect(() => { refresh().finally(() => setLoaded(true)); }, []);
+  useEffect(() => {
+    const { data: sub } = supa.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
   const notify = (t) => { setToast(t); setTimeout(() => setToast(null), 3200); };
 
   const addStudent = async (s) => {
@@ -1375,10 +1534,10 @@ export default function App() {
     if ((pl.seats || 5) > 1) q = q.eq("subject", b.subject);
     const { count } = await q;
     if ((count || 0) >= (pl.seats || 5)) { await refresh(); throw new Error("slot full"); }
-    if (pl.dept === "hum") { // one tutor: block overlapping humanities sessions
+    if (pl.person) { // 1-to-1 plans sharing a tutor: block overlapping sessions for that person
       const { data: same } = await supa.from("bookings").select("block,plan").eq("date", b.date);
       const mine_ = blockById(b.block);
-      if ((same || []).some((x) => x.block !== b.block && (PLANS[x.plan] || {}).dept === "hum" && overlaps(blockById(x.block), mine_))) {
+      if ((same || []).some((x) => x.block !== b.block && (PLANS[x.plan] || {}).person === pl.person && overlaps(blockById(x.block), mine_))) {
         await refresh(); throw new Error("tutor busy");
       }
     }
@@ -1411,8 +1570,8 @@ export default function App() {
     if (error) throw new Error(error.message);
     setStore((st) => {
       const subscribers = [...st.subscribers, data[0]];
-      const cnt = (dept) => subscribers.filter((x) => (PLANS[x.plan] || {}).dept === dept && (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
-      return { ...st, subscribers, takenStem: cnt("stem"), takenHum: cnt("hum") };
+      const cnt = subscribers.filter((x) => (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
+      return { ...st, subscribers, takenCount: cnt };
     });
     notify("Added " + data[0].name + " ✓");
   };
@@ -1421,8 +1580,8 @@ export default function App() {
     if (error) throw new Error(error.message);
     setStore((st) => {
       const subscribers = st.subscribers.map((s) => s.id === id ? { ...s, paid_until } : s);
-      const cnt = (dept) => subscribers.filter((x) => (PLANS[x.plan] || {}).dept === dept && (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
-      return { ...st, subscribers, takenStem: cnt("stem"), takenHum: cnt("hum") };
+      const cnt = subscribers.filter((x) => (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
+      return { ...st, subscribers, takenCount: cnt };
     });
   };
   const addTestimonial = async (t) => {
@@ -1442,19 +1601,17 @@ export default function App() {
       ...st,
       subscribers: st.subscribers.filter((s) => s.id !== id),
       bookings: st.bookings.filter((b) => b.subscriberId !== id),
-      takenStem: st.takenStem - (gone && (PLANS[gone.plan] || {}).dept === "stem" && (PLANS[gone.plan] || {}).months > 0 && gone.paid_until ? 1 : 0),
-      takenHum:  st.takenHum  - (gone && (PLANS[gone.plan] || {}).dept === "hum"  && (PLANS[gone.plan] || {}).months > 0 && gone.paid_until ? 1 : 0),
+      takenCount: st.takenCount - (gone && (PLANS[gone.plan] || {}).months > 0 && gone.paid_until ? 1 : 0),
     }));
   };
 
-  const takenStem = store.takenStem || 0;
-  const takenHum = store.takenHum || 0;
-  const taken = takenStem + takenHum;
+  const taken = store.takenCount || 0;
   const nav = [["home", "Home"], ["pricing", "Plans"], ["book", "Book"], ["contact", "Questions"]];
 
   return (
     <div className="it-app">
       <style>{css}</style>
+      {recovery && <PasswordRecoveryOverlay onDone={() => setRecovery(false)} />}
       <header style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,253,253,.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid var(--line)" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px" }}>
           <button onClick={() => setPage("home")} className="it-display" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 19, fontWeight: 800, color: "var(--ink)" }}>
@@ -1477,9 +1634,9 @@ export default function App() {
       {!loaded ? (
         <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Loading…</p>
       ) : page === "home" ? (
-        <Home go={setPage} takenStem={takenStem} takenHum={takenHum} testimonials={store.testimonials || []} />
+        <Home go={setPage} taken={taken} testimonials={store.testimonials || []} />
       ) : page === "pricing" ? (
-        <Pricing takenStem={takenStem} takenHum={takenHum} startCheckout={(id) => setCheckoutPlan(id)} />
+        <Pricing taken={taken} startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
         <Book store={store} go={setPage} addBooking={addBooking} refresh={refresh} />
       ) : page === "contact" ? (
@@ -1490,11 +1647,8 @@ export default function App() {
 
       {checkoutPlan && (
         <Checkout planId={checkoutPlan} onCancel={() => setCheckoutPlan(null)}
-          onDone={async (s) => {
-            const row = await addStudent(s);
-            setCheckoutPlan(null); setPage("book");
-            notify(`Welcome, ${row.name.split(" ")[0]}! Now book your slots.`);
-          }} />
+          onDone={async (s) => { await addStudent(s); }}
+          onFinish={() => { setCheckoutPlan(null); setPage("book"); }} />
       )}
 
       {toast && (

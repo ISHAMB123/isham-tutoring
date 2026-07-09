@@ -481,7 +481,7 @@ function Checkout({ planId, onDone, onCancel }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [paying, setPaying] = useState(false);
-  const stemChoice = plan.id === "gcse"; // only the £40/month course offers the tutor choice
+  const stemChoice = plan.id === "gcse" || plan.id === "gcse3"; // GCSE sciences plans offer the tutor choice
   const [tutor, setTutor] = useState(plan.dept === "hum" ? "daniella" : "isham");
   const payLink = (STRIPE[tutor] || {})[planId] || null;
   const submit = async () => {

@@ -209,6 +209,7 @@ const css = `
 .it-charity{background:linear-gradient(120deg,#FFF7E8,#FFEDE0);border:1.5px solid #F6DDB2}
 .it-chip{display:inline-block;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:.03em}
 @media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float{animation:none;transition:none}}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
 
 const SubjectChip = ({ subject }) => {
@@ -255,13 +256,11 @@ function Home({ go, taken, testimonials }) {
         </h1>
         <p style={{ fontSize: 18, color: "var(--ink-soft)", maxWidth: 660, lineHeight: 1.65 }}>
           I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
-          and this September I start dental school. Tutoring got me nothing — hard work and free help did.
-          This is that help for the next kid like me: £40 a month, 12 hours of live teaching — £3.33 an hour,
-          a tenth of what a private tutor charges.
+          and this September I start dental school — now I'm doing the same for the next kid like me.
         </p>
         <div style={{ display: "flex", gap: 12, margin: "26px 0 36px", flexWrap: "wrap" }}>
-          <button className="it-btn" onClick={() => go("book")}>Book a lesson</button>
-          <button className="it-btn ghost" onClick={() => go("pricing")}>See plans</button>
+          <button className="it-btn" onClick={() => go("pricing")}>See plans — from £5 a lesson</button>
+          <button className="it-btn ghost" onClick={() => go("book")}>Book a lesson</button>
         </div>
         <CapacityMeter taken={taken} />
       </section>
@@ -362,24 +361,23 @@ function Home({ go, taken, testimonials }) {
 
       <section style={{ padding: "40px 24px 64px", maxWidth: 1000, margin: "0 auto" }}>
         <div className="it-card" style={{ padding: 32 }}>
-          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 10px" }}>The Grade A Guarantee</h2>
-          <p style={{ color: "var(--ink-soft)", lineHeight: 1.65, margin: "0 0 14px", maxWidth: 760, fontSize: 15.5 }}>
-            Put the work in with me and I back the result with money. If a student meets all of the conditions below
-            and their average across our assessments still isn't a grade 7 (A) or above, I'll refund their most
-            recent 3 months of fees. To qualify, the student must have:
-          </p>
-          <ul style={{ color: "var(--ink-soft)", lineHeight: 1.9, margin: "0 0 14px", maxWidth: 760, fontSize: 15, paddingLeft: 22 }}>
+          <span className="it-tag">The Grade A Guarantee</span>
+          <h2 className="it-display" style={{ fontSize: "clamp(24px,3.4vw,34px)", lineHeight: 1.2, fontWeight: 800, margin: "14px 0 16px", maxWidth: 760 }}>
+            Do the work, and if you still don't average a 7 (A): your last 3 months of fees back.
+          </h2>
+          <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, margin: "0 0 10px", maxWidth: 760, fontSize: 14 }}>To qualify, the student must have:</p>
+          <ul style={{ color: "var(--ink-soft)", lineHeight: 1.8, margin: "0 0 14px", maxWidth: 760, fontSize: 13.5, paddingLeft: 22 }}>
             <li>been enrolled for a minimum of 6 months;</li>
             <li>attended the lessons they booked;</li>
             <li>followed the study guidance set in lessons;</li>
             <li>submitted every piece of homework on time, completed to a genuine standard.</li>
           </ul>
-          <p style={{ color: "var(--ink-soft)", lineHeight: 1.65, margin: "0 0 12px", maxWidth: 760, fontSize: 14 }}>
+          <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, margin: "0 0 12px", maxWidth: 760, fontSize: 13 }}>
             This isn't small print designed to wriggle out — homework and attendance are tracked from day one, so
             whether you qualify is a matter of record, not my opinion. Separately, plans are monthly or 3-monthly with
             no contract: cancelling is simply not renewing.
           </p>
-          <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0 }}>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13, margin: 0 }}>
             Questions first? Email <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a>.
           </p>
         </div>
@@ -397,6 +395,18 @@ function Pricing({ startCheckout, taken }) {
         Priced for families who can't stretch to normal tutoring. No contracts — cancel any month.{" "}
         {`${Math.max(CAP - taken, 0)} of ${CAP} places left.`}
       </p>
+      <div className="it-card" style={{ padding: "16px 22px", marginBottom: 26, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+        {[
+          ["1", "Pick a plan & create your account"],
+          ["2", "Verify your email and pay securely with Stripe"],
+          ["3", "Booking unlocks the moment payment is confirmed (usually within hours)"],
+        ].map(([n, t]) => (
+          <div key={n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span className="it-display" style={{ fontSize: 20, fontWeight: 800, color: "var(--mint-dark)" }}>{n}.</span>
+            <span style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{t}</span>
+          </div>
+        ))}
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20 }}>
         {Object.values(PLANS).filter((p) => !p.hidden).map((p) => (
           <div key={p.id} className="it-card" style={{ padding: 28, display: "flex", flexDirection: "column", ...(p.id === "gcse" ? { border: "2px solid var(--coral)" } : {}) }}>
@@ -467,7 +477,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
         <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%" }}>
           <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800 }}>Almost there ✓</h3>
           <p style={{ color: "var(--ink-soft)", margin: "0 0 20px" }}>
-            Check your inbox to verify your email — then once payment is confirmed you can book your lessons.
+            Check your inbox to verify your email. Booking unlocks the moment payment is confirmed — usually within hours.
           </p>
           <button className="it-btn" onClick={onFinish}>Done</button>
         </div>
@@ -705,7 +715,7 @@ function ChatPanel({ sender, isTutor }) {
         Group Q&A — visible to all students and tutors. Keep it to study questions.
       </p>
       <div style={{ maxHeight: 320, overflowY: "auto", display: "grid", gap: 8, marginBottom: 12 }}>
-        {messages.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: 0 }}>No messages yet — ask the first question.</p>}
+        {messages.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: 0 }}>No messages yet — ask the first question!</p>}
         {messages.map((m) => (
           <div key={m.id} style={{ fontSize: 13.5, lineHeight: 1.5 }}>
             <strong>{m.sender}</strong>{" "}
@@ -792,6 +802,10 @@ function Book({ store, addBooking, refresh, go }) {
             ? "Already joined a plan but never made a login? Use the same email — once verified, we'll find your existing plan."
             : "Use the email and password you signed up with."}
         </p>
+        <div className="it-card" style={{ padding: "12px 16px", margin: "14px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600 }}>New to Isham Tuition?</span>
+          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={() => go("pricing")}>See plans & join first →</button>
+        </div>
         <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
           <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className="it-input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
@@ -806,7 +820,6 @@ function Book({ store, addBooking, refresh, go }) {
               {mode === "signup" ? "Already have an account? Sign in" : "Already a student but no account yet?"}
             </button>
           </div>
-          <button className="it-btn ghost" onClick={() => go("pricing")}>I don't have a plan yet</button>
         </div>
       </div>
     );
@@ -973,7 +986,8 @@ function Contact({ addMessage }) {
         {[
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
-          ["When are A-level & UCAT sessions?", "A-level: Wednesday and Friday evenings, two private 1-hour slots each night (7:00–8:00pm and 8:15–9:15pm). UCAT: weekday evenings, four private 1-hour slots between 6:00pm and 10:00pm."],
+          ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
+          ["When are UCAT sessions?", "Monday to Friday evenings, private 1-hour slots between 6 and 10pm."],
           ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
           ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level and UCAT sessions are private one-to-one."],
           ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
@@ -1606,7 +1620,7 @@ export default function App() {
   };
 
   const taken = store.takenCount || 0;
-  const nav = [["home", "Home"], ["pricing", "Plans"], ["book", "Book"], ["contact", "Questions"]];
+  const nav = [["home", "Home"], ["pricing", "Plans"], ["book", "Book"], ["contact", "FAQ & Contact"]];
 
   return (
     <div className="it-app">
@@ -1665,7 +1679,7 @@ export default function App() {
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>
           <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Privacy: I collect only names, emails and lesson bookings — used solely to run your lessons and contact you about them. Nothing is sold or shared with anyone, and you can ask me to delete your data at any time via the contact details above.
+            Privacy: only names, emails and bookings are collected — never sold or shared. Email me to delete your data.
           </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>
         </div>

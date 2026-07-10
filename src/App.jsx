@@ -23,14 +23,29 @@ const TUTORS = {
 const FEES = { isham: 0, belal: 0.15 };
 const feeRate = (tid) => FEES[tid] || 0;
 
+/* alevel is keyed by subject too — it's 1-to-1, so the right Stripe link
+   depends on which subject the student is choosing at signup. */
 const STRIPE = {
   isham: {
     gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
     gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
-    alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
+    alevel: {
+      Maths:     "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
+      Biology:   "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
+      Chemistry: "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
+    },
     ucat:  "https://buy.stripe.com/7sYeVc0t58elbuX9CKes003",
   },
-  belal: { gcse: null, gcse3: null, alevel: null, ucat: null },
+  belal: {
+    gcse:  "https://buy.stripe.com/dRm14n5YV2Pn42uctdfQI04",
+    gcse3: "https://buy.stripe.com/aFabJ10EB89H0Qibp9fQI00",
+    alevel: {
+      Maths:     "https://buy.stripe.com/bJe4gzafb9dLaqSbp9fQI01",
+      Chemistry: "https://buy.stripe.com/fZubJ1fzvcpXdD4bp9fQI03",
+      Biology:   "https://buy.stripe.com/6oUeVd2MJ2PngPg0KvfQI02",
+    },
+    ucat: null,
+  },
 };
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
@@ -47,14 +62,16 @@ const WEEKEND_BLOCKS = [
   { id: "c4", label: "2:45 – 4:15pm · Belal",   s: 885,  e: 975 },
 ];
 const EVENING_BLOCK = [
-  { id: "e1", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
-  { id: "e2", label: "8:15 – 9:15pm", s: 1215, e: 1275 },
+  { id: "e1", label: "7:00 – 8:00pm · Isham", s: 1140, e: 1200, person: "isham" },
+  { id: "e2", label: "8:15 – 9:15pm · Isham", s: 1215, e: 1275, person: "isham" },
+  { id: "f1", label: "7:00 – 8:00pm · Belal", s: 1140, e: 1200, person: "belal" },
+  { id: "f2", label: "8:15 – 9:15pm · Belal", s: 1215, e: 1275, person: "belal" },
 ];
 const UCAT_BLOCKS = [
-  { id: "u1", label: "6:00 – 7:00pm", s: 1080, e: 1140 },
-  { id: "u2", label: "7:00 – 8:00pm", s: 1140, e: 1200 },
-  { id: "u3", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
-  { id: "u4", label: "9:00 – 10:00pm", s: 1260, e: 1320 },
+  { id: "u1", label: "6:00 – 7:00pm", s: 1080, e: 1140, person: "isham" },
+  { id: "u2", label: "7:00 – 8:00pm", s: 1140, e: 1200, person: "isham" },
+  { id: "u3", label: "8:00 – 9:00pm", s: 1200, e: 1260, person: "isham" },
+  { id: "u4", label: "9:00 – 10:00pm", s: 1260, e: 1320, person: "isham" },
 ];
 const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK, ...UCAT_BLOCKS];
 
@@ -88,12 +105,12 @@ const PLANS = {
   alevel: {
     id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
     blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject — just you and the tutor. Wednesdays & Fridays.",
-    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem", person: "isham",
+    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
   },
   ucat: {
     id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1, months: 0,
     blurb: "One private one-to-one 1-hour evening session from someone who's just sat it — timing, tactics and the sections that trip people up. Weekday evenings.",
-    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "weekday", blocks: UCAT_BLOCKS, rotates: false, seats: 1, dept: "stem", person: "isham",
+    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "weekday", blocks: UCAT_BLOCKS, rotates: false, seats: 1, dept: "stem",
   },
 };
 
@@ -444,9 +461,13 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
   const [password2, setPassword2] = useState("");
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
-  const stemChoice = plan.id === "gcse" || plan.id === "gcse3"; // GCSE sciences plans offer the tutor choice
+  const tutorChoice = plan.id === "gcse" || plan.id === "gcse3" || plan.id === "alevel"; // plans Belal also teaches
+  const needsSubject = plan.id === "alevel"; // 1-to-1: Stripe link depends on which subject
   const [tutor, setTutor] = useState("isham");
-  const payLink = (STRIPE[tutor] || {})[planId] || null;
+  const [subject, setSubject] = useState(needsSubject ? plan.subjects[0] : null);
+  const payLink = needsSubject
+    ? ((STRIPE[tutor] && STRIPE[tutor].alevel && STRIPE[tutor].alevel[subject]) || null)
+    : ((STRIPE[tutor] || {})[planId] || null);
   const submit = async () => {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
     if (password.length < 8) return alert("Password must be at least 8 characters.");
@@ -495,7 +516,24 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
           <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className="it-input" placeholder="Password (min 8 characters)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <input className="it-input" placeholder="Repeat password" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
-          {stemChoice && (
+          {needsSubject && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Choose your subject:</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {plan.subjects.map((s) => {
+                  const c = SUBJECT_COLORS[s];
+                  const on = subject === s;
+                  return (
+                    <button key={s} type="button" className="it-slot" style={{ padding: "9px 18px", background: on ? c.border : c.bg, borderColor: c.border, color: on ? "#fff" : c.text }}
+                      onClick={() => setSubject(s)}>
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {tutorChoice && (
             <div style={{ display: "grid", gap: 8 }}>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Choose your tutor — same lessons, same price:</p>
               {[
@@ -553,10 +591,14 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const subjectFor = (d) => (plan.rotates ? weekSubject(d, plan.cycle) : subject);
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
+  const myPerson = me.tutor || "isham";
+  // Blocks with a "person" (1-to-1 plans shared across tutors) are only bookable by that tutor's own students.
+  const visibleBlocks = plan.blocks.filter((bl) => !bl.person || bl.person === myPerson);
   const personClash = (dk, blockId) => {
-    if (!plan.person) return false;
+    const p = blockById(blockId).person;
+    if (!p) return false;
     const me_ = blockById(blockId);
-    return store.bookings.some((b) => b.date === dk && b.block !== blockId && (PLANS[b.plan] || {}).person === plan.person && overlaps(blockById(b.block), me_));
+    return store.bookings.some((b) => b.date === dk && b.block !== blockId && blockById(b.block).person === p && overlaps(blockById(b.block), me_));
   };
   const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
   const cells = monthMatrix(view);
@@ -571,7 +613,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
     <div>
       <div style={{ display: "flex", gap: 10, fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px", flexWrap: "wrap", alignItems: "center" }}>
         {plan.rotates && SUBJECT_CYCLE.map((s) => <SubjectChip key={s} subject={s} />)}
-        <span style={{ marginLeft: "auto" }}>{plan.days === "weekend" ? "Weekends only" : "Wed & Fri evenings"} · tap a highlighted date</span>
+        <span style={{ marginLeft: "auto" }}>{plan.days === "weekend" ? "Weekends only" : plan.days === "weekday" ? "Weekday evenings" : "Wed & Fri evenings"} · tap a highlighted date</span>
       </div>
 
       <div className="it-card" style={{ padding: 18 }}>
@@ -615,7 +657,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
             <SubjectChip subject={daySubj} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
-            {plan.blocks.map((bl) => {
+            {visibleBlocks.map((bl) => {
               const n = countAt(day, bl.id, daySubj);
               const already = mine.some((b) => b.date === day && b.block === bl.id);
               const isSel = sel && sel.date === day && sel.block === bl.id;
@@ -1055,6 +1097,9 @@ function MoveModal({ booking, onClose, onSave }) {
   const plan = PLANS[booking.plan] || PLANS.gcse;
   const days = upcomingDays(plan.days, 8);
   const [saving, setSaving] = useState(false);
+  // A 1-to-1 block belongs to a specific tutor — only offer that same tutor's blocks as move targets.
+  const bookingPerson = blockById(booking.block).person;
+  const visibleBlocks = plan.blocks.filter((bl) => !bl.person || bl.person === bookingPerson);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
       <div className="it-card it-fade" style={{ padding: 26, width: 560, maxWidth: "100%", maxHeight: "85vh", overflowY: "auto" }}>
@@ -1071,7 +1116,7 @@ function MoveModal({ booking, onClose, onSave }) {
               <div key={dk}>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }} className="it-display">{prettyDate(d)} <SubjectChip subject={subj} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 6 }}>
-                  {plan.blocks.map((bl) => (
+                  {visibleBlocks.map((bl) => (
                     <button key={bl.id} className="it-slot" disabled={saving || (dk === booking.date && bl.id === booking.block)}
                       style={{ background: c.bg, borderColor: c.border, color: c.text, fontSize: 12.5, padding: "9px 4px" }}
                       onClick={async () => { setSaving(true); await onSave(booking, { date: dk, block: bl.id, block_label: bl.label, subject: subj }); }}>
@@ -1548,10 +1593,11 @@ export default function App() {
     if ((pl.seats || 5) > 1) q = q.eq("subject", b.subject);
     const { count } = await q;
     if ((count || 0) >= (pl.seats || 5)) { await refresh(); throw new Error("slot full"); }
-    if (pl.person) { // 1-to-1 plans sharing a tutor: block overlapping sessions for that person
-      const { data: same } = await supa.from("bookings").select("block,plan").eq("date", b.date);
+    const myPerson = blockById(b.block).person;
+    if (myPerson) { // 1-to-1 blocks shared across tutors: block overlapping sessions for that same tutor
+      const { data: same } = await supa.from("bookings").select("block").eq("date", b.date);
       const mine_ = blockById(b.block);
-      if ((same || []).some((x) => x.block !== b.block && (PLANS[x.plan] || {}).person === pl.person && overlaps(blockById(x.block), mine_))) {
+      if ((same || []).some((x) => x.block !== b.block && blockById(x.block).person === myPerson && overlaps(blockById(x.block), mine_))) {
         await refresh(); throw new Error("tutor busy");
       }
     }

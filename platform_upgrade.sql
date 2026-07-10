@@ -46,8 +46,8 @@ begin
     when 'b2' then 645  when 'c2' then 645
     when 'b3' then 780  when 'c3' then 780
     when 'b4' then 885  when 'c4' then 885
-    when 'e1' then 1140
-    when 'e2' then 1215
+    when 'e1' then 1140  when 'f1' then 1140
+    when 'e2' then 1215  when 'f2' then 1215
     when 'u1' then 1080
     when 'u2' then 1140
     when 'u3' then 1200

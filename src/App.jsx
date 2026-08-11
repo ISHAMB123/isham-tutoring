@@ -274,6 +274,10 @@ const css = `
 .it-spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--mint);margin:0 auto;animation:itspin .8s linear infinite}
 @keyframes itspin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.it-spinner{animation-duration:1.6s}}
+.it-cal-day.today::after{content:"";position:absolute;inset:-4px;border-radius:13px;border:1.5px dashed var(--mint);pointer-events:none}
+.it-day-panel{animation:itslide .3s ease both}
+@keyframes itslide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.it-day-panel{animation:none}}
 @media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon,.it-preview{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}.it-barfill{animation:none;width:var(--w,100%)}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
@@ -875,7 +879,19 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
     return store.bookings.some((b) => b.date === dk && b.block !== blockId && blockById(b.block).person === p && overlaps(blockById(b.block), me_));
   };
   const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
+  const dayStatus = (d) => {
+    const dk = dateKey(d);
+    const subj = subjectFor(d);
+    const subjLeftForDay = plan.perSubjectCap - mineMonth.filter((b) => b.subject === subj).length;
+    if (left <= 0 || subjLeftForDay <= 0) return "full";
+    const openBlocks = visibleBlocks.filter((bl) =>
+      !personClash(dk, bl.id) && countAt(dk, bl.id, subj) < seats && !mine.some((b) => b.date === dk && b.block === bl.id));
+    if (openBlocks.length === 0) return "full";
+    if (openBlocks.length <= 1 || openBlocks.some((bl) => seats - countAt(dk, bl.id, subj) <= 1)) return "limited";
+    return "open";
+  };
   const cells = monthMatrix(view);
+  const isToday = (d) => dateKey(d) === dateKey(today);
   const selDate = day ? new Date(day + "T00:00:00") : null;
   const daySubj = selDate ? subjectFor(selDate) : null;
   const dayCol = daySubj ? (SUBJECT_COLORS[daySubj] || SUBJECT_COLORS.Maths) : null;
@@ -907,25 +923,38 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
             const subj = valid ? subjectFor(d) : null;
             const c = subj ? (SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths) : null;
             const isSelDay = day === dk;
+            const status = valid ? dayStatus(d) : null;
+            const dotColor = status === "open" ? "#2FA45B" : status === "limited" ? "#E8842E" : "#C2402F";
             return (
               <button key={i} disabled={!valid}
                 onClick={() => { setDay(isSelDay ? null : dk); setSel(null); }}
+                className={"it-cal-day" + (isToday(d) ? " today" : "")}
                 style={{
-                  aspectRatio: "1", minHeight: 34, borderRadius: 10, cursor: valid ? "pointer" : "default",
+                  aspectRatio: "1", minHeight: 40, borderRadius: 10, cursor: valid ? "pointer" : "default", position: "relative",
                   border: isSelDay ? "2.5px solid " + c.border : valid ? "1.5px solid " + c.border : "1px solid transparent",
                   background: valid ? (isSelDay ? c.border : c.bg) : "transparent",
                   color: valid ? (isSelDay ? "#fff" : c.text) : "#C6D4D1",
                   fontWeight: valid ? 800 : 500, fontSize: 13.5, transition: "all .15s",
                 }}>
                 {d.getDate()}
+                {valid && status !== "full" && (
+                  <span style={{ position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)", width: 5, height: 5, borderRadius: "50%", background: isSelDay ? "#fff" : dotColor }} />
+                )}
               </button>
             );
           })}
         </div>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 11.5, color: "var(--ink-soft)" }}>
+          {[["#2FA45B", "Plenty of seats"], ["#E8842E", "Filling up"], ["#C2402F", "Full / no lessons left"]].map(([color, label]) => (
+            <span key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block" }} />{label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {day && (
-        <div className="it-fade it-card" style={{ padding: 18, marginTop: 14, border: "1.5px solid " + dayCol.border }}>
+        <div className="it-fade it-card it-day-panel" style={{ padding: 18, marginTop: 14, border: "1.5px solid " + dayCol.border }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             <strong className="it-display">{prettyDate(selDate)}</strong>
             <SubjectChip subject={daySubj} />
@@ -982,6 +1011,7 @@ function AdminCalendar({ bookings, active, onPick }) {
           const on = active === dk;
           return (
             <button key={i} disabled={!n} onClick={() => onPick(dk)}
+              className={dk === dateKey(new Date()) ? "it-cal-day today" : ""}
               style={{
                 aspectRatio: "1", minHeight: 30, borderRadius: 8, position: "relative", fontSize: 12, fontWeight: n ? 800 : 500,
                 border: on ? "2px solid var(--mint-dark)" : n ? "1.5px solid var(--mint)" : "1px solid transparent",

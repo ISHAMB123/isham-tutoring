@@ -254,6 +254,8 @@ const css = `
 .it-barfill{width:0;animation:itbar 1s ease forwards .2s}
 @keyframes itbar{from{width:0}}
 @media(max-width:820px){.it-hero-grid{grid-template-columns:1fr}.it-preview{transform:none;max-width:440px;margin:0 auto}.it-preview:hover{transform:translateY(-3px)}}
+.it-header-badge{display:none}
+@media(min-width:640px){.it-header-badge{display:inline-block}}
 @media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon,.it-preview{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}.it-barfill{animation:none;width:var(--w,100%)}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
@@ -262,6 +264,32 @@ const SubjectChip = ({ subject }) => {
   const c = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Maths;
   return <span className="it-chip" style={{ background: c.bg, color: c.text, border: "1px solid " + c.border }}>{subject}</span>;
 };
+
+const ICONS = {
+  cap: "M12 3 1 8l11 5 9-4.1V16h2V8L12 3Zm-7 8.7V16c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5v-4.3l-7 3.2-7-3.2Z",
+  heart: "M12 20.5s-7.4-4.5-9.9-9C.6 8.1 1.8 4.8 5 4.1c2-.4 3.9.5 5 2.1 1.1-1.6 3-2.5 5-2.1 3.2.7 4.4 4 2.9 7.4-2.5 4.5-9.9 9-9.9 9Z",
+  users: "M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.3 0-8 1.7-8 5v1.5h16V19c0-3.3-4.7-5-8-5Zm9-8a3.5 3.5 0 1 0 0 7c-.5 0-1-.1-1.4-.2M17 13.3c2.7.5 5 1.9 5 3.7v1.5h-4",
+  calendar: "M7 2v3M17 2v3M3.5 8.5h17M4 5.5h16A1.5 1.5 0 0 1 21.5 7v13a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 20V7A1.5 1.5 0 0 1 4 5.5Z",
+  check: "M4 12.5 9.5 18 20 6.5",
+  shield: "M12 2.5 4.5 5.5v6c0 5 3.2 8.4 7.5 10 4.3-1.6 7.5-5 7.5-10v-6L12 2.5Z",
+  star: "M12 2.8l2.7 5.9 6.4.7-4.8 4.4 1.3 6.4-5.6-3.2-5.6 3.2 1.3-6.4-4.8-4.4 6.4-.7L12 2.8Z",
+  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+};
+function Icon({ name, size = 20, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={style}>
+      <path d={ICONS[name]} />
+    </svg>
+  );
+}
+function Avatar({ initials, size = 64 }) {
+  return (
+    <div className="it-display" style={{
+      width: size, height: size, borderRadius: "50%", background: "var(--pop)", color: "#fff",
+      display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: size * 0.34, flex: "none",
+    }}>{initials}</div>
+  );
+}
 
 function Reveal({ children, style, className }) {
   const ref = React.useRef(null);
@@ -315,7 +343,7 @@ function CapacityMeter({ taken }) {
 function CharityBanner() {
   return (
     <div className="it-card it-charity" style={{ padding: "22px 26px", display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-      <div className="it-float" style={{ fontSize: 40 }}>🤝</div>
+      <div className="it-float" style={{ width: 52, height: 52, borderRadius: 14, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#C2402F", flex: "none" }}><Icon name="heart" size={26} /></div>
       <div style={{ flex: 1, minWidth: 240 }}>
         <h3 className="it-display" style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 800 }}>5% of everything goes back</h3>
         <p style={{ margin: 0, fontSize: 14.5, color: "#7A5A2E", lineHeight: 1.55 }}>
@@ -387,7 +415,7 @@ function Home({ go, taken, testimonials }) {
       <section style={{ padding: "70px 24px 44px", maxWidth: 1120, margin: "0 auto" }}>
         <div className="it-hero-grid">
           <div>
-            <span className="it-tag">Dental student · ranked top of my school for grades</span>
+            <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> Dental student · ranked top of my school for grades</span>
             <h1 className="it-display" style={{ fontSize: "clamp(34px,4.6vw,54px)", lineHeight: 1.07, margin: "18px 0 14px", fontWeight: 800 }}>
               Top-grade tuition, <span className="it-grad">£5 a lesson.</span><br />Because money shouldn't decide your grades.
             </h1>
@@ -408,31 +436,90 @@ function Home({ go, taken, testimonials }) {
         </div>
       </section>
 
-      <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
-        <div className="it-card" style={{ padding: "22px 26px" }}>
-          <h3 className="it-display" style={{ margin: "0 0 10px", fontSize: 19, fontWeight: 800 }}>One subject a week, on rotation</h3>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {SUBJECT_CYCLE.map((s, i) => (
-              <React.Fragment key={s}>
-                <SubjectChip subject={s} />
-                {i < 3 && <span style={{ color: "var(--ink-soft)" }}>→</span>}
-              </React.Fragment>
-            ))}
-            <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>→ repeat. Every subject, twice a month, no clashes.</span>
-          </div>
-          <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
-            This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
-            {" "}Science weekends run two parallel rooms — one taught by me, one by {TUTORS.belal.name} (medical student at a top UK university) — so twice the places without bigger groups.
-          </p>
+      <section style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", background: "var(--aqua)" }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "18px 24px", display: "flex", flexWrap: "wrap", gap: "14px 32px", justifyContent: "center" }}>
+          {[
+            ["cap", "Dental student, from Sept"],
+            ["star", "Predicted A*A*A"],
+            ["users", "40 places · two tutors"],
+            ["heart", "5% of earnings to charity"],
+          ].map(([icon, label]) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--mint-dark)" }}>
+              <Icon name={icon} size={17} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{label}</span>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
+      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
+        <Reveal>
+          <div className="it-card" style={{ padding: "26px 28px", background: "linear-gradient(160deg,#fff 0%,var(--aqua) 130%)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="calendar" size={19} /></div>
+              <h3 className="it-display" style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>One subject a week, on rotation</h3>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              {SUBJECT_CYCLE.map((s, i) => (
+                <React.Fragment key={s}>
+                  <SubjectChip subject={s} />
+                  {i < 3 && <span style={{ color: "var(--ink-soft)" }}>→</span>}
+                </React.Fragment>
+              ))}
+              <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>→ repeat. Every subject, twice a month, no clashes.</span>
+            </div>
+            <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
+              This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
+              {" "}Science weekends run two parallel rooms — one taught by me, one by {TUTORS.belal.name} (medical student at a top UK university) — so twice the places without bigger groups.
+            </p>
+          </div>
+        </Reveal>
+      </section>
+
+      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
+        <Reveal>
+          <span className="it-tag">Who's teaching</span>
+          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "10px 0 4px" }}>Meet your tutors</h2>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 22px", maxWidth: 640 }}>Both currently at medical/dental school, both teaching because they remember exactly what it's like to need this.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 18 }}>
+            <div className="it-card" style={{ padding: 24 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+                <Avatar initials="IB" />
+                <div>
+                  <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>Isham Bari</div>
+                  <div style={{ fontSize: 13, color: "var(--mint-dark)", fontWeight: 700 }}>Dental student, from September</div>
+                </div>
+              </div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
+                {["Predicted A*A*A · ranked top of his school", "Ran a tutoring service teaching ~50 students/month", "Teaches Maths, Biology, Chemistry, Physics"].map((l) => (
+                  <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="it-card" style={{ padding: 24 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+                <Avatar initials="BG" />
+                <div>
+                  <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>{TUTORS.belal.name}</div>
+                  <div style={{ fontSize: 13, color: "var(--mint-dark)", fontWeight: 700 }}>Medical student, one of the UK's top universities</div>
+                </div>
+              </div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
+                {["A*A*A — Biology, Chemistry & Business", "Ranked top of his class", "Teaches GCSE Sciences & A-level"].map((l) => (
+                  <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
         <CharityBanner />
       </section>
 
       <section style={{ background: "var(--ink)", color: "#fff", padding: "52px 24px" }}>
-        <Reveal style={{ maxWidth: 1000, margin: "0 auto" }}>
+        <Reveal style={{ maxWidth: 1120, margin: "0 auto" }}>
           <span className="it-tag" style={{ background: "rgba(255,255,255,.12)", color: "#9FE8DD" }}>My story</span>
           <div className="it-timeline" style={{ marginTop: 28 }}>
             {[
@@ -453,7 +540,7 @@ function Home({ go, taken, testimonials }) {
       </section>
 
       <section style={{ background: "var(--aqua)", padding: "40px 24px" }}>
-        <Reveal style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
+        <Reveal style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["40", "places across two tutors — me and a medic at a top university"],
@@ -470,7 +557,7 @@ function Home({ go, taken, testimonials }) {
       </section>
 
       {testimonials.length > 0 && (
-        <section style={{ padding: "56px 24px 0", maxWidth: 1000, margin: "0 auto" }}>
+        <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
           <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 18 }}>What students say</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
             {testimonials.map((t) => (
@@ -486,7 +573,7 @@ function Home({ go, taken, testimonials }) {
       )}
 
       {/* what every lesson includes */}
-      <section style={{ padding: "56px 24px 0", maxWidth: 1000, margin: "0 auto" }}>
+      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
         <Reveal>
           <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Every lesson includes</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 24px", maxWidth: 640 }}>Not generic content — every session is built around exam technique and what actually earns marks.</p>
@@ -509,7 +596,7 @@ function Home({ go, taken, testimonials }) {
         </Reveal>
       </section>
 
-      <section style={{ padding: "40px 24px 64px", maxWidth: 1000, margin: "0 auto" }}>
+      <section style={{ padding: "40px 24px 64px", maxWidth: 1120, margin: "0 auto" }}>
         <Reveal className="it-card" style={{ padding: 32 }}>
           <span className="it-tag">The Grade A Guarantee</span>
           <h2 className="it-display" style={{ fontSize: "clamp(24px,3.4vw,34px)", lineHeight: 1.2, fontWeight: 800, margin: "14px 0 16px", maxWidth: 760 }}>
@@ -539,7 +626,7 @@ function Home({ go, taken, testimonials }) {
 function Pricing({ startCheckout, taken }) {
   const fullFor = (p) => taken >= CAP;
   return (
-    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1000, margin: "0 auto" }}>
+    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1120, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>Plans</h1>
       <p style={{ color: "var(--ink-soft)", marginBottom: 28 }}>
         Priced for families who can't stretch to normal tutoring. No contracts — cancel any month.{" "}
@@ -1035,7 +1122,7 @@ function Book({ store, addBooking, refresh, go }) {
   };
 
   return (
-    <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 1000, margin: "0 auto" }}>
+    <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 1120, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
         <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={signOut}>Sign out</button>
@@ -1465,7 +1552,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const blockDef = (id) => blockById(id);
 
   return (
-    <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1000, margin: "0 auto" }}>
+    <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1120, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
         <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>Dashboard</h1>
         <div style={{ display: "flex", gap: 8 }}>
@@ -1841,10 +1928,13 @@ export default function App() {
       <style>{css}</style>
       {recovery && <PasswordRecoveryOverlay onDone={() => setRecovery(false)} />}
       <header style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,253,253,.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid var(--line)" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px" }}>
-          <button onClick={() => setPage("home")} className="it-display" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 19, fontWeight: 800, color: "var(--ink)" }}>
-            isham<span className="it-grad">.tuition</span>
-          </button>
+        <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setPage("home")} className="it-display" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 19, fontWeight: 800, color: "var(--ink)", padding: 0 }}>
+              isham<span className="it-grad">.tuition</span>
+            </button>
+            <span className="it-chip it-header-badge" style={{ background: "var(--aqua)", color: "var(--mint-dark)" }}>Dental student</span>
+          </div>
           <nav style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             {nav.map(([id, label]) => (
               <button key={id} className={"it-navlink" + (page === id ? " active" : "")} onClick={() => setPage(id)}>{label}</button>
@@ -1886,7 +1976,7 @@ export default function App() {
       )}
 
       <footer style={{ borderTop: "1px solid var(--line)", padding: "28px 24px", marginTop: 40 }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, fontSize: 13.5, color: "var(--ink-soft)" }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, fontSize: 13.5, color: "var(--ink-soft)" }}>
           <span>
             © {new Date().getFullYear()} Isham Tuition · 5% of earnings to charity & food banks ·{" "}
             <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a> ·{" "}

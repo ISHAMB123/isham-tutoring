@@ -283,10 +283,13 @@ function Home({ go, taken, testimonials }) {
           I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
           and this September I start dental school — now I'm doing the same for the next kid like me.
         </p>
-        <div style={{ display: "flex", gap: 12, margin: "26px 0 36px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
           <button className="it-btn" onClick={() => go("pricing")}>See plans — from £5 a lesson</button>
           <button className="it-btn ghost" onClick={() => go("book")}>Book a lesson</button>
         </div>
+        <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
+          Live group lessons, taught by real tutors, £40/month — no contract, cancel any month. No catch: see exactly what's included on the <button onClick={() => go("pricing")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Plans page</button>.
+        </p>
         <CapacityMeter taken={taken} />
       </section>
 
@@ -367,18 +370,21 @@ function Home({ go, taken, testimonials }) {
 
       {/* what every lesson includes */}
       <section style={{ padding: "56px 24px 0", maxWidth: 1000, margin: "0 auto" }}>
-        <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 18 }}>Every lesson includes</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 16 }}>
+        <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Every lesson includes</h2>
+        <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 24px", maxWidth: 640 }}>Not generic content — every session is built around exam technique and what actually earns marks.</p>
+        <div style={{ display: "grid", gap: 0 }}>
           {[
-            ["📋", "Exam-board specific", "Taught to your exact spec — AQA, Edexcel or OCR — not generic content. Tell me your board when you join."],
-            ["📝", "Past-paper practice", "Real exam questions in every session, with mark-scheme walkthroughs so you learn how examiners think."],
-            ["🎯", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know — the stuff school never has time for."],
-            ["📈", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week — to you and your parents."],
-          ].map(([icon, t, b]) => (
-            <div key={t} className="it-card" style={{ padding: 22 }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-              <h3 className="it-display" style={{ fontSize: 16.5, fontWeight: 800, margin: "0 0 6px" }}>{t}</h3>
-              <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.6, margin: 0 }}>{b}</p>
+            ["01", "Exam-board specific", "Taught to your exact spec — AQA, Edexcel or OCR — not generic content. Tell me your board when you join."],
+            ["02", "Past-paper practice", "Real exam questions in every session, with mark-scheme walkthroughs so you learn how examiners think."],
+            ["03", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know — the stuff school never has time for."],
+            ["04", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week — to you and your parents."],
+          ].map(([n, t, b], i) => (
+            <div key={t} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--line)" : "none", borderBottom: "1px solid var(--line)" }}>
+              <div className="it-display" style={{ fontSize: 14, fontWeight: 800, color: "var(--mint)", minWidth: 28, paddingTop: 2 }}>{n}</div>
+              <div>
+                <h3 className="it-display" style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px" }}>{t}</h3>
+                <p style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.6, margin: 0, maxWidth: 560 }}>{b}</p>
+              </div>
             </div>
           ))}
         </div>

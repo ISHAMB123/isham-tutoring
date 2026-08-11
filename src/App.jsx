@@ -233,7 +233,22 @@ const css = `
 .it-tag{display:inline-block;background:var(--aqua);color:var(--mint-dark);font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
 .it-charity{background:linear-gradient(120deg,#FFF7E8,#FFEDE0);border:1.5px solid #F6DDB2}
 .it-chip{display:inline-block;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:.03em}
-@media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float{animation:none;transition:none}}
+.it-timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:28px 20px}
+.it-timeline-item{position:relative;padding-left:22px}
+.it-timeline-dot{position:absolute;left:0;top:6px;width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(15,181,160,.22)}
+.it-timeline-line{position:absolute;left:4px;top:15px;bottom:-28px;width:1px;background:rgba(255,255,255,.16)}
+@media(max-width:719px){.it-timeline{grid-template-columns:1fr}.it-timeline-line{bottom:-28px}}
+.it-accordion{border-top:1px solid var(--line)}
+.it-accordion-item{border-bottom:1px solid var(--line)}
+.it-accordion-btn{width:100%;text-align:left;background:none;border:none;padding:16px 2px;font:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--ink)}
+.it-accordion-btn:hover strong{color:var(--mint-dark)}
+.it-accordion-icon{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--ink-soft);transition:transform .2s ease, background .2s ease, color .2s ease}
+.it-accordion-item.open .it-accordion-icon{transform:rotate(45deg);background:var(--mint);color:#fff;border-color:var(--mint)}
+.it-accordion-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.it-accordion-item.open .it-accordion-body{max-height:240px}
+.it-reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease, transform .5s ease}
+.it-reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
 
@@ -241,6 +256,40 @@ const SubjectChip = ({ subject }) => {
   const c = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Maths;
   return <span className="it-chip" style={{ background: c.bg, color: c.text, border: "1px solid " + c.border }}>{subject}</span>;
 };
+
+function Reveal({ children, style, className }) {
+  const ref = React.useRef(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setInView(true); io.disconnect(); }
+    }, { threshold: 0.15 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return <div ref={ref} className={"it-reveal" + (inView ? " in" : "") + (className ? " " + className : "")} style={style}>{children}</div>;
+}
+
+function Accordion({ items }) {
+  const [open, setOpen] = useState(null);
+  return (
+    <div className="it-accordion">
+      {items.map(([q, a], i) => (
+        <div key={q} className={"it-accordion-item" + (open === i ? " open" : "")}>
+          <button className="it-accordion-btn" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
+            <strong style={{ fontSize: 15 }}>{q}</strong>
+            <span className="it-accordion-icon">+</span>
+          </button>
+          <div className="it-accordion-body">
+            <p style={{ color: "var(--ink-soft)", margin: "0 0 16px", fontSize: 14, lineHeight: 1.6 }}>{a}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function CapacityMeter({ taken }) {
   return (
@@ -317,26 +366,28 @@ function Home({ go, taken, testimonials }) {
       </section>
 
       <section style={{ background: "var(--ink)", color: "#fff", padding: "52px 24px" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+        <Reveal style={{ maxWidth: 1000, margin: "0 auto" }}>
           <span className="it-tag" style={{ background: "rgba(255,255,255,.12)", color: "#9FE8DD" }}>My story</span>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 20, marginTop: 22 }}>
+          <div className="it-timeline" style={{ marginTop: 28 }}>
             {[
               ["Age 3", "Made homeless. Raised by a single mum who never let me feel it."],
               ["GCSEs", "No tutors, no quiet desk — just library sessions and free resources. It worked."],
               ["Sixth form", "Ranked top of my school for grades — predicted A*A*A, AB in AS Chemistry & Maths — all while running a tutoring service teaching around 50 students a month."],
               ["This September", "Dental school. Now I teach the way I wish someone had taught me."],
-            ].map(([t, b]) => (
-              <div key={t}>
-                <div className="it-display it-grad" style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>{t}</div>
+            ].map(([t, b], i, arr) => (
+              <div key={t} className="it-timeline-item">
+                <div className="it-timeline-dot" />
+                {i < arr.length - 1 && <div className="it-timeline-line" />}
+                <div className="it-display it-grad" style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>{t}</div>
                 <p style={{ color: "#C4D6E4", fontSize: 14.5, lineHeight: 1.6, margin: 0 }}>{b}</p>
               </div>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <section style={{ background: "var(--aqua)", padding: "40px 24px" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
+        <Reveal style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["40", "places across two tutors — me and a medic at a top university"],
@@ -349,7 +400,7 @@ function Home({ go, taken, testimonials }) {
               <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5 }}>{small}</div>
             </div>
           ))}
-        </div>
+        </Reveal>
       </section>
 
       {testimonials.length > 0 && (
@@ -370,28 +421,30 @@ function Home({ go, taken, testimonials }) {
 
       {/* what every lesson includes */}
       <section style={{ padding: "56px 24px 0", maxWidth: 1000, margin: "0 auto" }}>
-        <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Every lesson includes</h2>
-        <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 24px", maxWidth: 640 }}>Not generic content — every session is built around exam technique and what actually earns marks.</p>
-        <div style={{ display: "grid", gap: 0 }}>
-          {[
-            ["01", "Exam-board specific", "Taught to your exact spec — AQA, Edexcel or OCR — not generic content. Tell me your board when you join."],
-            ["02", "Past-paper practice", "Real exam questions in every session, with mark-scheme walkthroughs so you learn how examiners think."],
-            ["03", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know — the stuff school never has time for."],
-            ["04", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week — to you and your parents."],
-          ].map(([n, t, b], i) => (
-            <div key={t} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--line)" : "none", borderBottom: "1px solid var(--line)" }}>
-              <div className="it-display" style={{ fontSize: 14, fontWeight: 800, color: "var(--mint)", minWidth: 28, paddingTop: 2 }}>{n}</div>
-              <div>
-                <h3 className="it-display" style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px" }}>{t}</h3>
-                <p style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.6, margin: 0, maxWidth: 560 }}>{b}</p>
+        <Reveal>
+          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Every lesson includes</h2>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 24px", maxWidth: 640 }}>Not generic content — every session is built around exam technique and what actually earns marks.</p>
+          <div style={{ display: "grid", gap: 0 }}>
+            {[
+              ["01", "Exam-board specific", "Taught to your exact spec — AQA, Edexcel or OCR — not generic content. Tell me your board when you join."],
+              ["02", "Past-paper practice", "Real exam questions in every session, with mark-scheme walkthroughs so you learn how examiners think."],
+              ["03", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know — the stuff school never has time for."],
+              ["04", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week — to you and your parents."],
+            ].map(([n, t, b], i) => (
+              <div key={t} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--line)" : "none", borderBottom: "1px solid var(--line)" }}>
+                <div className="it-display" style={{ fontSize: 14, fontWeight: 800, color: "var(--mint)", minWidth: 28, paddingTop: 2 }}>{n}</div>
+                <div>
+                  <h3 className="it-display" style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px" }}>{t}</h3>
+                  <p style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.6, margin: 0, maxWidth: 560 }}>{b}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </Reveal>
       </section>
 
       <section style={{ padding: "40px 24px 64px", maxWidth: 1000, margin: "0 auto" }}>
-        <div className="it-card" style={{ padding: 32 }}>
+        <Reveal className="it-card" style={{ padding: 32 }}>
           <span className="it-tag">The Grade A Guarantee</span>
           <h2 className="it-display" style={{ fontSize: "clamp(24px,3.4vw,34px)", lineHeight: 1.2, fontWeight: 800, margin: "14px 0 16px", maxWidth: 760 }}>
             Do the work, and if you still don't average a 7 (A): your last 3 months of fees back.
@@ -411,7 +464,7 @@ function Home({ go, taken, testimonials }) {
           <p style={{ color: "var(--ink-soft)", fontSize: 13, margin: 0 }}>
             Questions first? Email <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a>.
           </p>
-        </div>
+        </Reveal>
       </section>
     </div>
   );
@@ -1052,8 +1105,8 @@ function Contact({ addMessage }) {
         </div>
       )}
       <div style={{ marginTop: 32 }}>
-        <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Quick answers</h3>
-        {[
+        <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
+        <Accordion items={[
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
@@ -1063,12 +1116,7 @@ function Contact({ addMessage }) {
           ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard — if your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
-        ].map(([q, a]) => (
-          <div key={q} style={{ borderBottom: "1px solid var(--line)", padding: "14px 0" }}>
-            <strong style={{ fontSize: 15 }}>{q}</strong>
-            <p style={{ color: "var(--ink-soft)", margin: "4px 0 0", fontSize: 14 }}>{a}</p>
-          </div>
-        ))}
+        ]} />
       </div>
     </div>
   );

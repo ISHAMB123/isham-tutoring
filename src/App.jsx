@@ -122,13 +122,14 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [st, bk, ms, ml, ts, caps] = await Promise.all([
+  const [st, bk, ms, ml, ts, caps, ln] = await Promise.all([
     supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
     supa.from("bookings").select("*").order("date"),
     supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
     supa.from("meet_links").select("*"),
     supa.from("testimonials").select("*").order("created"),
     supa.rpc("get_caps"),                                     // safe public per-department counts for the capacity meters
+    supa.from("lesson_notes").select("*"),                    // RLS-scoped: tutors see all, a student sees only their own
   ]);
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
@@ -136,9 +137,16 @@ async function fetchAll() {
   // get_caps() may still return a "hum" field from the old dept split — ignore it, we only use "stem" now.
   const cnt = () => subscribers.filter((x) => (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
   const capsRow = (caps.data && caps.data[0]) || null;
+  const notesByBooking = {};
+  for (const n of ln.data || []) notesByBooking[n.booking_id] = n;
+  const bookings = (bk.data || []).map((r) => {
+    const b = mapBooking(r);
+    const n = notesByBooking[b.id];
+    return { ...b, attended: n ? n.attended : null, note: n ? n.note : null };
+  });
   return {
     subscribers,
-    bookings: (bk.data || []).map(mapBooking),
+    bookings,
     messages: ms.data || [],
     meetLinks,
     testimonials: ts.data || [],
@@ -954,8 +962,17 @@ function Book({ store, addBooking, refresh, go }) {
 
       {mine.length > 0 && (
         <div style={{ marginTop: 28 }}>
-          <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Your upcoming lessons</h3>
+          <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Your lessons</h3>
           <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "2px 0 8px" }}>You can cancel and rebook any lesson up to 24 hours before it starts.</p>
+          {(() => {
+            const marked = mine.filter((b) => b.attended === true || b.attended === false);
+            const attended = mine.filter((b) => b.attended === true).length;
+            return marked.length > 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" }}>
+                Attendance: <strong style={{ color: "var(--ink)" }}>{attended} of {marked.length}</strong> lessons attended so far.
+              </p>
+            ) : null;
+          })()}
           <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
             {[...mine].sort((a, b) => a.date.localeCompare(b.date)).map((b) => {
               const link = store.meetLinks[slotKey(b.date, b.block)];
@@ -965,7 +982,12 @@ function Book({ store, addBooking, refresh, go }) {
               const cancellable = startMs - Date.now() > 24 * 3600 * 1000;
               return (
                 <li key={b.id} style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 12, padding: "12px 14px", fontSize: 14, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <span><strong style={{ color: c.text }}>{b.subject}</strong> — {b.date} · {b.blockLabel}</span>
+                  <span>
+                    <strong style={{ color: c.text }}>{b.subject}</strong> — {b.date} · {b.blockLabel}
+                    {b.attended === true && <span className="it-chip" style={{ marginLeft: 8, background: "var(--aqua)", color: "var(--mint-dark)" }}>Attended</span>}
+                    {b.attended === false && <span className="it-chip" style={{ marginLeft: 8, background: "#FFEDE9", color: "#C2402F" }}>Missed</span>}
+                    {b.note && <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4, fontStyle: "italic" }}>"{b.note}"</div>}
+                  </span>
                   <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {link ? (
                       <a href={link} target="_blank" rel="noreferrer" className="it-btn" style={{ padding: "8px 16px", fontSize: 13.5, textDecoration: "none" }}>Join Google Meet →</a>
@@ -1046,7 +1068,30 @@ function Contact({ addMessage }) {
   );
 }
 
-function SessionCard({ dk, block, list, subj, link, saveLink, onMove, emails }) {
+function StudentAttendanceRow({ b, c, onMove, saveNote }) {
+  const [note, setNote] = useState(b.note || "");
+  return (
+    <div style={{ background: "#fff", border: "1px solid " + c.border, borderRadius: 10, padding: "6px 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 13 }}>{b.name}</strong>
+        <button onClick={() => onMove(b)} title="Move this student to a different session"
+          style={{ border: "none", background: c.bg, color: c.text, borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 9px", cursor: "pointer" }}>Move</button>
+        <button onClick={() => saveNote(b.id, { attended: b.attended === true ? null : true })} title="Mark present"
+          style={{ border: "none", borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 9px", cursor: "pointer",
+            background: b.attended === true ? "var(--mint)" : "#EEF3F1", color: b.attended === true ? "#fff" : "var(--ink-soft)" }}>✓ Present</button>
+        <button onClick={() => saveNote(b.id, { attended: b.attended === false ? null : false })} title="Mark absent"
+          style={{ border: "none", borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 9px", cursor: "pointer",
+            background: b.attended === false ? "var(--coral)" : "#EEF3F1", color: b.attended === false ? "#fff" : "var(--ink-soft)" }}>✗ Absent</button>
+      </div>
+      <textarea rows={1} placeholder="Note for this student — visible to them"
+        value={note} onChange={(e) => setNote(e.target.value)}
+        onBlur={() => { if (note !== (b.note || "")) saveNote(b.id, { note: note.trim() || null }); }}
+        style={{ width: "100%", marginTop: 6, fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 8, fontFamily: "inherit", resize: "vertical" }} />
+    </div>
+  );
+}
+
+function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, emails }) {
   const cap = (PLANS[(list[0] || {}).plan] || {}).seats || 5;
   const [draft, setDraft] = useState(link || "");
   const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
@@ -1070,13 +1115,9 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, emails }) 
           </span>
         </div>
       </div>
-      <div style={{ fontSize: 13.5, margin: "8px 0", color: "var(--ink)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gap: 8, margin: "8px 0" }}>
         {list.length ? list.map((b) => (
-          <span key={b.id} style={{ background: "#fff", border: "1px solid " + c.border, borderRadius: 999, padding: "4px 6px 4px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {b.name}
-            <button onClick={() => onMove(b)} title="Move this student to a different session"
-              style={{ border: "none", background: c.bg, color: c.text, borderRadius: 999, fontSize: 11.5, fontWeight: 800, padding: "3px 9px", cursor: "pointer" }}>Move</button>
-          </span>
+          <StudentAttendanceRow key={b.id} b={b} c={c} onMove={onMove} saveNote={saveNote} />
         )) : "No students yet"}
       </div>
       {list.length > 0 && (
@@ -1147,7 +1188,7 @@ function RenewBadge({ paidUntil, plan }) {
   );
 }
 
-function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial }) {
+function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial }) {
   const [step, setStep] = useState("checking"); // checking | login | challenge | in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1409,6 +1450,7 @@ function Admin({ store, saveMeet, removeSubscriber, refresh, moveBooking, addStu
               <SessionCard key={blockId} dk={dk} block={blockDef(blockId)} list={list} subj={list[0].subject}
                 link={store.meetLinks[slotKey(dk, blockId)]}
                 saveLink={(l) => saveMeet(slotKey(dk, blockId), l)} onMove={setMoving}
+                saveNote={saveLessonNote}
                 emails={list.map((b) => (subs.find((s) => s.id === b.subscriberId) || {}).email)} />
             ))}
           </div>
@@ -1616,6 +1658,11 @@ export default function App() {
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, meetLinks: { ...st.meetLinks, [slot]: link } }));
   };
+  const saveLessonNote = async (bookingId, patch) => {
+    const { error } = await supa.from("lesson_notes").upsert({ booking_id: bookingId, ...patch }, { onConflict: "booking_id" });
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, bookings: st.bookings.map((b) => b.id === bookingId ? { ...b, ...patch } : b) }));
+  };
   const moveBooking = async (b, upd) => {
     const { error } = await supa.from("bookings").update(upd).eq("id", b.id);
     if (error) throw new Error(error.message);
@@ -1702,7 +1749,7 @@ export default function App() {
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
       ) : (
-        <Admin store={store} saveMeet={saveMeet} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} />
+        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} />
       )}
 
       {checkoutPlan && (

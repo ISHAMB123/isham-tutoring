@@ -222,9 +222,12 @@ const css = `
 .it-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .it-pip{width:14px;height:18px;border-radius:7px 7px 9px 9px;background:#E3EFEC;transition:background .4s}
 .it-pip.on{background:var(--mint)}
-.it-navlink{background:none;border:none;font:inherit;font-weight:500;color:var(--ink-soft);cursor:pointer;padding:8px 12px;border-radius:8px;transition:all .2s}
+.it-navrow{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.it-navrow::-webkit-scrollbar{display:none}
+.it-navlink{display:flex;align-items:center;gap:6px;flex:none;background:none;border:none;font:inherit;font-weight:500;color:var(--ink-soft);cursor:pointer;padding:8px 12px;border-radius:8px;transition:all .2s;white-space:nowrap}
 .it-navlink:hover{color:var(--ink);background:var(--aqua)}
 .it-navlink.active{color:var(--mint-dark);background:var(--aqua);font-weight:700}
+@media(max-width:480px){.it-navlink span{display:none}}
 .it-input{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font:inherit;transition:border-color .2s;background:#fff}
 .it-input:focus{outline:none;border-color:var(--mint)}
 .it-slot{border-radius:12px;padding:12px 8px;font-size:13.5px;font-weight:700;cursor:pointer;transition:all .15s;text-align:center;border:1.5px solid var(--line);background:#fff;color:var(--ink)}
@@ -265,6 +268,12 @@ const css = `
 .it-plan-card.featured{border:2px solid var(--coral)}
 .it-plan-ribbon{position:absolute;top:-1px;right:18px;background:var(--coral);color:#fff;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 12px;border-radius:0 0 8px 8px}
 .it-contact-tile{display:flex;align-items:center;gap:12px;padding:14px 16px;text-decoration:none;color:inherit}
+.it-admin-jumpnav{position:sticky;top:53px;z-index:20;display:flex;gap:6px;overflow-x:auto;background:var(--paper);padding:10px 0;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.it-admin-jumpnav button{flex:none;background:var(--aqua);color:var(--mint-dark);border:none;border-radius:999px;padding:7px 15px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s}
+.it-admin-jumpnav button:hover{background:var(--mint);color:#fff}
+.it-spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--mint);margin:0 auto;animation:itspin .8s linear infinite}
+@keyframes itspin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.it-spinner{animation-duration:1.6s}}
 @media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon,.it-preview{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}.it-barfill{animation:none;width:var(--w,100%)}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
@@ -283,6 +292,8 @@ const ICONS = {
   shield: "M12 2.5 4.5 5.5v6c0 5 3.2 8.4 7.5 10 4.3-1.6 7.5-5 7.5-10v-6L12 2.5Z",
   star: "M12 2.8l2.7 5.9 6.4.7-4.8 4.4 1.3 6.4-5.6-3.2-5.6 3.2 1.3-6.4-4.8-4.4 6.4-.7L12 2.8Z",
   target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+  mail: "M3.5 5.5h17A1 1 0 0 1 21.5 6.5v11a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1Zm0 0 8.5 7 8.5-7",
+  home: "M4 11 12 4l8 7M6 10v9.5h5V14h2v5.5h5V10",
 };
 function Icon({ name, size = 20, style }) {
   return (
@@ -291,6 +302,24 @@ function Icon({ name, size = 20, style }) {
     </svg>
   );
 }
+function EmptyState({ icon, text }) {
+  return (
+    <div style={{ textAlign: "center", padding: "28px 16px", color: "var(--ink-soft)" }}>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}><Icon name={icon} size={19} /></div>
+      <p style={{ margin: 0, fontSize: 13.5 }}>{text}</p>
+    </div>
+  );
+}
+
+function Spinner({ label }) {
+  return (
+    <div style={{ textAlign: "center", padding: 80 }}>
+      <div className="it-spinner" />
+      {label && <p style={{ color: "var(--ink-soft)", marginTop: 14, fontSize: 14 }}>{label}</p>}
+    </div>
+  );
+}
+
 function Avatar({ initials, size = 64 }) {
   return (
     <div className="it-display" style={{
@@ -1078,7 +1107,7 @@ function Book({ store, addBooking, refresh, go }) {
   const signOut = async () => { await supa.auth.signOut(); };
 
   if (session === undefined || (session && !meChecked))
-    return <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Loading…</p>;
+    return <Spinner label="Loading your account…" />;
 
   if (!session)
     return (
@@ -1195,6 +1224,12 @@ function Book({ store, addBooking, refresh, go }) {
             </button>
           </div>
         </>
+      )}
+
+      {mine.length === 0 && (
+        <div style={{ marginTop: 28 }}>
+          <EmptyState icon="calendar" text="No lessons booked yet — pick a highlighted date above to get started." />
+        </div>
       )}
 
       {mine.length > 0 && (
@@ -1525,7 +1560,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const signOut = async () => { await supa.auth.signOut(); setStep("login"); setPassword(""); setCode(""); };
 
   if (step === "checking")
-    return <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Checking login…</p>;
+    return <Spinner label="Checking login…" />;
 
   if (step === "login")
     return (
@@ -1596,6 +1631,12 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         </div>
       </div>
 
+      <div className="it-admin-jumpnav">
+        {[["overview", "Overview"], ["timetable", "Timetable"], ["students", "Students"], ["testimonials", "Testimonials"], ["messages", "Messages"]].map(([id, label]) => (
+          <button key={id} onClick={() => document.getElementById("admin-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{label}</button>
+        ))}
+      </div>
+
       {!hasMfa && (
         <div className="it-card" style={{ padding: 20, marginBottom: 20, border: "1.5px solid var(--coral)" }}>
           <h3 className="it-display" style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800 }}>🔐 Turn on two-factor authentication</h3>
@@ -1624,7 +1665,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30 }}>
+      <div id="admin-overview" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30, scrollMarginTop: 90 }}>
         {(isMaster ? [
           ["My gross / month", "£" + grossFor("isham").toFixed(0), "💷"],
           ["Fees from tutors", "£" + feesToMaster.toFixed(2), "🤝"],
@@ -1676,10 +1717,10 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         </div>
       )}
 
-      <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800 }}>Timetable — who booked what & when</h2>
+      <h2 id="admin-timetable" className="it-display" style={{ fontSize: 20, fontWeight: 800, scrollMarginTop: 90 }}>Timetable — who booked what & when</h2>
       <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session — students instantly see it on their booking page.</p>
       <AdminCalendar bookings={store.bookings} active={calFilter} onPick={(dk) => setCalFilter(calFilter === dk ? null : dk)} />
-      {dates.length === 0 && <p style={{ color: "var(--ink-soft)" }}>No bookings yet.</p>}
+      {dates.length === 0 && <EmptyState icon="calendar" text="No bookings yet." />}
       {(calFilter ? dates.filter((d) => d === calFilter) : dates).map((dk) => {
         const d = new Date(dk + "T00:00:00");
         const total = Object.values(byDate[dk]).reduce((t, l) => t + l.length, 0);
@@ -1700,7 +1741,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         );
       })}
 
-      <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34 }}>Students</h2>
+      <h2 id="admin-students" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Students</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
         <strong style={{ fontSize: 14.5 }}>Add a student manually</strong>
         <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 10px" }}>For anyone who paid or arranged differently (bank transfer, cash, DM) — adds them so they can book like everyone else.</p>
@@ -1724,7 +1765,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         </div>
       </div>
       <div className="it-card" style={{ padding: 18, marginTop: 12, overflowX: "auto" }}>
-        {subs.length === 0 ? <p style={{ color: "var(--ink-soft)", margin: 0 }}>No sign-ups yet.</p> : (
+        {subs.length === 0 ? <EmptyState icon="users" text="No sign-ups yet." /> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 6 }}>Name</th><th style={{ padding: 6 }}>Email</th><th style={{ padding: 6 }}>Plan</th><th style={{ padding: 6 }}>Joined</th><th style={{ padding: 6 }}>Renewal</th><th /></tr></thead>
             <tbody>
@@ -1754,7 +1795,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       </div>
 
       {isMaster && (<>
-      <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34 }}>Testimonials</h2>
+      <h2 id="admin-testimonials" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Testimonials</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
         <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" }}>
           Only add real quotes with the student's (or parent's) permission — these show publicly on the home page. Ask past students today; three honest lines beat any design tweak.
@@ -1781,9 +1822,9 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         )}
       </div>
 
-      <h2 className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34 }}>Messages</h2>
+      <h2 id="admin-messages" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Messages</h2>
       <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-        {store.messages.length === 0 && <p style={{ color: "var(--ink-soft)" }}>No questions yet.</p>}
+        {store.messages.length === 0 && <EmptyState icon="mail" text="No questions yet." />}
         {[...store.messages].reverse().map((m) => (
           <div key={m.id} className="it-card" style={{ padding: 16 }}>
             <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>{(m.created || "").slice(0, 16).replace("T", " · ")} — <strong style={{ color: "var(--ink)" }}>{m.name}</strong> {m.email && `(${m.email})`}</div>
@@ -1956,7 +1997,7 @@ export default function App() {
   };
 
   const taken = store.takenCount || 0;
-  const nav = [["home", "Home"], ["pricing", "Plans"], ["book", "Book"], ["contact", "FAQ & Contact"]];
+  const nav = [["home", "Home", "home"], ["pricing", "Plans", "star"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
 
   return (
     <div className="it-app">
@@ -1970,9 +2011,11 @@ export default function App() {
             </button>
             <span className="it-chip it-header-badge" style={{ background: "var(--aqua)", color: "var(--mint-dark)" }}>Dental student</span>
           </div>
-          <nav style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            {nav.map(([id, label]) => (
-              <button key={id} className={"it-navlink" + (page === id ? " active" : "")} onClick={() => setPage(id)}>{label}</button>
+          <nav className="it-navrow">
+            {nav.map(([id, label, icon]) => (
+              <button key={id} className={"it-navlink" + (page === id ? " active" : "")} onClick={() => setPage(id)}>
+                <Icon name={icon} size={15} style={{ flex: "none" }} /><span>{label}</span>
+              </button>
             ))}
           </nav>
         </div>
@@ -1985,7 +2028,7 @@ export default function App() {
       )}
 
       {!loaded ? (
-        <p style={{ textAlign: "center", padding: 80, color: "var(--ink-soft)" }}>Loading…</p>
+        <Spinner label="Loading…" />
       ) : page === "home" ? (
         <Home go={setPage} taken={taken} testimonials={store.testimonials || []} />
       ) : page === "pricing" ? (

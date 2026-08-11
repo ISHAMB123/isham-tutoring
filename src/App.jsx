@@ -256,6 +256,15 @@ const css = `
 @media(max-width:820px){.it-hero-grid{grid-template-columns:1fr}.it-preview{transform:none;max-width:440px;margin:0 auto}.it-preview:hover{transform:translateY(-3px)}}
 .it-header-badge{display:none}
 @media(min-width:640px){.it-header-badge{display:inline-block}}
+.it-steps{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.it-step{display:flex;gap:10px;align-items:flex-start;flex:1;min-width:200px}
+.it-step-icon{width:34px;height:34px;border-radius:10px;background:var(--aqua);color:var(--mint-dark);display:flex;align-items:center;justify-content:center;flex:none}
+.it-step-connector{width:32px;height:1px;background:var(--line);margin-top:17px;flex:none}
+@media(max-width:700px){.it-step-connector{display:none}}
+.it-plan-card{position:relative;transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease}
+.it-plan-card.featured{border:2px solid var(--coral)}
+.it-plan-ribbon{position:absolute;top:-1px;right:18px;background:var(--coral);color:#fff;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 12px;border-radius:0 0 8px 8px}
+.it-contact-tile{display:flex;align-items:center;gap:12px;padding:14px 16px;text-decoration:none;color:inherit}
 @media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon,.it-preview{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}.it-barfill{animation:none;width:var(--w,100%)}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
@@ -491,7 +500,7 @@ function Home({ go, taken, testimonials }) {
                 </div>
               </div>
               <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
-                {["Predicted A*A*A · ranked top of his school", "Ran a tutoring service teaching ~50 students/month", "Teaches Maths, Biology, Chemistry, Physics"].map((l) => (
+                {["Predicted A*A*A · ranked top of his school", "Ran a tutoring service teaching ~50 students/month", "Personally tutored 65 students for the UCAT", "Teaches Maths, Biology, Chemistry, Physics"].map((l) => (
                   <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
                 ))}
               </ul>
@@ -543,6 +552,7 @@ function Home({ go, taken, testimonials }) {
         <Reveal style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 18 }}>
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
+            ["65", "students I've personally tutored for the UCAT"],
             ["40", "places across two tutors — me and a medic at a top university"],
             ["5", "max per GCSE group — A-level & UCAT are private 1-to-1"],
             ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
@@ -623,30 +633,40 @@ function Home({ go, taken, testimonials }) {
   );
 }
 
+const PLAN_ICON = { gcse: "users", gcse3: "calendar", alevel: "target", ucat: "star" };
+
 function Pricing({ startCheckout, taken }) {
   const fullFor = (p) => taken >= CAP;
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1120, margin: "0 auto" }}>
-      <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>Plans</h1>
-      <p style={{ color: "var(--ink-soft)", marginBottom: 28 }}>
+      <span className="it-tag">Plans &amp; pricing</span>
+      <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 8px" }}>Simple, transparent plans</h1>
+      <p style={{ color: "var(--ink-soft)", marginBottom: 28, maxWidth: 620 }}>
         Priced for families who can't stretch to normal tutoring. No contracts — cancel any month.{" "}
         {`${Math.max(CAP - taken, 0)} of ${CAP} places left.`}
       </p>
-      <div className="it-card" style={{ padding: "16px 22px", marginBottom: 26, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+      <div className="it-steps">
         {[
-          ["1", "Pick a plan & create your account"],
-          ["2", "Verify your email and pay securely with Stripe"],
-          ["3", "Booking unlocks the moment payment is confirmed (usually within hours)"],
-        ].map(([n, t]) => (
-          <div key={n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span className="it-display" style={{ fontSize: 20, fontWeight: 800, color: "var(--mint-dark)" }}>{n}.</span>
-            <span style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{t}</span>
-          </div>
+          ["users", "Pick a plan & create your account"],
+          ["shield", "Verify your email and pay securely with Stripe"],
+          ["check", "Booking unlocks the moment payment is confirmed (usually within hours)"],
+        ].map(([icon, t], i, arr) => (
+          <React.Fragment key={t}>
+            <div className="it-step">
+              <div className="it-step-icon"><Icon name={icon} size={17} /></div>
+              <span style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{t}</span>
+            </div>
+            {i < arr.length - 1 && <div className="it-step-connector" />}
+          </React.Fragment>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20, marginTop: 30 }}>
         {Object.values(PLANS).filter((p) => !p.hidden).map((p) => (
-          <div key={p.id} className="it-card" style={{ padding: 28, display: "flex", flexDirection: "column", ...(p.id === "gcse" ? { border: "2px solid var(--coral)" } : {}) }}>
+          <div key={p.id} className={"it-card it-plan-card" + (p.id === "gcse" ? " featured" : "")} style={{ padding: 28, display: "flex", flexDirection: "column" }}>
+            {p.id === "gcse" && <div className="it-plan-ribbon">Most popular</div>}
+            <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+              <Icon name={PLAN_ICON[p.id] || "star"} size={20} />
+            </div>
             {p.deal && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10, background: "#FFEDE9", color: "#C2402F" }}>{p.deal} — places go fast</span>}
             <h3 className="it-display" style={{ fontSize: 21, fontWeight: 800, margin: "0 0 6px" }}>{p.name}</h3>
             <div style={{ margin: "6px 0 12px" }}>
@@ -654,13 +674,18 @@ function Pricing({ startCheckout, taken }) {
               <span style={{ color: "var(--ink-soft)" }}>{p.per}</span>
             </div>
             <p style={{ fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6, flex: 1 }}>{p.blurb}</p>
+            {p.id === "ucat" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--aqua)", color: "var(--mint-dark)", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 700, alignSelf: "flex-start", margin: "0 0 14px" }}>
+                <Icon name="check" size={13} /> 65 students tutored for UCAT
+              </div>
+            )}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
               {p.subjects.map((s) => <SubjectChip key={s} subject={s} />)}
             </div>
             <ul style={{ padding: 0, listStyle: "none", margin: "0 0 18px", fontSize: 14, color: "var(--ink-soft)", lineHeight: 2 }}>
-              <li>✓ {p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
-              <li>✓ {p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : p.days === "weekday" ? "Weekday evenings, 6:00–10:00pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
-              <li>✓ {p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
+              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
+              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : p.days === "weekday" ? "Weekday evenings, 6:00–10:00pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
+              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
             </ul>
             <button className="it-btn" disabled={fullFor(p) && p.months > 0} onClick={() => startCheckout(p.id)}>
               {p.months === 0 ? "Book session" : fullFor(p) ? "Programme full" : "Join plan"}
@@ -1237,17 +1262,27 @@ function Contact({ addMessage }) {
     catch (e) { alert("Couldn't send — please try again."); }
   };
   return (
-    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 560, margin: "0 auto" }}>
-      <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>Questions?</h1>
+    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 620, margin: "0 auto" }}>
+      <span className="it-tag">Get in touch</span>
+      <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, margin: "12px 0 6px" }}>Questions?</h1>
       <p style={{ color: "var(--ink-soft)" }}>Money worries, subjects, exam boards, availability — ask anything. I usually reply within a day.</p>
-      <div className="it-card" style={{ padding: 18, margin: "14px 0 6px", display: "grid", gap: 8, fontSize: 14.5 }}>
-        <div>💬 WhatsApp: <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>message me directly</a></div>
-        <div>✉️ Email: <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, margin: "16px 0 6px" }}>
+        <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer" className="it-card it-contact-tile">
+          <div className="it-step-icon"><Icon name="users" size={16} /></div>
+          <div><div style={{ fontSize: 12, color: "var(--ink-soft)", fontWeight: 600 }}>WhatsApp</div><div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mint-dark)" }}>Message directly</div></div>
+        </a>
+        <a href={"mailto:" + CONTACT.email} className="it-card it-contact-tile">
+          <div className="it-step-icon"><Icon name="check" size={16} /></div>
+          <div><div style={{ fontSize: 12, color: "var(--ink-soft)", fontWeight: 600 }}>Email</div><div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mint-dark)" }}>{CONTACT.email}</div></div>
+        </a>
       </div>
       {sent ? (
-        <div className="it-card" style={{ padding: 24, marginTop: 16 }}>
-          <strong>Message sent ✓</strong>
-          <p style={{ color: "var(--ink-soft)", margin: "6px 0 0" }}>Thanks {f.name.split(" ")[0]} — I'll get back to you at {f.email || "your email"}.</p>
+        <div className="it-card" style={{ padding: 24, marginTop: 16, display: "flex", gap: 14, alignItems: "center" }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="check" size={20} /></div>
+          <div>
+            <strong>Message sent</strong>
+            <p style={{ color: "var(--ink-soft)", margin: "4px 0 0" }}>Thanks {f.name.split(" ")[0]} — I'll get back to you at {f.email || "your email"}.</p>
+          </div>
         </div>
       ) : (
         <div style={{ display: "grid", gap: 12, marginTop: 16 }}>

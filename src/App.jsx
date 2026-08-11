@@ -248,7 +248,13 @@ const css = `
 .it-accordion-item.open .it-accordion-body{max-height:240px}
 .it-reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease, transform .5s ease}
 .it-reveal.in{opacity:1;transform:none}
-@media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}}
+.it-hero-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:40px;align-items:center}
+.it-preview{transform:rotate(-1deg)}
+.it-preview:hover{transform:rotate(0deg) translateY(-3px)}
+.it-barfill{width:0;animation:itbar 1s ease forwards .2s}
+@keyframes itbar{from{width:0}}
+@media(max-width:820px){.it-hero-grid{grid-template-columns:1fr}.it-preview{transform:none;max-width:440px;margin:0 auto}.it-preview:hover{transform:translateY(-3px)}}
+@media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon,.it-preview{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}.it-barfill{animation:none;width:var(--w,100%)}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 `;
 
@@ -320,26 +326,86 @@ function CharityBanner() {
   );
 }
 
+function ProgressBar({ subject, pct }) {
+  const c = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Maths;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
+      <span style={{ fontSize: 12.5, color: "var(--ink-soft)", width: 78, flex: "none" }}>{subject}</span>
+      <div style={{ flex: 1, height: 7, borderRadius: 999, background: "var(--aqua)", overflow: "hidden" }}>
+        <div className="it-barfill" style={{ height: "100%", width: pct + "%", borderRadius: 999, background: c.border }} />
+      </div>
+      <span className="it-display" style={{ fontSize: 12.5, fontWeight: 800, width: 30, textAlign: "right", flex: "none" }}>{pct}%</span>
+    </div>
+  );
+}
+
+function DashboardPreview() {
+  return (
+    <Reveal className="it-card it-preview" style={{ padding: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div>
+          <div className="it-display" style={{ fontSize: 15, fontWeight: 800 }}>Aisha's progress</div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Year 10 · GCSE Plan</div>
+        </div>
+        <span className="it-chip" style={{ background: "var(--aqua)", color: "var(--mint-dark)" }}>Sample data</span>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--aqua)", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px", marginBottom: 16 }}>
+        <span style={{ fontSize: 20 }}>🏆</span>
+        <p style={{ margin: 0, fontSize: 12.5, color: "var(--mint-dark)", fontWeight: 700, lineHeight: 1.4 }}>Nice work — Chemistry attendance is up this month.</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 18 }}>
+        {[["Attendance", "96%"], ["Lessons", "8/8"], ["Homework", "7/8"]].map(([k, v]) => (
+          <div key={k} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: "9px 8px", textAlign: "center" }}>
+            <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>{v}</div>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{k}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 10 }}>Subject progress</div>
+      <ProgressBar subject="Maths" pct={82} />
+      <ProgressBar subject="Biology" pct={74} />
+      <ProgressBar subject="Chemistry" pct={91} />
+      <ProgressBar subject="Physics" pct={68} />
+
+      <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".04em" }}>Next lesson</div>
+          <div className="it-display" style={{ fontSize: 13.5, fontWeight: 800 }}>Sat · 10:45am · Chemistry</div>
+        </div>
+        <span className="it-chip" style={{ background: "var(--aqua)", color: "var(--mint-dark)" }}>Booked ✓</span>
+      </div>
+    </Reveal>
+  );
+}
+
 function Home({ go, taken, testimonials }) {
   return (
     <div className="it-fade">
-      <section style={{ padding: "70px 24px 44px", maxWidth: 1000, margin: "0 auto" }}>
-        <span className="it-tag">Dental student · ranked top of my school for grades</span>
-        <h1 className="it-display" style={{ fontSize: "clamp(34px,5.5vw,60px)", lineHeight: 1.07, margin: "18px 0 14px", fontWeight: 800 }}>
-          Top-grade tuition, <span className="it-grad">£5 a lesson.</span><br />Because money shouldn't decide your grades.
-        </h1>
-        <p style={{ fontSize: 18, color: "var(--ink-soft)", maxWidth: 660, lineHeight: 1.65 }}>
-          I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
-          and this September I start dental school — now I'm doing the same for the next kid like me.
-        </p>
-        <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
-          <button className="it-btn" onClick={() => go("pricing")}>See plans — from £5 a lesson</button>
-          <button className="it-btn ghost" onClick={() => go("book")}>Book a lesson</button>
+      <section style={{ padding: "70px 24px 44px", maxWidth: 1120, margin: "0 auto" }}>
+        <div className="it-hero-grid">
+          <div>
+            <span className="it-tag">Dental student · ranked top of my school for grades</span>
+            <h1 className="it-display" style={{ fontSize: "clamp(34px,4.6vw,54px)", lineHeight: 1.07, margin: "18px 0 14px", fontWeight: 800 }}>
+              Top-grade tuition, <span className="it-grad">£5 a lesson.</span><br />Because money shouldn't decide your grades.
+            </h1>
+            <p style={{ fontSize: 18, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.65 }}>
+              I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
+              and this September I start dental school — now I'm doing the same for the next kid like me.
+            </p>
+            <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
+              <button className="it-btn" onClick={() => go("pricing")}>See plans — from £5 a lesson</button>
+              <button className="it-btn ghost" onClick={() => go("book")}>Book a lesson</button>
+            </div>
+            <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
+              Live group lessons, taught by real tutors, £40/month — no contract, cancel any month. No catch: see exactly what's included on the <button onClick={() => go("pricing")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Plans page</button>.
+            </p>
+            <CapacityMeter taken={taken} />
+          </div>
+          <DashboardPreview />
         </div>
-        <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
-          Live group lessons, taught by real tutors, £40/month — no contract, cancel any month. No catch: see exactly what's included on the <button onClick={() => go("pricing")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Plans page</button>.
-        </p>
-        <CapacityMeter taken={taken} />
       </section>
 
       <section style={{ padding: "0 24px 40px", maxWidth: 1000, margin: "0 auto" }}>
@@ -1438,25 +1504,26 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30 }}>
         {(isMaster ? [
-          ["My gross / month", "£" + grossFor("isham").toFixed(0)],
-          ["Fees from tutors", "£" + feesToMaster.toFixed(2)],
-          ["My total", "£" + (grossFor("isham") + feesToMaster).toFixed(2)],
-          ["Charity pot (5%)", "£" + charity.toFixed(2)],
-          ["Places", `${store.takenCount || 0} / ${CAP}`],
-          ["Registered students", String(store.subscribers.length)],
-          ["Lessons booked", String(store.bookings.length)],
-          ["Messages", String(store.messages.length)],
+          ["My gross / month", "£" + grossFor("isham").toFixed(0), "💷"],
+          ["Fees from tutors", "£" + feesToMaster.toFixed(2), "🤝"],
+          ["My total", "£" + (grossFor("isham") + feesToMaster).toFixed(2), "📊"],
+          ["Charity pot (5%)", "£" + charity.toFixed(2), "❤️"],
+          ["Places", `${store.takenCount || 0} / ${CAP}`, "🎓"],
+          ["Registered students", String(store.subscribers.length), "👥"],
+          ["Lessons booked", String(store.bookings.length), "📅"],
+          ["Messages", String(store.messages.length), "✉️"],
         ] : [
-          ["Your gross / month", "£" + myGross.toFixed(2)],
-          [`Platform fee (${Math.round(feeRate(role.id) * 100)}%)`, "£" + myFee.toFixed(2)],
-          ["Stripe fees (est.)", "£" + stripeEst(role.id).toFixed(2)],
-          ["You keep (approx)", "£" + Math.max(myGross - myFee - stripeEst(role.id), 0).toFixed(2)],
-          ["Your students", String(subs.filter((s) => tutorOf(s) === role.id).length)],
-          ["Lessons booked", String(deptBookings.length)],
-        ]).map(([k, v]) => (
-          <div key={k} className="it-card" style={{ padding: 20 }}>
-            <div style={{ fontSize: 12.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>{k}</div>
-            <div className="it-display" style={{ fontSize: 27, fontWeight: 800, color: "var(--mint-dark)" }}>{v}</div>
+          ["Your gross / month", "£" + myGross.toFixed(2), "💷"],
+          [`Platform fee (${Math.round(feeRate(role.id) * 100)}%)`, "£" + myFee.toFixed(2), "🤝"],
+          ["Stripe fees (est.)", "£" + stripeEst(role.id).toFixed(2), "📊"],
+          ["You keep (approx)", "£" + Math.max(myGross - myFee - stripeEst(role.id), 0).toFixed(2), "💰"],
+          ["Your students", String(subs.filter((s) => tutorOf(s) === role.id).length), "👥"],
+          ["Lessons booked", String(deptBookings.length), "📅"],
+        ]).map(([k, v, icon]) => (
+          <div key={k} className="it-card" style={{ padding: 18 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: "var(--aqua)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginBottom: 10 }}>{icon}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>{k}</div>
+            <div className="it-display" style={{ fontSize: 25, fontWeight: 800, color: "var(--mint-dark)" }}>{v}</div>
           </div>
         ))}
       </div>

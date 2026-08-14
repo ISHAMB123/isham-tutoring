@@ -34,7 +34,6 @@ const STRIPE = {
       Biology:   "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
       Chemistry: "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
     },
-    ucat:  "https://buy.stripe.com/7sYeVc0t58elbuX9CKes003",
   },
   belal: {
     gcse:  "https://buy.stripe.com/dRm14n5YV2Pn42uctdfQI04",
@@ -44,7 +43,6 @@ const STRIPE = {
       Chemistry: "https://buy.stripe.com/fZubJ1fzvcpXdD4bp9fQI03",
       Biology:   "https://buy.stripe.com/6oUeVd2MJ2PngPg0KvfQI02",
     },
-    ucat: null,
   },
 };
 
@@ -67,13 +65,7 @@ const EVENING_BLOCK = [
   { id: "f1", label: "7:00 – 8:00pm · Belal", s: 1140, e: 1200, person: "belal" },
   { id: "f2", label: "8:15 – 9:15pm · Belal", s: 1215, e: 1275, person: "belal" },
 ];
-const UCAT_BLOCKS = [
-  { id: "u1", label: "6:00 – 7:00pm", s: 1080, e: 1140, person: "isham" },
-  { id: "u2", label: "7:00 – 8:00pm", s: 1140, e: 1200, person: "isham" },
-  { id: "u3", label: "8:00 – 9:00pm", s: 1200, e: 1260, person: "isham" },
-  { id: "u4", label: "9:00 – 10:00pm", s: 1260, e: 1320, person: "isham" },
-];
-const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK, ...UCAT_BLOCKS];
+const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK];
 
 const SUBJECT_CYCLE = ["Maths", "Biology", "Chemistry", "Physics"];
 const CYCLE_EPOCH = Date.UTC(2026, 0, 5);
@@ -87,7 +79,6 @@ const SUBJECT_COLORS = {
   Biology:         { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
   Chemistry:       { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
   Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
-  "UCAT Strategy": { bg: "#E8F7F4", border: "#0FB5A0", text: "#0A8A7A" },
 };
 
 const PLANS = {
@@ -106,11 +97,6 @@ const PLANS = {
     id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
     blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject — just you and the tutor. Wednesdays & Fridays.",
     subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
-  },
-  ucat: {
-    id: "ucat", name: "UCAT Session", price: 15, per: " one-off", lessons: 1, months: 0,
-    blurb: "One private one-to-one 1-hour evening session from someone who's just sat it — timing, tactics and the sections that trip people up. Weekday evenings.",
-    subjects: ["UCAT Strategy"], perSubjectCap: 1, days: "weekday", blocks: UCAT_BLOCKS, rotates: false, seats: 1, dept: "stem",
   },
 };
 
@@ -587,7 +573,7 @@ function Home({ go, taken, testimonials }) {
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["65", "students I've personally tutored for the UCAT"],
             ["40", "places across two tutors — me and a medic at a top university"],
-            ["5", "max per GCSE group — A-level & UCAT are private 1-to-1"],
+            ["5", "max per GCSE group — A-level is private 1-to-1"],
             ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
             ["5%", "of all earnings donated to charity & food banks"],
           ].map(([big, small]) => (
@@ -666,7 +652,7 @@ function Home({ go, taken, testimonials }) {
   );
 }
 
-const PLAN_ICON = { gcse: "users", gcse3: "calendar", alevel: "target", ucat: "star" };
+const PLAN_ICON = { gcse: "users", gcse3: "calendar", alevel: "target" };
 
 function Pricing({ startCheckout, taken }) {
   const fullFor = (p) => taken >= CAP;
@@ -707,21 +693,16 @@ function Pricing({ startCheckout, taken }) {
               <span style={{ color: "var(--ink-soft)" }}>{p.per}</span>
             </div>
             <p style={{ fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6, flex: 1 }}>{p.blurb}</p>
-            {p.id === "ucat" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--aqua)", color: "var(--mint-dark)", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 700, alignSelf: "flex-start", margin: "0 0 14px" }}>
-                <Icon name="check" size={13} /> 65 students tutored for UCAT
-              </div>
-            )}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
               {p.subjects.map((s) => <SubjectChip key={s} subject={s} />)}
             </div>
             <ul style={{ padding: 0, listStyle: "none", margin: "0 0 18px", fontSize: 14, color: "var(--ink-soft)", lineHeight: 2 }}>
-              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""}${p.id !== "ucat" ? " / month" : ""}`}</li>
-              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : p.days === "weekday" ? "Weekday evenings, 6:00–10:00pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
+              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""} / month`}</li>
+              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
               <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
             </ul>
-            <button className="it-btn" disabled={fullFor(p) && p.months > 0} onClick={() => startCheckout(p.id)}>
-              {p.months === 0 ? "Book session" : fullFor(p) ? "Programme full" : "Join plan"}
+            <button className="it-btn" disabled={fullFor(p)} onClick={() => startCheckout(p.id)}>
+              {fullFor(p) ? "Programme full" : "Join plan"}
             </button>
           </div>
         ))}
@@ -1106,7 +1087,7 @@ function Book({ store, addBooking, refresh, go }) {
       const { data } = await supa.rpc("find_student", { p_email: session.user.email.toLowerCase() });
       const s = data && data[0];
       setMe(s || null);
-      if (s) setSubject(PLANS[s.plan].subjects[0]);
+      if (s) setSubject((PLANS[s.plan] || {}).subjects?.[0] || null);
       setMeChecked(true);
     })();
   }, [session]);
@@ -1183,6 +1164,13 @@ function Book({ store, addBooking, refresh, go }) {
     );
 
   const plan = PLANS[me.plan];
+  if (!plan)
+    return (
+      <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 460, margin: "0 auto", textAlign: "center" }}>
+        <EmptyState icon="calendar" text="This plan is no longer bookable online — message Isham directly to arrange your lessons." />
+        <button className="it-btn ghost" style={{ marginTop: 12 }} onClick={signOut}>Sign out</button>
+      </div>
+    );
   const mine = store.bookings.filter((b) => b.subscriberId === me.id);
   const expired = plan.months > 0 && me.paid_until && daysLeft(me.paid_until) <= 0;
   const locked = plan.months > 0 && !me.paid_until;
@@ -1363,9 +1351,8 @@ function Contact({ addMessage }) {
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
-          ["When are UCAT sessions?", "Monday to Friday evenings, private 1-hour slots between 6 and 10pm."],
           ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
-          ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level and UCAT sessions are private one-to-one."],
+          ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level sessions are private one-to-one."],
           ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard — if your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
@@ -1803,14 +1790,14 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                 <tr key={s.id} style={{ borderTop: "1px solid var(--line)" }}>
                   <td style={{ padding: 6, fontWeight: 600 }}>{s.name}</td>
                   <td style={{ padding: 6 }}>{s.email}</td>
-                  <td style={{ padding: 6 }}>{PLANS[s.plan].name}</td>
+                  <td style={{ padding: 6 }}>{(PLANS[s.plan] || {}).name || s.plan}</td>
                   <td style={{ padding: 6, color: "var(--ink-soft)" }}>{(s.joined || "").slice(0, 10)}</td>
                   <td style={{ padding: 6, whiteSpace: "nowrap" }}>
                     <RenewBadge paidUntil={s.paid_until} plan={s.plan} />{" "}
                     {!s.paid_until && s.plan !== "ucat" ? (
                       <button style={{ border: "none", background: "var(--mint)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", borderRadius: 999, padding: "3px 10px" }}
                         title="Check the payment arrived in Stripe first, then click"
-                        onClick={() => updatePaidUntil(s.id, addMonths(PLANS[s.plan].months || 1))}>Confirm paid ✓</button>
+                        onClick={() => updatePaidUntil(s.id, addMonths((PLANS[s.plan] || {}).months || 1))}>Confirm paid ✓</button>
                     ) : (
                       <button style={{ border: "none", background: "none", color: "var(--mint-dark)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                         onClick={async () => { const nd = prompt("Paid until (YYYY-MM-DD):", s.paid_until || addMonths(1)); if (nd) await updatePaidUntil(s.id, nd); }}>edit</button>

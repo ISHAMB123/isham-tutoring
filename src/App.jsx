@@ -159,6 +159,10 @@ const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const dateKey = (d) => d.toISOString().slice(0, 10);
 const prettyDate = (d) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 const slotKey = (date, block) => date + "|" + block;
+const classroomKey = (planId) => {
+  const p = PLANS[planId];
+  return "classroom-" + (p && p.rotates ? "gcse-group" : planId);
+};
 
 function upcomingDays(mode, count = 8) {
   const wanted = mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
@@ -768,6 +772,39 @@ function monthMatrix(view) {
 const monthName = (d) => d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 
+/* ---------- read-only "at a glance" month view of a student's own bookings ---------- */
+function MyLessonsCalendar({ mine }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const view = new Date(today.getFullYear(), today.getMonth(), 1);
+  const cells = monthMatrix(view);
+  const byDate = {};
+  for (const b of mine) (byDate[b.date] = byDate[b.date] || []).push(b);
+  return (
+    <div className="it-card" style={{ padding: 18 }}>
+      <strong className="it-display" style={{ fontSize: 15, fontWeight: 800 }}>{monthName(view)}</strong>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginTop: 12 }}>
+        {DOW.map((d, i) => <div key={i} style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textAlign: "center" }}>{d}</div>)}
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const dk = dateKey(d);
+          const lessons = byDate[dk] || [];
+          const isToday = dk === dateKey(today);
+          const c = lessons.length ? (SUBJECT_COLORS[lessons[0].subject] || SUBJECT_COLORS.Maths) : null;
+          return (
+            <div key={i} style={{
+              textAlign: "center", padding: "7px 0 5px", borderRadius: 8, fontSize: 12.5, fontWeight: isToday ? 800 : 500,
+              background: c ? c.bg : "transparent", border: isToday ? "1.5px dashed var(--mint-dark)" : "1px solid transparent",
+            }}>
+              {d.getDate()}
+              {c && <div style={{ width: 5, height: 5, borderRadius: "50%", background: c.border, margin: "3px auto 0" }} />}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- student booking calendar ---------- */
 function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1167,6 +1204,22 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
         </div>
       )}
 
+      {!locked && (
+        <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-soft)", marginBottom: 4 }}>Classroom</div>
+            {store.meetLinks[classroomKey(me.plan)] ? (
+              <div className="it-display" style={{ fontSize: 15, fontWeight: 800 }}>Worksheets, resources & past papers live here</div>
+            ) : (
+              <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Your Google Classroom link will appear here once it's set up — check back soon.</div>
+            )}
+          </div>
+          {store.meetLinks[classroomKey(me.plan)] && (
+            <a href={store.meetLinks[classroomKey(me.plan)]} target="_blank" rel="noreferrer" className="it-btn ghost" style={{ textDecoration: "none" }}>Open Google Classroom →</a>
+          )}
+        </div>
+      )}
+
       <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 18 }}>
         {[
           ["Plan", plan.name, `${gbp(plan.price)}${plan.per} · ${plan.lessons} lesson${plan.lessons > 1 ? "s" : ""}/month`],
@@ -1237,6 +1290,9 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
 
       {mine.length > 0 && (
         <div style={{ marginTop: 28 }}>
+          <div style={{ maxWidth: 340, marginBottom: 20 }}>
+            <MyLessonsCalendar mine={mine} />
+          </div>
           <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Your lessons</h3>
           <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "2px 0 8px" }}>You can cancel and rebook any lesson up to 24 hours before it starts.</p>
           {(() => {
@@ -1481,6 +1537,38 @@ function MoveModal({ booking, onClose, onSave }) {
   );
 }
 
+function ClassroomLinksCard({ meetLinks, saveMeet }) {
+  const groups = [
+    { key: classroomKey("gcse"), label: "GCSE group class (GCSE & Term Deal)" },
+    { key: classroomKey("alevel"), label: "A-level STEM Support" },
+  ];
+  const [drafts, setDrafts] = useState({});
+  const [saving, setSaving] = useState(null);
+  return (
+    <div className="it-card" style={{ padding: 18, marginBottom: 20 }}>
+      <strong style={{ fontSize: 14.5 }}>Google Classroom links</strong>
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 12px" }}>
+        Paste each class's Google Classroom link here — students see it on their Book dashboard once their payment's confirmed.
+      </p>
+      <div style={{ display: "grid", gap: 10 }}>
+        {groups.map((g) => (
+          <div key={g.key} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 13, minWidth: 240, color: "var(--ink-soft)" }}>{g.label}</span>
+            <input className="it-input" style={{ flex: 1, minWidth: 200 }} placeholder="https://classroom.google.com/c/…"
+              value={drafts[g.key] ?? meetLinks[g.key] ?? ""} onChange={(e) => setDrafts({ ...drafts, [g.key]: e.target.value })} />
+            <button className="it-btn ghost" style={{ padding: "9px 14px", fontSize: 13 }} disabled={saving === g.key}
+              onClick={async () => {
+                setSaving(g.key);
+                await saveMeet(g.key, (drafts[g.key] ?? meetLinks[g.key] ?? "").trim());
+                setSaving(null);
+              }}>{saving === g.key ? "Saving…" : "Save"}</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RenewBadge({ paidUntil, plan }) {
   if (plan === "ucat") return <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>one-off</span>;
   if (!paidUntil) return <span className="it-chip" style={{ background: "#FFEDE9", color: "#C2402F", border: "1px solid #C2402F" }}>payment unconfirmed</span>;
@@ -1714,6 +1802,8 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
           </div>
         ))}
       </div>
+
+      {isMaster && <ClassroomLinksCard meetLinks={store.meetLinks} saveMeet={saveMeet} />}
 
       <ChatPanel sender={role.name} isTutor={true} />
 

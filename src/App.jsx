@@ -43,6 +43,7 @@ const STRIPE = STRIPE_MODE === "test" ? STRIPE_TEST : STRIPE_LIVE;
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
 const CAP = 20;
+const TERM_START = "2026-10-01"; // registration & payment are open now, but no lesson can be booked before this date
 
 const WEEKEND_BLOCKS = [
   { id: "b1", label: "9:00 – 10:30am",  s: 540,  e: 630 },
@@ -75,7 +76,7 @@ const PLANS = {
     id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
     blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month. Every place is subsidised — priced well below what tutoring normally costs, on purpose, so any family can afford it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
-    deal: "Subsidised place · £5 a lesson",
+    deal: "Scholarship place · £5 a lesson",
   },
   gcse3: {
     id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 8, months: 3,
@@ -167,7 +168,10 @@ const classroomKey = (planId) => {
 function upcomingDays(mode, count = 8) {
   const wanted = mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
   const days = [];
-  const d = new Date(); d.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const termStart = new Date(TERM_START + "T00:00:00");
+  const d = new Date(Math.max(today, termStart));
+  d.setDate(d.getDate() - 1); // so the loop's first ++ lands on d itself if it's already a wanted day
   while (days.length < count) {
     d.setDate(d.getDate() + 1);
     if (wanted.includes(d.getDay())) days.push(new Date(d));
@@ -673,6 +677,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
   const plan = PLANS[planId];
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
@@ -688,7 +693,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
       });
       if (authErr) throw authErr;
       // paid_until stays null until Isham confirms the payment in the dashboard
-      await onDone({ name: name.trim(), email: cleanEmail, plan: planId, paid_until: null });
+      await onDone({ name: name.trim(), email: cleanEmail, phone: phone.trim() || null, plan: planId, paid_until: null });
       notifyServer({ type: "signup", name: name.trim(), email: cleanEmail, plan: plan.name });
       if (payLink) window.open(payLink, "_blank");
       if (authData && authData.session) {
@@ -743,6 +748,10 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
           <div>
             <label style={fieldLabel}>Email</label>
             <input className="it-input" placeholder="you@example.com" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Phone number (optional)</label>
+            <input className="it-input" placeholder="07…" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div>
             <label style={fieldLabel}>Password</label>
@@ -808,9 +817,10 @@ function MyLessonsCalendar({ mine }) {
 /* ---------- student booking calendar ---------- */
 function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const horizon = new Date(today); horizon.setDate(horizon.getDate() + 56);
+  const earliestBookable = new Date(Math.max(today, new Date(TERM_START + "T00:00:00")));
+  const horizon = new Date(earliestBookable); horizon.setDate(horizon.getDate() + 56);
   const wanted = plan.days === "weekend" ? [6, 0] : plan.days === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
-  const [view, setView] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [view, setView] = useState(() => new Date(earliestBookable.getFullYear(), earliestBookable.getMonth(), 1));
   const [day, setDay] = useState(null);
   const seats = plan.seats || 5;
   const period = periodFor(me);
@@ -821,7 +831,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
   const visibleBlocks = plan.blocks; // single tutor — no per-block ownership filtering needed
   const personClash = () => false; // no second tutor to clash with
-  const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
+  const isValid = (d) => d && wanted.includes(d.getDay()) && d >= earliestBookable && d <= horizon;
   const dayStatus = (d) => {
     const dk = dateKey(d);
     const subj = subjectFor(d);
@@ -839,7 +849,7 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const daySubj = selDate ? subjectFor(selDate) : null;
   const dayCol = daySubj ? (SUBJECT_COLORS[daySubj] || SUBJECT_COLORS.Maths) : null;
   const subjLeft = daySubj ? plan.perSubjectCap - mineMonth.filter((b) => b.subject === daySubj).length : 0;
-  const canPrev = view > new Date(today.getFullYear(), today.getMonth(), 1);
+  const canPrev = view > new Date(earliestBookable.getFullYear(), earliestBookable.getMonth(), 1);
   const canNext = new Date(view.getFullYear(), view.getMonth() + 1, 1) <= horizon;
 
   return (
@@ -1262,6 +1272,7 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
           : plan.days === "weekday"
             ? "pick a subject, then tap a slot — weekday evenings, private 1-hour sessions."
             : "pick a subject, then tap a slot. Wednesday & Friday evenings — private 1-hour sessions."}
+        {dateKey(new Date()) < TERM_START && " Lessons start 1 October — you're locking in your place now, and the calendar below opens straight on the first bookable week."}
       </p>
 
       {!locked && (
@@ -1281,7 +1292,9 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
             </div>
           )}
 
-          <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} />
+          <div id="book-calendar">
+            <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} />
+          </div>
 
           <div style={{ position: "sticky", bottom: 16, marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
             <button className="it-btn" disabled={!sel || busy} onClick={confirmBooking}>
@@ -1335,6 +1348,18 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
                       <a href={link} target="_blank" rel="noreferrer" className="it-btn" style={{ padding: "8px 16px", fontSize: 13.5, textDecoration: "none" }}>Join Google Meet →</a>
                     ) : (
                       <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears before the lesson</span>
+                    )}
+                    {cancellable && !plan.rotates && (
+                      <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
+                        onClick={async () => {
+                          if (!confirm("Change this lesson's time? It'll be freed up, and the calendar will scroll down so you can pick a new slot — same subject.")) return;
+                          const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
+                          if (error || data === false) { alert("Couldn't change — lessons can only be changed more than 24 hours in advance."); return; }
+                          await refresh();
+                          setSubject(b.subject);
+                          setSel(null);
+                          document.getElementById("book-calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}>Change time</button>
                     )}
                     {cancellable && (
                       <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
@@ -1429,7 +1454,7 @@ function Contact({ addMessage }) {
       <div style={{ marginTop: 32 }}>
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
         <Accordion items={[
-          ["Is this a scholarship?", "Every GCSE place is subsidised — you still pay the £40/month listed price, it's not free or means-tested. But it's priced well below what tutoring normally costs, on purpose, so any family can access it. Think subsidised place, not discount."],
+          ["Is this a scholarship?", "It's run like one — every GCSE place is funded down to £5 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
@@ -1622,7 +1647,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [moving, setMoving] = useState(null);
-  const [nf, setNf] = useState({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
+  const [nf, setNf] = useState({ name: "", email: "", phone: "", plan: "gcse3", paid_until: addMonths(3) });
   const [tf, setTf] = useState({ name: "", quote: "", detail: "" });
   const [calFilter, setCalFilter] = useState(null);
   const [enroll, setEnroll] = useState(null); // {factorId, qr, secret}
@@ -1889,6 +1914,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input className="it-input" style={{ flex: 2, minWidth: 140 }} placeholder="Name" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} />
           <input className="it-input" style={{ flex: 2, minWidth: 160 }} placeholder="Email" value={nf.email} onChange={(e) => setNf({ ...nf, email: e.target.value })} />
+          <input className="it-input" style={{ flex: 1, minWidth: 130 }} placeholder="Phone (optional)" value={nf.phone || ""} onChange={(e) => setNf({ ...nf, phone: e.target.value })} />
           <select className="it-input" style={{ flex: 1, minWidth: 130 }} value={nf.plan}
             onChange={(e) => { const pl = e.target.value; setNf({ ...nf, plan: pl, paid_until: PLANS[pl].months ? addMonths(PLANS[pl].months) : "" }); }}>
             {Object.values(PLANS).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1897,8 +1923,8 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
           <button className="it-btn" style={{ padding: "10px 18px" }} onClick={async () => {
             if (!nf.name.trim() || !nf.email.includes("@")) return alert("Name and a valid email needed.");
             try {
-              await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null, tutor: "isham" });
-              setNf({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
+              await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), phone: nf.phone?.trim() || null, plan: nf.plan, paid_until: nf.paid_until || null, tutor: "isham" });
+              setNf({ name: "", email: "", phone: "", plan: "gcse3", paid_until: addMonths(3) });
             }
             catch (e) { alert(String(e).includes("duplicate") ? "That email is already registered." : "Couldn't add — try again."); }
           }}>Add</button>
@@ -1915,7 +1941,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                     {s.name}
                     {s.cancelled && <span className="it-chip" style={{ marginLeft: 6, background: "#FFEDE9", color: "#C2402F" }}>Not renewing</span>}
                   </td>
-                  <td style={{ padding: 6 }}>{s.email}</td>
+                  <td style={{ padding: 6 }}>{s.email}{s.phone && <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>{s.phone}</div>}</td>
                   <td style={{ padding: 6 }}>{(PLANS[s.plan] || {}).name || s.plan}</td>
                   <td style={{ padding: 6, color: "var(--ink-soft)" }}>{(s.joined || "").slice(0, 10)}</td>
                   <td style={{ padding: 6, whiteSpace: "nowrap" }}>

@@ -10,8 +10,8 @@ import { createClient } from "@supabase/supabase-js";
    ============================================================ */
 
 /* ---- YOUR DATABASE ---- */
-const SUPABASE_URL = "https://tmsvtiavhodtlvvaugdr.supabase.co";
-const SUPABASE_KEY = "sb_publishable_uX2JC9t78GPJTMMgLcoeWA_9OVpc-8F";
+const SUPABASE_URL = "https://nhgaolgdzekzwywwdgat.supabase.co";
+const SUPABASE_KEY = "sb_publishable_jLvc4iVio_-0ciLN5oPaSA_JsMr4Dej";
 
 /* ---- TUTOR & STRIPE ---- */
 const TUTORS = {

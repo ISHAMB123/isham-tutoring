@@ -496,7 +496,7 @@ function Home({ go, taken, testimonials }) {
             </h1>
             <p style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", maxWidth: 560, lineHeight: 1.5, margin: "0 0 14px" }}>
               Serious GCSE support without the serious price tag — £40/month for 8 lessons.
-              Not a discount, a subsidy: grades shouldn't depend on what your family can afford.
+              I subsidise it myself: no premises, no staff, just me teaching straight after school — so the saving goes to your family, not cut from the lessons.
             </p>
             <p style={{ fontSize: 15, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.65 }}>
               I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
@@ -1020,7 +1020,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
                     </div>
                     <p style={{ margin: "5px 0 9px", fontSize: 12, color: "var(--ink-soft)" }}>{subj}</p>
                     <button ref={(el) => { slotRefs.current[dayIdx + "-" + blockIdx] = el; }}
-                      className="it-btn" style={{ width: "100%", padding: "7px 0", fontSize: 13,
+                      className="it-btn" style={{ width: "100%", minHeight: 44, padding: "7px 0", fontSize: 13,
                         ...(full || weeklyLocked ? { background: "#fff", color: "var(--ink-soft)", border: "1.5px solid var(--line)" } : {}) }}
                       disabled={already || weeklyLocked || (blocked && !full) || (full && (myEntry || waitlistFull))}
                       onClick={() => weeklyLocked || (full && (myEntry || waitlistFull)) ? null : full ? handleWaitlist(subj, dk, bl) : setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}
@@ -1563,8 +1563,8 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             ) : (
               <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears before the lesson</span>
             )}
-            {cancellable && <button className="it-btn" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => changeLesson(b)}>Reschedule</button>}
-            {cancellable && <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => cancelLesson(b)}>Cancel lesson</button>}
+            {cancellable && <button className="it-btn" style={{ padding: "7px 12px", minHeight: 44, fontSize: 12.5 }} onClick={() => changeLesson(b)}>Reschedule</button>}
+            {cancellable && <button className="it-btn ghost" style={{ padding: "7px 12px", minHeight: 44, fontSize: 12.5 }} onClick={() => cancelLesson(b)}>Cancel lesson</button>}
             {!cancellable && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Inside the 24-hour window — message Isham if something's come up</span>}
           </span>
         )}
@@ -1839,6 +1839,49 @@ function Contact({ addMessage }) {
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
         ]} />
       </div>
+    </div>
+  );
+}
+
+function Privacy() {
+  const Section = ({ title, children }) => (
+    <div style={{ marginTop: 26 }}>
+      <h2 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>{title}</h2>
+      <div style={{ fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.7 }}>{children}</div>
+    </div>
+  );
+  return (
+    <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 760, margin: "0 auto" }}>
+      <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Privacy policy</h1>
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>Last updated {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}. This describes exactly what Isham Tuition collects and why — nothing more.</p>
+
+      <Section title="Who this covers">
+        <p>Isham Tuition is run by Isham Bari ({CONTACT.email}). He's the only person with access to student records — there's no separate company, no data processor beyond the tools listed below, and no data is sold or shared with anyone else.</p>
+      </Section>
+
+      <Section title="What's collected, and why">
+        <p>When you join a plan: your (or your child's) name, email address, and phone number if you choose to give one — used to create your login, confirm your place, and get in touch if there's a change to a lesson.</p>
+        <p style={{ marginTop: 8 }}>When you book: the lessons you book, which subject, and which dates — used to run the timetable and know who's expected in each session.</p>
+        <p style={{ marginTop: 8 }}>During term: attendance (present/absent) and short tutor notes on what was covered or set as homework — used so you can see your own progress, and as a basic safeguarding record of who attended what.</p>
+        <p style={{ marginTop: 8 }}>If you message or ask a question: the text of that message, tied to your name and email, so it can be answered.</p>
+        <p style={{ marginTop: 8 }}>Payment itself is handled entirely by Stripe. Card details never reach Isham Tuition's own systems — only a confirmation that payment succeeded, and (if Stripe creates one) a customer reference used to show you your own billing portal.</p>
+      </Section>
+
+      <Section title="Where it's stored">
+        <p>Records are stored in Supabase, a hosted database provider, protected so that only a signed-in tutor account can read other students' data — a student can only ever see their own. There are no analytics or advertising trackers on this site — nothing is collected beyond what's listed above.</p>
+      </Section>
+
+      <Section title="How long it's kept">
+        <p>For as long as you're an active or recently-active student, so the timetable and progress history make sense. You can ask for it to be deleted at any time — see below.</p>
+      </Section>
+
+      <Section title="Your rights">
+        <p>You can see your own plan, bookings and notes any time by signing in on the Book page. You can cancel your plan yourself from the Billing tab. You can request full deletion of your account and every record tied to it from the Billing tab ("Request my data be deleted"), or by emailing {CONTACT.email} — this is actioned personally and confirmed by email. You can also ask to see a copy of everything held about you, or to correct anything that's wrong, the same way.</p>
+      </Section>
+
+      <Section title="Questions">
+        <p>Email {CONTACT.email} for anything not covered here.</p>
+      </Section>
     </div>
   );
 }
@@ -2687,6 +2730,8 @@ export default function App() {
         <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} joinWaitlist={joinWaitlist} removeWaitlistEntry={removeWaitlistEntry} promoteWaitlist={promoteWaitlist} refresh={refresh} />
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
+      ) : page === "privacy" ? (
+        <Privacy />
       ) : (
         <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} />
       )}
@@ -2711,7 +2756,8 @@ export default function App() {
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>
           <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Privacy: only names, emails and bookings are collected — never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me.
+            Privacy: only names, emails and bookings are collected — never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
+            <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12, fontWeight: 700 }} onClick={() => setPage("privacy")}>privacy policy</button>.
           </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>
         </div>

@@ -68,7 +68,7 @@ const SUBJECT_COLORS = {
   Maths:           { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
   Biology:         { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
   Chemistry:       { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
-  Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#B85F14" },
+  Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#9C4E10" }, // darkened from #B85F14 — that stop was 4.01:1 on the tint, below the 4.5:1 floor
 };
 
 const PLANS = {
@@ -159,7 +159,19 @@ const notifyServer = (payload) => {
 const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const dateKey = (d) => d.toISOString().slice(0, 10);
 const prettyDate = (d) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+const humanDate = (dateStr) => new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 const slotKey = (date, block) => date + "|" + block;
+function countdownWords(dateStr, block) {
+  const startMs = new Date(dateStr + "T00:00:00").getTime() + block.s * 60000;
+  const diff = startMs - Date.now();
+  if (diff <= 0) return "starting now";
+  const mins = Math.round(diff / 60000);
+  if (mins < 60) return `in ${mins} minute${mins === 1 ? "" : "s"}`;
+  const hrs = Math.round(diff / 3600000);
+  if (hrs < 24) return `in ${hrs} hour${hrs === 1 ? "" : "s"}`;
+  const days = Math.round(diff / 86400000);
+  return `in ${days} day${days === 1 ? "" : "s"}`;
+}
 const classroomKey = (planId) => {
   const p = PLANS[planId];
   return "classroom-" + (p && p.rotates ? "gcse-group" : planId);
@@ -261,12 +273,56 @@ const css = `
 @media(prefers-reduced-motion:reduce){.it-day-panel{animation:none}}
 @media(prefers-reduced-motion:reduce){.it-fade,.it-card,.it-btn,.it-float,.it-accordion-body,.it-accordion-icon,.it-preview{animation:none;transition:none}.it-reveal{opacity:1;transform:none;transition:none}.it-barfill{animation:none;width:var(--w,100%)}}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+
+/* ---- parent portal shell (sidebar + bottom tabs) ---- */
+.it-shell{display:flex;align-items:flex-start;max-width:1200px;margin:0 auto;padding:0 24px 90px}
+.it-sidebar{width:186px;flex:none;position:sticky;top:69px;padding:22px 10px 22px 0;display:flex;flex-direction:column;gap:2px;height:calc(100vh - 69px)}
+.it-sidebar-link{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:none;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;text-align:left;width:100%}
+.it-sidebar-link:hover{background:var(--aqua);color:var(--ink)}
+.it-sidebar-link.active{background:var(--ink);color:#fff}
+.it-sidebar-help{margin-top:auto;padding:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft)}
+.it-sidebar-help a{color:var(--mint-dark);font-weight:700;text-decoration:none}
+.it-shell-main{flex:1;min-width:0;padding:22px 0 22px 26px}
+@media(max-width:1100px){
+  .it-sidebar{width:56px}
+  .it-sidebar-link span{display:none}
+  .it-sidebar-link{justify-content:center;padding:10px}
+  .it-sidebar-help{display:none}
+}
+@media(max-width:768px){
+  .it-shell{padding:0 16px 82px;display:block}
+  .it-sidebar{display:none}
+  .it-shell-main{padding:16px 0}
+  .it-bottomtabs{position:fixed;left:0;right:0;bottom:0;z-index:45;display:flex;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(11,27,51,.06)}
+}
+@media(min-width:769px){.it-bottomtabs{display:none}}
+.it-bottomtabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 8px;border:none;background:none;font:inherit;font-size:10.5px;font-weight:700;color:var(--ink-soft);cursor:pointer}
+.it-bottomtabs button.active{color:var(--mint-dark)}
+.it-weekrail{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scroll-snap-type:x proximity}
+.it-weekcard{flex:1;min-width:84px;scroll-snap-align:start;border-radius:10px;padding:9px 8px;text-align:center;cursor:pointer;border:1.5px solid var(--line);background:#fff;font:inherit}
+.it-weekcard.selected{border-width:2px}
+.it-weekcard.disabled{opacity:.45;cursor:not-allowed}
+.it-seatpill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
 `;
 
 const SubjectChip = ({ subject }) => {
   const c = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Maths;
   return <span className="it-chip" style={{ background: c.bg, color: c.text, border: "1px solid " + c.border }}>{subject}</span>;
 };
+
+// Seat availability is a status signal, never a subject colour — green/amber/grey only, so it
+// never gets mistaken for "which subject" the way a subject-tinted pill would.
+function SeatPill({ taken, cap }) {
+  if (cap === 1) {
+    return taken >= 1
+      ? <span className="it-seatpill" style={{ background: "#EEF3F1", color: "var(--ink-soft)" }}>Booked</span>
+      : <span className="it-seatpill" style={{ background: "#E1F5EE", color: "#0F6E56" }}>Available</span>;
+  }
+  const left = cap - taken;
+  if (left <= 0) return <span className="it-seatpill" style={{ background: "#EEF3F1", color: "var(--ink-soft)" }}>Full</span>;
+  if (left <= 2) return <span className="it-seatpill" style={{ background: "#FAEEDA", color: "#854F0B" }}>{left} seat{left === 1 ? "" : "s"} left</span>;
+  return <span className="it-seatpill" style={{ background: "#E1F5EE", color: "#0F6E56" }}>{left} seats left</span>;
+}
 
 const ICONS = {
   cap: "M12 3 1 8l11 5 9-4.1V16h2V8L12 3Zm-7 8.7V16c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5v-4.3l-7 3.2-7-3.2Z",
@@ -815,13 +871,11 @@ function MyLessonsCalendar({ mine }) {
 }
 
 /* ---------- student booking calendar ---------- */
-function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
+function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email, addMessage }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const earliestBookable = new Date(Math.max(today, new Date(TERM_START + "T00:00:00")));
   const horizon = new Date(earliestBookable); horizon.setDate(horizon.getDate() + 56);
   const wanted = plan.days === "weekend" ? [6, 0] : plan.days === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
-  const [view, setView] = useState(() => new Date(earliestBookable.getFullYear(), earliestBookable.getMonth(), 1));
-  const [day, setDay] = useState(null);
   const seats = plan.seats || 5;
   const period = periodFor(me);
   const mineMonth = mine.filter((b) => b.date >= period.start && b.date < period.end);
@@ -830,111 +884,105 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
   const visibleBlocks = plan.blocks; // single tutor — no per-block ownership filtering needed
-  const personClash = () => false; // no second tutor to clash with
-  const isValid = (d) => d && wanted.includes(d.getDay()) && d >= earliestBookable && d <= horizon;
-  const dayStatus = (d) => {
-    const dk = dateKey(d);
+
+  // Group the bookable days into "weeks" — a run of consecutive wanted days (Sat+Sun for
+  // weekend plans, Wed+Fri for evening plans) no more than 2 days apart.
+  const weeks = [];
+  for (let d = new Date(earliestBookable); d <= horizon; d.setDate(d.getDate() + 1)) {
+    if (!wanted.includes(d.getDay())) continue;
+    const last = weeks[weeks.length - 1];
+    const dCopy = new Date(d);
+    if (last && (dCopy - last.days[last.days.length - 1]) / 86400000 <= 2) last.days.push(dCopy);
+    else weeks.push({ days: [dCopy] });
+  }
+  weeks.forEach((w, i) => { w.index = i; w.subject = subjectFor(w.days[0]); });
+
+  const [weekIdx, setWeekIdx] = useState(0);
+  const week = weeks[Math.min(weekIdx, weeks.length - 1)];
+
+  const weekOpenSeats = (w) => w.days.reduce((sum, d) => {
     const subj = subjectFor(d);
-    const subjLeftForDay = plan.perSubjectCap - mineMonth.filter((b) => b.subject === subj).length;
-    if (left <= 0 || subjLeftForDay <= 0) return "full";
-    const openBlocks = visibleBlocks.filter((bl) =>
-      !personClash(dk, bl.id) && countAt(dk, bl.id, subj) < seats && !mine.some((b) => b.date === dk && b.block === bl.id));
-    if (openBlocks.length === 0) return "full";
-    if (openBlocks.length <= 1 || openBlocks.some((bl) => seats - countAt(dk, bl.id, subj) <= 1)) return "limited";
-    return "open";
+    return sum + visibleBlocks.reduce((s, bl) => s + Math.max(seats - countAt(dateKey(d), bl.id, subj), 0), 0);
+  }, 0);
+  const weekBookedByMe = (w) => w.days.some((d) => mine.some((b) => b.date === dateKey(d)));
+  const weekIsPast = (w) => w.days[w.days.length - 1] < today;
+
+  const joinWaitlist = async (subj, dk, bl) => {
+    if (!confirm(`Join the waitlist for ${subj} · ${prettyDate(new Date(dk + "T00:00:00"))} · ${bl.label}? Isham will message you the moment a seat opens up.`)) return;
+    try {
+      await addMessage({ name: me.name, email, text: `WAITLIST REQUEST — ${subj}, ${dk}, ${bl.label}` });
+      alert("You're on the waitlist — Isham will message you if a seat opens up.");
+    } catch (e) { alert("Couldn't send that — please message Isham on WhatsApp instead."); }
   };
-  const cells = monthMatrix(view);
-  const isToday = (d) => dateKey(d) === dateKey(today);
-  const selDate = day ? new Date(day + "T00:00:00") : null;
-  const daySubj = selDate ? subjectFor(selDate) : null;
-  const dayCol = daySubj ? (SUBJECT_COLORS[daySubj] || SUBJECT_COLORS.Maths) : null;
-  const subjLeft = daySubj ? plan.perSubjectCap - mineMonth.filter((b) => b.subject === daySubj).length : 0;
-  const canPrev = view > new Date(earliestBookable.getFullYear(), earliestBookable.getMonth(), 1);
-  const canNext = new Date(view.getFullYear(), view.getMonth() + 1, 1) <= horizon;
+
+  if (!week) return <EmptyState icon="calendar" text="Nothing bookable right now — message Isham and he'll sort you out." />;
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px", flexWrap: "wrap", alignItems: "center" }}>
-        {plan.rotates && SUBJECT_CYCLE.map((s) => <SubjectChip key={s} subject={s} />)}
-        <span style={{ marginLeft: "auto" }}>{plan.days === "weekend" ? "Weekends only" : plan.days === "weekday" ? "Weekday evenings" : "Wed & Fri evenings"} · tap a highlighted date</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>Each week covers one subject. Pick a week, then a time.</p>
+        <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{Math.max(left, 0)} of {plan.lessons} left this period</span>
       </div>
 
-      <div className="it-card" style={{ padding: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <button className="it-btn ghost" style={{ padding: "6px 12px" }} disabled={!canPrev}
-            onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))}>‹</button>
-          <strong className="it-display" style={{ fontSize: 16 }}>{monthName(view)}</strong>
-          <button className="it-btn ghost" style={{ padding: "6px 12px" }} disabled={!canNext}
-            onClick={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))}>›</button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6 }}>
-          {DOW.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 11.5, fontWeight: 700, color: "var(--ink-soft)" }}>{d}</div>)}
-          {cells.map((d, i) => {
-            if (!d) return <div key={i} />;
-            const dk = dateKey(d);
-            const valid = isValid(d);
-            const subj = valid ? subjectFor(d) : null;
-            const c = subj ? (SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths) : null;
-            const isSelDay = day === dk;
-            const status = valid ? dayStatus(d) : null;
-            const dotColor = status === "open" ? "#2FA45B" : status === "limited" ? "#E8842E" : "#C2402F";
-            return (
-              <button key={i} disabled={!valid}
-                onClick={() => { setDay(isSelDay ? null : dk); setSel(null); }}
-                className={"it-cal-day" + (isToday(d) ? " today" : "")}
-                style={{
-                  aspectRatio: "1", minHeight: 40, borderRadius: 10, cursor: valid ? "pointer" : "default", position: "relative",
-                  border: isSelDay ? "2.5px solid " + c.border : valid ? "1.5px solid " + c.border : "1px solid transparent",
-                  background: valid ? (isSelDay ? c.border : c.bg) : "transparent",
-                  color: valid ? (isSelDay ? "#fff" : c.text) : "#C6D4D1",
-                  fontWeight: valid ? 800 : 500, fontSize: 13.5, transition: "all .15s",
-                }}>
-                {d.getDate()}
-                {valid && status !== "full" && (
-                  <span style={{ position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)", width: 5, height: 5, borderRadius: "50%", background: isSelDay ? "#fff" : dotColor }} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 11.5, color: "var(--ink-soft)" }}>
-          {[["#2FA45B", "Plenty of seats"], ["#E8842E", "Filling up"], ["#C2402F", "Full / no lessons left"]].map(([color, label]) => (
-            <span key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block" }} />{label}
-            </span>
-          ))}
-        </div>
+      <div className="it-weekrail" role="tablist" aria-label="Choose a week">
+        {weeks.map((w) => {
+          const c = SUBJECT_COLORS[w.subject] || SUBJECT_COLORS.Maths;
+          const disabled = weekIsPast(w);
+          const selected = w.index === week.index;
+          const openSeats = weekOpenSeats(w);
+          const booked = weekBookedByMe(w);
+          return (
+            <button key={w.index} type="button" role="tab" aria-selected={selected} disabled={disabled}
+              className={"it-weekcard" + (selected ? " selected" : "") + (disabled ? " disabled" : "")}
+              style={selected ? { borderColor: c.border, background: c.bg } : undefined}
+              onClick={() => { setWeekIdx(w.index); setSel(null); }}
+              aria-label={`Week of ${humanDate(dateKey(w.days[0]))}, ${w.subject}, ${booked ? "already booked" : openSeats === 0 ? "full" : openSeats + " slots left"}`}>
+              <div style={{ fontSize: 11, color: selected ? c.text : "var(--ink-soft)" }}>Wk {w.index + 1}</div>
+              <div className="it-display" style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? c.text : "var(--ink)", margin: "2px 0" }}>{w.subject}</div>
+              <div style={{ fontSize: 11, color: selected ? c.text : "var(--ink-soft)" }}>
+                {booked ? "Booked" : openSeats === 0 ? "Full" : `${openSeats} slot${openSeats === 1 ? "" : "s"}`}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {day && (
-        <div className="it-fade it-card it-day-panel" style={{ padding: 18, marginTop: 14, border: "1.5px solid " + dayCol.border }}>
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-            <strong className="it-display">{prettyDate(selDate)}</strong>
-            <SubjectChip subject={daySubj} />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
-            {visibleBlocks.map((bl) => {
-              const n = countAt(day, bl.id, daySubj);
-              const already = mine.some((b) => b.date === day && b.block === bl.id);
-              const isSel = sel && sel.date === day && sel.block === bl.id;
-              const disabled = n >= seats || left <= 0 || subjLeft <= 0 || already || personClash(day, bl.id);
-              return (
-                <button key={bl.id} className="it-slot"
-                  style={{ background: isSel ? dayCol.border : dayCol.bg, borderColor: dayCol.border, color: isSel ? "#fff" : dayCol.text }}
-                  disabled={disabled && !isSel}
-                  onClick={() => setSel(isSel ? null : { date: day, block: bl.id, label: bl.label, subject: daySubj })}>
-                  {bl.label}
-                  <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.8, whiteSpace: "nowrap" }}>
-                    {already ? "booked ✓" : personClash(day, bl.id) ? "tutor busy" : n >= seats ? (seats === 1 ? "taken" : "full") : seats === 1 ? "available" : `${seats - n} seats`}
+      {week.days.map((d) => {
+        const dk = dateKey(d);
+        const subj = subjectFor(d);
+        const subjLeftForDay = plan.perSubjectCap - mineMonth.filter((b) => b.subject === subj).length;
+        return (
+          <div key={dk} style={{ marginTop: 18 }}>
+            <p style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 8px" }}>{prettyDate(d)}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>
+              {visibleBlocks.map((bl) => {
+                const n = countAt(dk, bl.id, subj);
+                const already = mine.some((b) => b.date === dk && b.block === bl.id);
+                const isSel = sel && sel.date === dk && sel.block === bl.id;
+                const full = n >= seats;
+                const blocked = left <= 0 || subjLeftForDay <= 0;
+                return (
+                  <div key={bl.id} className="it-card" style={{ padding: "11px 12px", opacity: (full || blocked) && !already ? .65 : 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>{bl.label}</span>
+                      <SeatPill taken={n} cap={seats} />
+                    </div>
+                    <p style={{ margin: "5px 0 9px", fontSize: 12, color: "var(--ink-soft)" }}>{subj}</p>
+                    <button className="it-btn" style={{ width: "100%", padding: "7px 0", fontSize: 13,
+                        ...(full ? { background: "#fff", color: "var(--ink-soft)", border: "1.5px solid var(--line)" } : {}) }}
+                      disabled={already || (blocked && !full)}
+                      onClick={() => full ? joinWaitlist(subj, dk, bl) : setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}>
+                      {already ? "Booked ✓" : full ? "Join waitlist" : isSel ? "Selected ✓" : "Select"}
+                    </button>
                   </div>
-                </button>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })}
 
-      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 10 }}>
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 16 }}>
         {left <= 0 ? "You've used all the lessons in your current paid month — more unlock when it renews."
           : `${left} lesson${left === 1 ? "" : "s"} left in your paid month (to ${period.end}) · max ${plan.perSubjectCap} per subject.`}
       </p>
@@ -1032,6 +1080,137 @@ function ChatPanel({ sender, isTutor }) {
   );
 }
 
+const BOOK_TABS = [
+  ["home", "Home", "home"],
+  ["book", "Book lessons", "calendar"],
+  ["mylessons", "My lessons", "check"],
+  ["progress", "Progress", "star"],
+  ["billing", "Billing", "shield"],
+  ["questions", "Questions", "mail"],
+];
+const BOOK_BOTTOM_TABS = [["home", "Home", "home"], ["book", "Book", "calendar"], ["questions", "Ask", "mail"], ["billing", "Account", "shield"]];
+
+function BookSidebar({ tab, setTab }) {
+  return (
+    <nav className="it-sidebar" aria-label="Account navigation">
+      {BOOK_TABS.map(([id, label, icon]) => (
+        <button key={id} className={"it-sidebar-link" + (tab === id ? " active" : "")} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined}>
+          <Icon name={icon} size={16} /><span>{label}</span>
+        </button>
+      ))}
+      <div className="it-sidebar-help">
+        Need help?<br />
+        <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer">WhatsApp Isham</a>
+      </div>
+    </nav>
+  );
+}
+
+function BookBottomTabs({ tab, setTab }) {
+  return (
+    <nav className="it-bottomtabs" aria-label="Account navigation">
+      {BOOK_BOTTOM_TABS.map(([id, label, icon]) => (
+        <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined}>
+          <Icon name={icon} size={18} />{label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function NextLessonCard({ nextLesson, meetLink, seatsTaken, seatsCap, goBook }) {
+  if (!nextLesson) {
+    return (
+      <div className="it-card" style={{ padding: 24, textAlign: "center" }}>
+        <p style={{ margin: "0 0 14px", fontSize: 14, color: "var(--ink-soft)" }}>No lessons booked yet.</p>
+        <button className="it-btn" onClick={goBook}>Book your first lesson</button>
+      </div>
+    );
+  }
+  const blk = blockById(nextLesson.block);
+  const startMs = new Date(nextLesson.date + "T00:00:00").getTime() + blk.s * 60000;
+  const canJoin = Date.now() >= startMs - 10 * 60000;
+  return (
+    <div className="it-card" style={{ padding: "20px 24px", background: "var(--ink)", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "rgba(255,255,255,.6)", marginBottom: 4 }}>
+          Next lesson, {countdownWords(nextLesson.date, blk)}
+        </div>
+        <div className="it-display" style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{nextLesson.subject}, {humanDate(nextLesson.date)}</div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,.75)", marginTop: 2 }}>
+          {nextLesson.blockLabel}{seatsCap > 1 ? ` · ${seatsTaken} of ${seatsCap} seats taken` : ""}
+        </div>
+      </div>
+      {meetLink && canJoin ? (
+        <a href={meetLink} target="_blank" rel="noreferrer" className="it-btn" style={{ background: "var(--mint)", color: "var(--ink)", textDecoration: "none" }}>Join lesson</a>
+      ) : (
+        <button className="it-btn" disabled style={{ background: "rgba(255,255,255,.15)", color: "rgba(255,255,255,.6)" }}>
+          {meetLink ? "Opens 10 minutes before" : "Link appears closer to the time"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AllowanceCard({ lessonsLeft, total, periodEnd }) {
+  const bookedCount = Math.max(total - lessonsLeft, 0);
+  return (
+    <div className="it-card" style={{ padding: "16px 18px" }}>
+      <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--ink-soft)" }}>Lessons this period</p>
+      <p className="it-display" style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>
+        {bookedCount} booked <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>of {total}</span>
+      </p>
+      <div style={{ display: "flex", gap: 3, margin: "10px 0 4px" }}>
+        {Array.from({ length: total }).map((_, i) => (
+          <div key={i} style={{ height: 6, flex: 1, borderRadius: 3, background: i < bookedCount ? "var(--mint)" : "var(--line)" }} />
+        ))}
+      </div>
+      <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>Renews {periodEnd}</p>
+    </div>
+  );
+}
+
+function PlanStatusCard({ plan, me, locked, onManage }) {
+  return (
+    <div className="it-card" style={{ padding: "16px 18px" }}>
+      <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--ink-soft)" }}>Plan</p>
+      <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{plan.name}</p>
+      <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
+        {me.paid_until ? `Renews ${me.paid_until}` : locked ? "Pending confirmation" : "—"}
+      </p>
+      {/* TODO(api): card-on-file details aren't available — Stripe Payment Links don't give us a stored Customer/PaymentMethod to read from */}
+      <button className="it-navlink" style={{ padding: 0, marginTop: 8, fontSize: 12.5 }} onClick={onManage}>Manage plan</button>
+    </div>
+  );
+}
+
+function ConfirmSheet({ sel, plan, lessonsLeft, busy, onConfirm, onCancel }) {
+  if (!sel) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(11,27,51,.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 55, padding: "0 12px" }}>
+      <div className="it-card it-fade" style={{ padding: 24, width: "100%", maxWidth: 480, borderRadius: "16px 16px 0 0" }}>
+        <h3 className="it-display" style={{ margin: "0 0 10px", fontSize: 18, fontWeight: 800 }}>Confirm booking</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <SubjectChip subject={sel.subject} />
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{prettyDate(new Date(sel.date + "T00:00:00"))}</span>
+        </div>
+        <p style={{ margin: "0 0 4px", fontSize: 14, color: "var(--ink-soft)" }}>{sel.label}{plan.seats === 1 ? " · private 1-to-1" : ` · groups of up to ${plan.seats}`}</p>
+        <p style={{ margin: "0 0 4px", fontSize: 13, color: "var(--ink-soft)" }}>Uses 1 of your {lessonsLeft} remaining lesson{lessonsLeft === 1 ? "" : "s"} this period.</p>
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--ink-soft)" }}>Free to cancel or change up to 24 hours before.</p>
+        <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 16, opacity: .7 }}>
+          <input type="checkbox" disabled id="repeat-weekly" />
+          {/* TODO(api): placing a whole run of weekly bookings in one write needs a batch-insert endpoint that atomically checks the allowance — today's backend books one lesson at a time */}
+          <label htmlFor="repeat-weekly" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Repeat this time every week — coming soon</label>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="it-btn ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
+          <button className="it-btn" style={{ flex: 2 }} disabled={busy} onClick={onConfirm}>{busy ? "Booking…" : "Confirm 1 lesson"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Book({ store, addBooking, addMessage, refresh, go }) {
   const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
   const [me, setMe] = useState(null);
@@ -1044,6 +1223,7 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
   const [subject, setSubject] = useState(null);
   const [sel, setSel] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [bookTab, setBookTab] = useState("home");
 
   useEffect(() => {
     supa.auth.getSession().then(({ data: { session } }) => setSession(session || null));
@@ -1195,227 +1375,274 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
     setBusy(false);
   };
 
+  const changeLesson = async (b) => {
+    const msg = plan.rotates
+      ? "Change this lesson? It'll be freed up and the calendar will open so you can pick a new date yourself — heads up, subjects rotate weekly, so a different week may mean a different subject."
+      : "Change this lesson's time? It'll be freed up, and the calendar will open so you can pick a new slot — same subject.";
+    if (!confirm(msg)) return;
+    const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
+    if (error || data === false) { alert("Couldn't change — lessons can only be changed more than 24 hours in advance."); return; }
+    await refresh();
+    setSubject(b.subject);
+    setSel(null);
+    setBookTab("book");
+  };
+  const cancelLesson = async (b) => {
+    if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed — you can rebook a different slot.")) return;
+    const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
+    if (error || data === false) alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance.");
+    else await refresh();
+  };
+  const cancelPlan = async () => {
+    if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way — message Isham if you're not sure.")) return;
+    const { data, error } = await supa.rpc("cancel_my_plan");
+    if (error || data === false) alert("Couldn't cancel — please message Isham directly.");
+    else { alert("Done — your plan won't renew."); await refresh(); }
+  };
+  const requestDeletion = async () => {
+    if (!confirm("Request that Isham delete your account and all your data? He'll action this and confirm by email — it can't be undone once done.")) return;
+    try {
+      await addMessage({ name: me.name, email: session.user.email, text: "DATA DELETION REQUEST — please delete my account and all associated data (right to erasure)." });
+      alert("Request sent — Isham will confirm once it's done.");
+    } catch (e) { alert("Couldn't send that — please email Isham directly."); }
+  };
+
+  const LessonCard = ({ b, actions }) => {
+    const link = store.meetLinks[slotKey(b.date, b.block)];
+    const c = SUBJECT_COLORS[b.subject] || SUBJECT_COLORS.Maths;
+    const blk = blockById(b.block);
+    const startMs = new Date(b.date + "T00:00:00").getTime() + blk.s * 60000;
+    const cancellable = startMs - Date.now() > 24 * 3600 * 1000;
+    return (
+      <li style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 12, padding: "12px 14px", fontSize: 14, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <span>
+          <strong style={{ color: c.text }}>{b.subject}</strong> — {humanDate(b.date)} · {b.blockLabel}
+          {b.attended === true && <span className="it-chip" style={{ marginLeft: 8, background: "var(--aqua)", color: "var(--mint-dark)" }}>Attended</span>}
+          {b.attended === false && <span className="it-chip" style={{ marginLeft: 8, background: "#FFEDE9", color: "#C2402F" }}>Missed</span>}
+          {b.topic && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 4 }}><strong>Covered:</strong> {b.topic}</div>}
+          {b.homework && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 2 }}><strong>Homework:</strong> {b.homework}</div>}
+          {b.note && <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4, fontStyle: "italic" }}>"{b.note}"</div>}
+        </span>
+        {actions && (
+          <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {link ? (
+              <a href={link} target="_blank" rel="noreferrer" className="it-btn" style={{ padding: "8px 16px", fontSize: 13.5, textDecoration: "none" }}>Join Google Meet →</a>
+            ) : (
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears before the lesson</span>
+            )}
+            {cancellable && <button className="it-btn" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => changeLesson(b)}>Reschedule</button>}
+            {cancellable && <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => cancelLesson(b)}>Cancel lesson</button>}
+            {!cancellable && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Inside the 24-hour window — message Isham if something's come up</span>}
+          </span>
+        )}
+      </li>
+    );
+  };
+
+  const upcoming = [...mine].filter((b) => b.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const past = [...mine].filter((b) => b.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  const pageTitle = { fontSize: 22, fontWeight: 500, margin: "0 0 4px" };
+
   return (
-    <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 1120, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-        <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
-        <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={signOut}>Sign out</button>
+    <div className="it-fade">
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "26px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <h1 className="it-display" style={{ fontSize: 22, fontWeight: 500, margin: 0 }}>Hi {me.name.split(" ")[0]} 👋</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* One student per login today, so this is a static label, not a dropdown.
+              TODO(api): once a parent account can link multiple children, swap this for a real
+              switcher that changes which student's `me`/`mine` the whole page is showing. */}
+          <span style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid var(--line)", borderRadius: 10, padding: "6px 12px", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {me.name.charAt(0).toUpperCase()}
+            </span>
+            {me.name.split(" ")[0]}
+          </span>
+          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={signOut}>Sign out</button>
+        </div>
       </div>
 
-      {nextLesson && (
-        <div className="it-card" style={{ padding: "20px 24px", margin: "18px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, background: "var(--ink)", border: "none" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "rgba(255,255,255,.6)", marginBottom: 4 }}>Next lesson</div>
-            <div className="it-display" style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{nextLesson.subject} · {nextLesson.date} · {nextLesson.blockLabel}</div>
-          </div>
-          {store.meetLinks[slotKey(nextLesson.date, nextLesson.block)] ? (
-            <a href={store.meetLinks[slotKey(nextLesson.date, nextLesson.block)]} target="_blank" rel="noreferrer" className="it-btn" style={{ background: "var(--mint)", color: "var(--ink)", textDecoration: "none" }}>Join Google Meet →</a>
-          ) : (
-            <span style={{ fontSize: 13, color: "rgba(255,255,255,.7)" }}>Meet link appears before the lesson</span>
-          )}
-        </div>
-      )}
+      <div className="it-shell">
+        <BookSidebar tab={bookTab} setTab={setBookTab} />
+        <div className="it-shell-main">
 
-      {!locked && (
-        <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-              <Icon name="cap" size={18} />
-            </div>
+          {bookTab === "home" && (
             <div>
-              <div className="it-display" style={{ fontSize: 15, fontWeight: 800 }}>Google Classroom</div>
-              {store.meetLinks[classroomKey(me.plan)] ? (
-                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Worksheets, past papers & anything from lessons live here.</div>
-              ) : (
-                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Isham's still setting this up — you'll get an email the moment it's ready, and it'll appear here too.</div>
+              {locked && (
+                <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 14 }}>
+                  Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours.
+                </div>
+              )}
+              {expired && (
+                <div style={{ background: "#FFF1EF", border: "1px solid #F6C4BC", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#8A3126", marginBottom: 14 }}>
+                  Your plan ended on {me.paid_until}. Message Isham or renew to keep booking — your existing bookings are safe.
+                </div>
+              )}
+
+              {!locked && (
+                <div style={{ marginBottom: 14 }}>
+                  <NextLessonCard
+                    nextLesson={nextLesson}
+                    meetLink={nextLesson ? store.meetLinks[slotKey(nextLesson.date, nextLesson.block)] : null}
+                    seatsTaken={nextLesson ? store.bookings.filter((b) => b.date === nextLesson.date && b.block === nextLesson.block && (plan.seats === 1 || b.subject === nextLesson.subject)).length : 0}
+                    seatsCap={plan.seats}
+                    goBook={() => setBookTab("book")}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 14 }}>
+                <AllowanceCard lessonsLeft={lessonsLeft} total={plan.lessons} periodEnd={period.end} />
+                <PlanStatusCard plan={plan} me={me} locked={locked} onManage={() => setBookTab("billing")} />
+              </div>
+
+              {!locked && lessonsLeft > 0 && daysLeft(period.end) <= 14 && (
+                <div style={{ background: "#FFF1EF", border: "1px solid #F6C4BC", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#8A3126", marginBottom: 14 }}>
+                  {lessonsLeft} unused lesson{lessonsLeft === 1 ? "" : "s"} {daysLeft(period.end) <= 0 ? "expire today" : `expire${daysLeft(period.end) === 1 ? "s" : ""} in ${daysLeft(period.end)} day${daysLeft(period.end) === 1 ? "" : "s"}`} ({period.end}).
+                </div>
+              )}
+
+              {!locked && lessonsLeft > 0 && (
+                <div className="it-card" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Book the rest of this period</p>
+                    <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>{lessonsLeft} lesson{lessonsLeft === 1 ? "" : "s"} left to place</p>
+                  </div>
+                  <button className="it-btn" onClick={() => setBookTab("book")}>Book now</button>
+                </div>
+              )}
+
+              {!locked && upcoming.length > 0 && (
+                <div>
+                  <h3 className="it-display" style={{ fontSize: 15, fontWeight: 700, margin: "0 0 10px" }}>Upcoming lessons</h3>
+                  <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
+                    {upcoming.slice(0, 4).map((b) => (
+                      <li key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, padding: "10px 14px", border: "1px solid var(--line)", borderRadius: 10 }}>
+                        <span>{b.subject} · {humanDate(b.date)} · {b.blockLabel}</span>
+                        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5 }} onClick={() => setBookTab("mylessons")}>Change</button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
-          </div>
-          {store.meetLinks[classroomKey(me.plan)] && (
-            <a href={store.meetLinks[classroomKey(me.plan)]} target="_blank" rel="noreferrer" className="it-btn" style={{ textDecoration: "none" }}>Open Classroom →</a>
           )}
-        </div>
-      )}
 
-      <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 18 }}>
-        {[
-          ["Plan", plan.name, `${gbp(plan.price)}${plan.per} · ${plan.lessons} lesson${plan.lessons > 1 ? "s" : ""}/month`],
-          ["Payment", me.paid_until ? me.paid_until : locked ? "Pending confirmation" : "—",
-            me.cancelled ? "Not renewing" : me.paid_until && !expired ? `Covered for ${daysLeft(me.paid_until)} more days` : locked ? "We'll confirm this within a few hours" : ""],
-          ["This period", `${lessonsLeft} lesson${lessonsLeft === 1 ? "" : "s"} remaining`, `of ${plan.lessons} this period`],
-          ["Attendance", totalMarked > 0 ? `${totalAttended}/${totalMarked}` : "—",
-            nextLesson ? `Next: ${nextLesson.date} · ${nextLesson.blockLabel}` : "No upcoming lesson"],
-        ].map(([label, big, small]) => (
-          <div key={label}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 4 }}>{label}</div>
-            <div className="it-display" style={{ fontSize: 16, fontWeight: 800, color: expired && label === "Payment" ? "var(--coral)" : "var(--ink)" }}>{big}</div>
-            {small && <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>{small}</div>}
-          </div>
-        ))}
-      </div>
-
-      {!locked && mineMonth.length > 0 && (
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", padding: "0 4px", marginBottom: 18, fontSize: 13.5, color: "var(--ink-soft)" }}>
-          <span><strong style={{ color: "var(--ink)" }}>{completedThisPeriod}</strong> lesson{completedThisPeriod === 1 ? "" : "s"} completed this period</span>
-          {topicsThisPeriod > 0 && <span><strong style={{ color: "var(--ink)" }}>{topicsThisPeriod}</strong> topic{topicsThisPeriod === 1 ? "" : "s"} covered</span>}
-        </div>
-      )}
-
-      {locked && (
-        <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 12 }}>
-          Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours.
-        </div>
-      )}
-      {expired && (
-        <div style={{ background: "#FFF1EF", border: "1px solid #F6C4BC", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#8A3126", marginBottom: 12 }}>
-          Your plan ended on {me.paid_until}. Message Isham or renew to keep booking — your existing bookings are safe.
-        </div>
-      )}
-      <p style={{ color: "var(--ink-soft)", marginBottom: 18 }}>
-        {plan.name} — {plan.rotates
-          ? "each week is one subject (see the colour on each date). Tap a slot to book."
-          : plan.days === "weekday"
-            ? "pick a subject, then tap a slot — weekday evenings, private 1-hour sessions."
-            : "pick a subject, then tap a slot. Wednesday & Friday evenings — private 1-hour sessions."}
-        {dateKey(new Date()) < TERM_START && " Lessons start 1 October — you're locking in your place now, and the calendar below opens straight on the first bookable week."}
-      </p>
-
-      {!locked && (
-        <>
-          {!plan.rotates && plan.subjects.length > 1 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 20px" }}>
-              {plan.subjects.map((s) => {
-                const c = SUBJECT_COLORS[s];
-                const on = subject === s;
-                return (
-                  <button key={s} className="it-slot" style={{ padding: "9px 18px", background: on ? c.border : c.bg, borderColor: c.border, color: on ? "#fff" : c.text }}
-                    onClick={() => { setSubject(s); setSel(null); }}>
-                    {s}
-                  </button>
-                );
-              })}
+          {bookTab === "book" && (
+            <div>
+              <h1 className="it-display" style={pageTitle}>Book lessons</h1>
+              {locked ? (
+                <EmptyState icon="calendar" text="Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours." />
+              ) : expired ? (
+                <EmptyState icon="calendar" text="Your plan has expired — renew or message Isham to keep booking." />
+              ) : (
+                <>
+                  {dateKey(new Date()) < TERM_START && (
+                    <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Lessons start 1 October — you're locking in your place now, and the calendar below opens straight on the first bookable week.</p>
+                  )}
+                  {!plan.rotates && plan.subjects.length > 1 && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 20px" }}>
+                      {plan.subjects.map((s) => {
+                        const c = SUBJECT_COLORS[s];
+                        const on = subject === s;
+                        return (
+                          <button key={s} className="it-slot" style={{ padding: "9px 18px", background: on ? c.border : c.bg, borderColor: c.border, color: on ? "#fff" : c.text }}
+                            onClick={() => { setSubject(s); setSel(null); }}>
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <BookLessonsPicker plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} email={session.user.email} addMessage={addMessage} />
+                </>
+              )}
             </div>
           )}
 
-          <div id="book-calendar">
-            <BookingChart plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} />
-          </div>
+          {bookTab === "mylessons" && (
+            <div>
+              <h1 className="it-display" style={pageTitle}>My lessons</h1>
+              <div style={{ maxWidth: 320, margin: "16px 0 22px" }}>
+                <MyLessonsCalendar mine={mine} />
+              </div>
+              <h3 className="it-display" style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>Upcoming</h3>
+              {upcoming.length === 0 ? (
+                <div style={{ marginBottom: 24 }}><EmptyState icon="calendar" text="Your calendar is empty — you've got lessons ready to book." /></div>
+              ) : (
+                <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8, marginBottom: 26 }}>
+                  {upcoming.map((b) => <LessonCard key={b.id} b={b} actions />)}
+                </ul>
+              )}
+              <h3 className="it-display" style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>Past</h3>
+              {past.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>No past lessons yet.</p>
+              ) : (
+                <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
+                  {past.map((b) => <LessonCard key={b.id} b={b} actions={false} />)}
+                </ul>
+              )}
+            </div>
+          )}
 
-          <div style={{ position: "sticky", bottom: 16, marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-            <button className="it-btn" disabled={!sel || busy} onClick={confirmBooking}>
-              {busy ? "Booking…" : sel ? `Confirm ${sel.subject || subject} · ${sel.label}` : "Select a slot on the chart"}
-            </button>
-          </div>
-        </>
-      )}
+          {bookTab === "progress" && (
+            <div>
+              <h1 className="it-display" style={pageTitle}>Progress</h1>
+              {totalMarked === 0 ? (
+                <EmptyState icon="star" text="No lessons attended yet — what's covered and any homework will show up here after each lesson." />
+              ) : (
+                <>
+                  <div className="it-card" style={{ padding: "16px 18px", margin: "16px 0 18px", maxWidth: 260 }}>
+                    <p style={{ margin: "0 0 6px", fontSize: 12.5, color: "var(--ink-soft)" }}>Attendance</p>
+                    <p className="it-display" style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{totalAttended} of {totalMarked}</p>
+                  </div>
+                  <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
+                    {past.map((b) => <LessonCard key={b.id} b={b} actions={false} />)}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
 
-      {mine.length === 0 && !locked && (
-        <div style={{ marginTop: 28 }}>
-          <EmptyState icon="calendar" text="Your timetable is empty — let's fix that. Pick a highlighted date above to book your first lesson." />
+          {bookTab === "billing" && (
+            <div>
+              <h1 className="it-display" style={pageTitle}>Billing</h1>
+              <div className="it-card" style={{ padding: 20, marginTop: 14, maxWidth: 460 }}>
+                <p style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700 }}>{plan.name}</p>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)" }}>{gbp(plan.price)}{plan.per}</p>
+                <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>{session.user.email}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
+                  {me.paid_until ? `Covered until ${me.paid_until}` : locked ? "Pending confirmation" : "—"}
+                </p>
+                <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--ink-soft)" }}>Unused lessons don't roll over — your allowance resets to {plan.lessons} on renewal.</p>
+                {/* TODO(api): invoice history and a stored payment method need a Stripe Customer object;
+                    Payment Links don't create one, so there's nothing to read here yet. */}
+                {me.cancelled ? (
+                  <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 16 }}>
+                    Your plan is set to not renew.{me.paid_until ? ` You can keep booking until ${me.paid_until}.` : " Message Isham if you'd like to rejoin."}
+                  </p>
+                ) : (
+                  <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px", marginTop: 16 }} onClick={cancelPlan}>Cancel my plan</button>
+                )}
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+                  <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, color: "var(--coral)" }} onClick={requestDeletion}>Request my data be deleted</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {bookTab === "questions" && (
+            <div>
+              <h1 className="it-display" style={pageTitle}>Questions</h1>
+              <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Visible to every student and to Isham — a good place for anything another family might also wonder about.</p>
+              <ChatPanel sender={me.name} isTutor={false} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {mine.length > 0 && (
-        <div style={{ marginTop: 28 }}>
-          <div style={{ maxWidth: 340, marginBottom: 20 }}>
-            <MyLessonsCalendar mine={mine} />
-          </div>
-          <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800 }}>Your lessons</h3>
-          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "2px 0 8px" }}>You can cancel and rebook any lesson up to 24 hours before it starts.</p>
-          {(() => {
-            const marked = mine.filter((b) => b.attended === true || b.attended === false);
-            const attended = mine.filter((b) => b.attended === true).length;
-            return marked.length > 0 ? (
-              <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" }}>
-                Attendance: <strong style={{ color: "var(--ink)" }}>{attended} of {marked.length}</strong> lessons attended so far.
-              </p>
-            ) : null;
-          })()}
-          <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
-            {[...mine].sort((a, b) => a.date.localeCompare(b.date)).map((b) => {
-              const link = store.meetLinks[slotKey(b.date, b.block)];
-              const c = SUBJECT_COLORS[b.subject] || SUBJECT_COLORS.Maths;
-              const blk = blockById(b.block);
-              const startMs = new Date(b.date + "T00:00:00").getTime() + blk.s * 60000;
-              const cancellable = startMs - Date.now() > 24 * 3600 * 1000;
-              return (
-                <li key={b.id} style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 12, padding: "12px 14px", fontSize: 14, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <span>
-                    <strong style={{ color: c.text }}>{b.subject}</strong> — {b.date} · {b.blockLabel}
-                    {b.attended === true && <span className="it-chip" style={{ marginLeft: 8, background: "var(--aqua)", color: "var(--mint-dark)" }}>Attended</span>}
-                    {b.attended === false && <span className="it-chip" style={{ marginLeft: 8, background: "#FFEDE9", color: "#C2402F" }}>Missed</span>}
-                    {b.topic && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 4 }}><strong>Covered:</strong> {b.topic}</div>}
-                    {b.homework && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 2 }}><strong>Homework:</strong> {b.homework}</div>}
-                    {b.note && <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4, fontStyle: "italic" }}>"{b.note}"</div>}
-                  </span>
-                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    {link ? (
-                      <a href={link} target="_blank" rel="noreferrer" className="it-btn" style={{ padding: "8px 16px", fontSize: 13.5, textDecoration: "none" }}>Join Google Meet →</a>
-                    ) : (
-                      <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears before the lesson</span>
-                    )}
-                    {cancellable && (
-                      <button className="it-btn" style={{ padding: "7px 12px", fontSize: 12.5 }}
-                        onClick={async () => {
-                          const msg = plan.rotates
-                            ? "Change this lesson? It'll be freed up and the calendar below will open so you can pick a new date yourself — heads up, subjects rotate weekly, so a different week may mean a different subject."
-                            : "Change this lesson's time? It'll be freed up, and the calendar will scroll down so you can pick a new slot — same subject.";
-                          if (!confirm(msg)) return;
-                          const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
-                          if (error || data === false) { alert("Couldn't change — lessons can only be changed more than 24 hours in advance."); return; }
-                          await refresh();
-                          setSubject(b.subject);
-                          setSel(null);
-                          document.getElementById("book-calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}>Change time — I'll pick myself</button>
-                    )}
-                    {cancellable && (
-                      <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
-                        onClick={async () => {
-                          if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed — you can rebook a different slot.")) return;
-                          const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
-                          if (error || data === false) alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance.");
-                          else await refresh();
-                        }}>Cancel</button>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      <BookBottomTabs tab={bookTab} setTab={setBookTab} />
 
-      <details style={{ marginTop: 28 }}>
-        <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--ink-soft)", padding: "6px 2px" }}>Account & billing — {session.user.email}</summary>
-        <div className="it-card" style={{ padding: 20, marginTop: 10 }}>
-        {me.cancelled ? (
-          <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
-            Your plan is set to not renew.{me.paid_until ? ` You can keep booking until ${me.paid_until}.` : " Message Isham if you'd like to rejoin."}
-          </p>
-        ) : (
-          <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px" }}
-            onClick={async () => {
-              if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way — message Isham if you're not sure.")) return;
-              const { data, error } = await supa.rpc("cancel_my_plan");
-              if (error || data === false) alert("Couldn't cancel — please message Isham directly.");
-              else { alert("Done — your plan won't renew."); await refresh(); }
-            }}>Cancel my plan</button>
-        )}
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, color: "var(--coral)" }}
-            onClick={async () => {
-              if (!confirm("Request that Isham delete your account and all your data? He'll action this and confirm by email — it can't be undone once done.")) return;
-              try {
-                await addMessage({ name: me.name, email: session.user.email, text: "DATA DELETION REQUEST — please delete my account and all associated data (right to erasure)." });
-                alert("Request sent — Isham will confirm once it's done.");
-              } catch (e) { alert("Couldn't send that — please email Isham directly."); }
-            }}>Request my data be deleted</button>
-        </div>
-        </div>
-      </details>
-
-      <ChatPanel sender={me.name} isTutor={false} />
+      <ConfirmSheet sel={sel} plan={plan} lessonsLeft={lessonsLeft} busy={busy} onConfirm={confirmBooking} onCancel={() => setSel(null)} />
     </div>
   );
 }
@@ -1538,7 +1765,7 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, 
         <div>
           <strong style={{ color: c.text }}>{block.label}</strong>{" "}
           <SubjectChip subject={subj} />{" "}
-          <span style={{ fontSize: 13, fontWeight: 700, color: list.length >= cap ? "var(--coral)" : c.text }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: list.length >= cap ? "var(--coral)" : list.length >= cap - 1 ? "#B87A14" : "#2FA45B" }}>
             {cap === 1 ? "1-to-1" : `${list.length}/${cap} booked`}
           </span>
         </div>

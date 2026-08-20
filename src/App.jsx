@@ -13,71 +13,46 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://tmsvtiavhodtlvvaugdr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_uX2JC9t78GPJTMMgLcoeWA_9OVpc-8F";
 
-/* ---- TUTORS & STRIPE ----
-   Each tutor has their OWN Stripe account and payment links.
-   Money goes directly to each tutor; dashboards report the platform fee each tutor owes (see FEES below). */
+/* ---- TUTOR & STRIPE ---- */
 const TUTORS = {
-  isham: { id: "isham", name: "Isham Bari",     email: "ishambari6@gmail.com", dept: "stem", master: true },
-  belal: { id: "belal", name: "Belal Ghazalah", email: "bghazala01@gmail.com", dept: "stem" },
+  isham: { id: "isham", name: "Isham Bari", email: "ishambari6@gmail.com", dept: "stem", master: true },
 };
-const FEES = { isham: 0, belal: 0.15 };
+const FEES = { isham: 0 };
 const feeRate = (tid) => FEES[tid] || 0;
 
-/* alevel is keyed by subject too — it's 1-to-1, so the right Stripe link
-   depends on which subject the student is choosing at signup. */
 const STRIPE_LIVE = {
   isham: {
     gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
     gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
-    alevel: {
-      Maths:     "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
-      Biology:   "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
-      Chemistry: "https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
-    },
-  },
-  belal: {
-    gcse:  "https://buy.stripe.com/dRm14n5YV2Pn42uctdfQI04",
-    gcse3: "https://buy.stripe.com/aFabJ10EB89H0Qibp9fQI00",
-    alevel: {
-      Maths:     "https://buy.stripe.com/bJe4gzafb9dLaqSbp9fQI01",
-      Chemistry: "https://buy.stripe.com/fZubJ1fzvcpXdD4bp9fQI03",
-      Biology:   "https://buy.stripe.com/6oUeVd2MJ2PngPg0KvfQI02",
-    },
+    alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
   },
 };
 
 /* Stripe TEST-mode links — pay with card 4242 4242 4242 4242, any future
-   expiry/CVC, nothing real is charged. Plans/tutors with no test link below
-   fall back to the demo-checkout notice while STRIPE_MODE is "test". Flip
+   expiry/CVC, nothing real is charged. Plans with no test link below fall
+   back to the demo-checkout notice while STRIPE_MODE is "test". Flip
    STRIPE_MODE back to "live" once you're done testing. */
 const STRIPE_TEST = {
   isham: {
     gcse: "https://buy.stripe.com/test_dRm3cudfR5297eHdT0es000",
   },
-  belal: {},
 };
 
 const STRIPE_MODE = "test"; // "test" | "live"
 const STRIPE = STRIPE_MODE === "test" ? STRIPE_TEST : STRIPE_LIVE;
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
-const CAP = 40;
+const CAP = 20;
 
 const WEEKEND_BLOCKS = [
-  { id: "b1", label: "9:00 – 10:30am · Isham",  s: 540,  e: 630 },
-  { id: "c1", label: "9:00 – 10:30am · Belal",  s: 540,  e: 630 },
-  { id: "b2", label: "10:45 – 12:15 · Isham",   s: 645,  e: 735 },
-  { id: "c2", label: "10:45 – 12:15 · Belal",   s: 645,  e: 735 },
-  { id: "b3", label: "1:00 – 2:30pm · Isham",   s: 780,  e: 870 },
-  { id: "c3", label: "1:00 – 2:30pm · Belal",   s: 780,  e: 870 },
-  { id: "b4", label: "2:45 – 4:15pm · Isham",   s: 885,  e: 975 },
-  { id: "c4", label: "2:45 – 4:15pm · Belal",   s: 885,  e: 975 },
+  { id: "b1", label: "9:00 – 10:30am",  s: 540,  e: 630 },
+  { id: "b2", label: "10:45 – 12:15",   s: 645,  e: 735 },
+  { id: "b3", label: "1:00 – 2:30pm",   s: 780,  e: 870 },
+  { id: "b4", label: "2:45 – 4:15pm",   s: 885,  e: 975 },
 ];
 const EVENING_BLOCK = [
-  { id: "e1", label: "7:00 – 8:00pm · Isham", s: 1140, e: 1200, person: "isham" },
-  { id: "e2", label: "8:15 – 9:15pm · Isham", s: 1215, e: 1275, person: "isham" },
-  { id: "f1", label: "7:00 – 8:00pm · Belal", s: 1140, e: 1200, person: "belal" },
-  { id: "f2", label: "8:15 – 9:15pm · Belal", s: 1215, e: 1275, person: "belal" },
+  { id: "e1", label: "7:00 – 8:00pm",  s: 1140, e: 1200 },
+  { id: "e2", label: "8:15 – 9:15pm",  s: 1215, e: 1275 },
 ];
 const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK];
 
@@ -159,7 +134,6 @@ const addMonths = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); r
 const daysLeft = (paidUntil) => paidUntil ? Math.ceil((new Date(paidUntil + "T00:00:00") - new Date()) / 864e5) : null;
 
 const blockById = (id) => ALL_BLOCKS.find((b) => b.id === id) || { id, label: id, s: 0, e: 0 };
-const overlaps = (a, b) => a.s < b.e && b.s < a.e;
 
 /* Billing-period allowance: lessons count against the student's own paid month,
    not the calendar month — joining on the 25th no longer loses 6 lessons a week later. */
@@ -483,7 +457,7 @@ function Home({ go, taken, testimonials }) {
           {[
             ["cap", "Dental student, from Sept"],
             ["star", "Predicted A*A*A"],
-            ["users", "40 places · two tutors"],
+            ["users", "20 places"],
             ["heart", "5% of earnings to charity"],
           ].map(([icon, label]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--mint-dark)" }}>
@@ -512,7 +486,6 @@ function Home({ go, taken, testimonials }) {
             </div>
             <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
               This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
-              {" "}Science weekends run two parallel rooms — one taught by me, one by {TUTORS.belal.name} (medical student at a top UK university) — so twice the places without bigger groups.
             </p>
           </div>
         </Reveal>
@@ -521,37 +494,21 @@ function Home({ go, taken, testimonials }) {
       <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
         <Reveal>
           <span className="it-tag">Who's teaching</span>
-          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "10px 0 4px" }}>Meet your tutors</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 22px", maxWidth: 640 }}>Both currently at medical/dental school, both teaching because they remember exactly what it's like to need this.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 18 }}>
-            <div className="it-card" style={{ padding: 24 }}>
-              <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                <Avatar initials="IB" />
-                <div>
-                  <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>Isham Bari</div>
-                  <div style={{ fontSize: 13, color: "var(--mint-dark)", fontWeight: 700 }}>Dental student, from September</div>
-                </div>
+          <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "10px 0 4px" }}>Meet your tutor</h2>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 22px", maxWidth: 640 }}>Teaching because I remember exactly what it's like to need this.</p>
+          <div className="it-card" style={{ padding: 24, maxWidth: 400 }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+              <Avatar initials="IB" />
+              <div>
+                <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>Isham Bari</div>
+                <div style={{ fontSize: 13, color: "var(--mint-dark)", fontWeight: 700 }}>Dental student, from September</div>
               </div>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
-                {["Predicted A*A*A · ranked top of his school", "Ran a tutoring service teaching ~50 students/month", "Personally tutored 65 students for the UCAT", "Teaches Maths, Biology, Chemistry, Physics"].map((l) => (
-                  <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
-                ))}
-              </ul>
             </div>
-            <div className="it-card" style={{ padding: 24 }}>
-              <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                <Avatar initials="BG" />
-                <div>
-                  <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>{TUTORS.belal.name}</div>
-                  <div style={{ fontSize: 13, color: "var(--mint-dark)", fontWeight: 700 }}>Medical student, one of the UK's top universities</div>
-                </div>
-              </div>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
-                {["A*A*A — Biology, Chemistry & Business", "Ranked top of his class", "Teaches GCSE Sciences & A-level"].map((l) => (
-                  <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
-                ))}
-              </ul>
-            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
+              {["Predicted A*A*A · ranked top of his school", "Ran a tutoring service teaching ~50 students/month", "Personally tutored 65 students for the UCAT", "Teaches Maths, Biology, Chemistry, Physics"].map((l) => (
+                <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
+              ))}
+            </ul>
           </div>
         </Reveal>
       </section>
@@ -586,7 +543,7 @@ function Home({ go, taken, testimonials }) {
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["65", "students I've personally tutored for the UCAT"],
-            ["40", "places across two tutors — me and a medic at a top university"],
+            ["20", "places, kept small so everyone gets airtime"],
             ["5", "max per GCSE group — A-level is private 1-to-1"],
             ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
             ["5%", "of all earnings donated to charity & food banks"],
@@ -734,13 +691,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
   const [password2, setPassword2] = useState("");
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
-  const tutorChoice = plan.id === "gcse" || plan.id === "gcse3" || plan.id === "alevel"; // plans Belal also teaches
-  const needsSubject = plan.id === "alevel"; // 1-to-1: Stripe link depends on which subject
-  const [tutor, setTutor] = useState("isham");
-  const [subject, setSubject] = useState(needsSubject ? plan.subjects[0] : null);
-  const payLink = needsSubject
-    ? ((STRIPE[tutor] && STRIPE[tutor].alevel && STRIPE[tutor].alevel[subject]) || null)
-    : ((STRIPE[tutor] || {})[planId] || null);
+  const payLink = (STRIPE.isham || {})[planId] || null;
   const submit = async () => {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
     if (password.length < 8) return alert("Password must be at least 8 characters.");
@@ -753,15 +704,22 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
       });
       if (authErr) throw authErr;
       // paid_until stays null until Isham confirms the payment in the dashboard
-      await onDone({ name: name.trim(), email: cleanEmail, plan: planId, paid_until: null, tutor });
+      await onDone({ name: name.trim(), email: cleanEmail, plan: planId, paid_until: null });
       notifyServer({ type: "signup", name: name.trim(), email: cleanEmail, plan: plan.name });
-      /* send them to the chosen tutor's Stripe checkout */
       if (payLink) window.open(payLink, "_blank");
       setDone(true);
     } catch (e) {
       setPaying(false);
-      if (String(e).includes("duplicate") || e.status === 409) alert("That email already has a plan — go to Book and sign in there.");
-      else alert(e.message || "Something went wrong saving your details — please try again.");
+      console.error("Checkout failed:", e); // full detail for diagnosing — never rely on the alert text alone
+      const raw = (e && e.message) || "";
+      const msg = raw && raw !== "{}" ? raw : "";
+      if (String(e).includes("duplicate") || e.status === 409) {
+        alert("That email already has a plan — go to Book and sign in there.");
+      } else if (msg) {
+        alert(msg);
+      } else {
+        alert("Something went wrong saving your details — this usually means a temporary connection hiccup. Please wait a few seconds and try again, and message Isham if it keeps happening.");
+      }
     }
   };
 
@@ -789,43 +747,6 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
           <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className="it-input" placeholder="Password (min 8 characters)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <input className="it-input" placeholder="Repeat password" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
-          {needsSubject && (
-            <div style={{ display: "grid", gap: 8 }}>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Choose your subject:</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {plan.subjects.map((s) => {
-                  const c = SUBJECT_COLORS[s];
-                  const on = subject === s;
-                  return (
-                    <button key={s} type="button" className="it-slot" style={{ padding: "9px 18px", background: on ? c.border : c.bg, borderColor: c.border, color: on ? "#fff" : c.text }}
-                      onClick={() => setSubject(s)}>
-                      {s}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {tutorChoice && (
-            <div style={{ display: "grid", gap: 8 }}>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Choose your tutor — same lessons, same price:</p>
-              {[
-                { id: "isham", name: "Isham Bari", lines: ["Incoming dental student", "Predicted A*A*A · ranked top of his school", "Offers for Medicine & Dentistry at top universities"] },
-                { id: "belal", name: "Belal Ghazalah", lines: ["Medical student at one of the UK's top universities", "A*A*A — Biology, Chemistry & Business", "Ranked top of his class"] },
-              ].map((t) => (
-                <button key={t.id} type="button" onClick={() => setTutor(t.id)}
-                  style={{ textAlign: "left", borderRadius: 12, padding: "12px 14px", cursor: "pointer", transition: "all .15s",
-                    border: tutor === t.id ? "2px solid var(--mint)" : "1.5px solid var(--line)",
-                    background: tutor === t.id ? "var(--aqua)" : "#fff" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <strong className="it-display" style={{ fontSize: 15 }}>{t.name}</strong>
-                    {tutor === t.id && <span style={{ color: "var(--mint-dark)", fontWeight: 800, fontSize: 13 }}>Selected ✓</span>}
-                  </div>
-                  {t.lines.map((l) => <div key={l} style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>• {l}</div>)}
-                </button>
-              ))}
-            </div>
-          )}
           {!payLink && (
             <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
               Demo checkout — no card is charged yet. Payment details will be arranged by email until online payment goes live.
@@ -864,15 +785,8 @@ function BookingChart({ plan, store, subject, sel, setSel, mine, me }) {
   const subjectFor = (d) => (plan.rotates ? weekSubject(d, plan.cycle) : subject);
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
-  const myPerson = me.tutor || "isham";
-  // Blocks with a "person" (1-to-1 plans shared across tutors) are only bookable by that tutor's own students.
-  const visibleBlocks = plan.blocks.filter((bl) => !bl.person || bl.person === myPerson);
-  const personClash = (dk, blockId) => {
-    const p = blockById(blockId).person;
-    if (!p) return false;
-    const me_ = blockById(blockId);
-    return store.bookings.some((b) => b.date === dk && b.block !== blockId && blockById(b.block).person === p && overlaps(blockById(b.block), me_));
-  };
+  const visibleBlocks = plan.blocks; // single tutor — no per-block ownership filtering needed
+  const personClash = () => false; // no second tutor to clash with
   const isValid = (d) => d && wanted.includes(d.getDay()) && d >= today && d <= horizon;
   const dayStatus = (d) => {
     const dk = dateKey(d);
@@ -1447,9 +1361,7 @@ function MoveModal({ booking, onClose, onSave }) {
   const plan = PLANS[booking.plan] || PLANS.gcse;
   const days = upcomingDays(plan.days, 8);
   const [saving, setSaving] = useState(false);
-  // A 1-to-1 block belongs to a specific tutor — only offer that same tutor's blocks as move targets.
-  const bookingPerson = blockById(booking.block).person;
-  const visibleBlocks = plan.blocks.filter((bl) => !bl.person || bl.person === bookingPerson);
+  const visibleBlocks = plan.blocks;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
       <div className="it-card it-fade" style={{ padding: 26, width: 560, maxWidth: "100%", maxHeight: "85vh", overflowY: "auto" }}>
@@ -1641,7 +1553,6 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const stripeEst = (tid) => grossFor(tid) * 0.015 + 0.20 * payersFor(tid);
   const myGross = grossFor(role.id);
   const myFee = isMaster ? 0 : myGross * feeRate(role.id);
-  const feesToMaster = grossFor("belal") * feeRate("belal");
   const charity = grossFor("isham") * 0.05; // Isham's 5% charity pledge on his own earnings
 
   const byDate = {};
@@ -1700,8 +1611,6 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       <div id="admin-overview" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30, scrollMarginTop: 90 }}>
         {(isMaster ? [
           ["My gross / month", "£" + grossFor("isham").toFixed(0), "💷"],
-          ["Fees from tutors", "£" + feesToMaster.toFixed(2), "🤝"],
-          ["My total", "£" + (grossFor("isham") + feesToMaster).toFixed(2), "📊"],
           ["Charity pot (5%)", "£" + charity.toFixed(2), "❤️"],
           ["Places", `${store.takenCount || 0} / ${CAP}`, "🎓"],
           ["Registered students", String(store.subscribers.length), "👥"],
@@ -1724,30 +1633,6 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       </div>
 
       <ChatPanel sender={role.name} isTutor={true} />
-
-      {isMaster && (
-        <div className="it-card" style={{ padding: 18, marginBottom: 26 }}>
-          <strong className="it-display" style={{ fontSize: 15 }}>Per-tutor breakdown (monthly-equivalent)</strong>
-          <table style={{ width: "100%", marginTop: 10, borderCollapse: "collapse", fontSize: 13.5 }}>
-            <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 5 }}>Tutor</th><th style={{ padding: 5 }}>Gross</th><th style={{ padding: 5 }}>Stripe (est.)</th><th style={{ padding: 5 }}>Fee to you</th><th style={{ padding: 5 }}>They keep</th></tr></thead>
-            <tbody>
-              {Object.values(TUTORS).map((t) => {
-                const g = grossFor(t.id), se = stripeEst(t.id), fee = g * feeRate(t.id);
-                return (
-                  <tr key={t.id} style={{ borderTop: "1px solid var(--line)" }}>
-                    <td style={{ padding: 5, fontWeight: 700 }}>{t.name}{t.master ? " (you)" : ""}</td>
-                    <td style={{ padding: 5 }}>£{g.toFixed(2)}</td>
-                    <td style={{ padding: 5, color: "var(--ink-soft)" }}>£{se.toFixed(2)}</td>
-                    <td style={{ padding: 5 }}>£{fee.toFixed(2)}</td>
-                    <td style={{ padding: 5 }}>£{Math.max(g - fee - se, 0).toFixed(2)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "8px 0 0" }}>Stripe fees are estimates (1.5% + 20p per payment) — exact figures live in each tutor's own Stripe dashboard. Term Deal shown as £36.67/month equivalent.</p>
-        </div>
-      )}
 
       <h2 id="admin-timetable" className="it-display" style={{ fontSize: 20, fontWeight: 800, scrollMarginTop: 90 }}>Timetable — who booked what & when</h2>
       <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session — students instantly see it on their booking page.</p>
@@ -1788,8 +1673,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
           <button className="it-btn" style={{ padding: "10px 18px" }} onClick={async () => {
             if (!nf.name.trim() || !nf.email.includes("@")) return alert("Name and a valid email needed.");
             try {
-              const t = role.id === "belal" ? "belal" : "isham";
-              await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null, tutor: t });
+              await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), plan: nf.plan, paid_until: nf.paid_until || null, tutor: "isham" });
               setNf({ name: "", email: "", plan: "gcse3", paid_until: addMonths(3) });
             }
             catch (e) { alert(String(e).includes("duplicate") ? "That email is already registered." : "Couldn't add — try again."); }
@@ -1951,14 +1835,6 @@ export default function App() {
     if ((pl.seats || 5) > 1) q = q.eq("subject", b.subject);
     const { count } = await q;
     if ((count || 0) >= (pl.seats || 5)) { await refresh(); throw new Error("slot full"); }
-    const myPerson = blockById(b.block).person;
-    if (myPerson) { // 1-to-1 blocks shared across tutors: block overlapping sessions for that same tutor
-      const { data: same } = await supa.from("bookings").select("block").eq("date", b.date);
-      const mine_ = blockById(b.block);
-      if ((same || []).some((x) => x.block !== b.block && blockById(x.block).person === myPerson && overlaps(blockById(x.block), mine_))) {
-        await refresh(); throw new Error("tutor busy");
-      }
-    }
     const { data, error } = await supa.from("bookings").insert(b).select();
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, bookings: [...st.bookings, mapBooking(data[0])] }));

@@ -278,11 +278,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 
 /* ---- parent portal shell (sidebar + bottom tabs) ---- */
 .it-shell{display:flex;align-items:flex-start;max-width:1200px;margin:0 auto;padding:0 24px 90px}
-.it-sidebar{width:186px;flex:none;position:sticky;top:69px;padding:22px 10px 22px 0;display:flex;flex-direction:column;gap:2px;height:calc(100vh - 69px)}
+.it-sidebar{width:186px;flex:none;position:sticky;top:69px;padding:22px 10px 22px 0;display:flex;flex-direction:column;gap:2px;max-height:calc(100vh - 69px)}
 .it-sidebar-link{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:none;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;text-align:left;width:100%}
 .it-sidebar-link:hover{background:var(--aqua);color:var(--ink)}
 .it-sidebar-link.active{background:var(--ink);color:#fff}
-.it-sidebar-help{margin-top:auto;padding:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft)}
+.it-sidebar-help{margin-top:18px;padding:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft)}
 .it-sidebar-help a{color:var(--mint-dark);font-weight:700;text-decoration:none}
 .it-shell-main{flex:1;min-width:0;padding:22px 0 22px 26px}
 @media(max-width:1100px){
@@ -911,12 +911,16 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
     }
   };
 
+  const WEEKLY_CAP = 2; // a parent can only place 2 lessons in any one week — keeps it spread out, not front-loaded
+  const weekBookingCount = (w) => w.days.reduce((sum, d) => sum + mine.filter((b) => b.date === dateKey(d)).length, 0);
+  const weekAtCap = (w) => plan.rotates && weekBookingCount(w) >= WEEKLY_CAP;
   const weekOpenSeats = (w) => w.days.reduce((sum, d) => {
     const subj = subjectFor(d);
     return sum + visibleBlocks.reduce((s, bl) => s + Math.max(seats - countAt(dateKey(d), bl.id, subj), 0), 0);
   }, 0);
   const weekBookedByMe = (w) => w.days.some((d) => mine.some((b) => b.date === dateKey(d)));
   const weekIsPast = (w) => w.days[w.days.length - 1] < today;
+  const weekCount = weekBookingCount(week);
 
   const slotRefs = React.useRef({});
   const focusSlot = (dayIdx, blockIdx) => slotRefs.current[dayIdx + "-" + blockIdx]?.focus();
@@ -935,7 +939,9 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>Each week covers one subject. Pick a week, then a time.</p>
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>
+          Each week covers one subject. Pick a week, then a time.{plan.rotates ? " Max 2 lessons a week." : ""}
+        </p>
         <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{Math.max(left, 0)} of {plan.lessons} left this period</span>
       </div>
 
@@ -945,7 +951,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
           const disabled = weekIsPast(w);
           const selected = w.index === week.index;
           const openSeats = weekOpenSeats(w);
-          const booked = weekBookedByMe(w);
+          const booked = plan.rotates ? weekAtCap(w) : weekBookedByMe(w);
           return (
             <button key={w.index} ref={(el) => { weekRefs.current[w.index] = el; }} type="button" role="tab" aria-selected={selected} disabled={disabled}
               tabIndex={selected ? 0 : -1}
@@ -982,26 +988,28 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
                 const full = n >= seats;
                 const waitlisted = full && onWaitlisted(dk, bl.id);
                 const blocked = left <= 0 || subjLeftForDay <= 0;
+                const weeklyLocked = plan.rotates && !already && weekCount >= WEEKLY_CAP;
+                const lockedOut = weeklyLocked || (blocked && !full);
                 return (
-                  <div key={bl.id} className="it-card" style={{ padding: "11px 12px", opacity: (full || blocked) && !already ? .65 : 1 }}>
+                  <div key={bl.id} className="it-card" style={{ padding: "11px 12px", opacity: (full || lockedOut) && !already ? .55 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 14, fontWeight: 700 }}>{bl.label}</span>
-                      <SeatPill taken={n} cap={seats} />
+                      {weeklyLocked ? <span style={{ fontSize: 16 }} aria-hidden="true">🔒</span> : <SeatPill taken={n} cap={seats} />}
                     </div>
                     <p style={{ margin: "5px 0 9px", fontSize: 12, color: "var(--ink-soft)" }}>{subj}</p>
                     <button ref={(el) => { slotRefs.current[dayIdx + "-" + blockIdx] = el; }}
                       className="it-btn" style={{ width: "100%", padding: "7px 0", fontSize: 13,
-                        ...(full ? { background: "#fff", color: "var(--ink-soft)", border: "1.5px solid var(--line)" } : {}) }}
-                      disabled={already || waitlisted || (blocked && !full)}
-                      onClick={() => full ? handleWaitlist(subj, dk, bl) : setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}
+                        ...(full || weeklyLocked ? { background: "#fff", color: "var(--ink-soft)", border: "1.5px solid var(--line)" } : {}) }}
+                      disabled={already || waitlisted || weeklyLocked || (blocked && !full)}
+                      onClick={() => weeklyLocked ? null : full ? handleWaitlist(subj, dk, bl) : setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}
                       onKeyDown={(e) => {
                         if (e.key === "ArrowRight") { e.preventDefault(); focusSlot(dayIdx, Math.min(blockIdx + 1, visibleBlocks.length - 1)); }
                         else if (e.key === "ArrowLeft") { e.preventDefault(); focusSlot(dayIdx, Math.max(blockIdx - 1, 0)); }
                         else if (e.key === "ArrowDown") { e.preventDefault(); focusSlot(Math.min(dayIdx + 1, week.days.length - 1), blockIdx); }
                         else if (e.key === "ArrowUp") { e.preventDefault(); focusSlot(Math.max(dayIdx - 1, 0), blockIdx); }
                       }}
-                      aria-label={`${subj}, ${prettyDate(d)}, ${bl.label}, ${already ? "already booked" : waitlisted ? "on waitlist" : full ? "full" : (seats - n) + " seats left"}`}>
-                      {already ? "Booked ✓" : waitlisted ? "On waitlist ✓" : full ? "Join waitlist" : isSel ? "Selected ✓" : "Select"}
+                      aria-label={`${subj}, ${prettyDate(d)}, ${bl.label}, ${already ? "already booked" : weeklyLocked ? "locked — max 2 lessons a week reached" : waitlisted ? "on waitlist" : full ? "full" : (seats - n) + " seats left"}`}>
+                      {already ? "Booked ✓" : weeklyLocked ? "Max 2/week" : waitlisted ? "On waitlist ✓" : full ? "Join waitlist" : isSel ? "Selected ✓" : "Select"}
                     </button>
                   </div>
                 );

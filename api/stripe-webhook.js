@@ -75,9 +75,14 @@ export default async function handler(req, res) {
           : new Date();
         base.setMonth(base.getMonth() + months);
         const paidUntil = base.toISOString().slice(0, 10);
+        const update = { paid_until: paidUntil, cancelled: false };
+        // Payment Links create a Stripe Customer for the checkout — store its id so
+        // Billing can hand out a real Stripe-hosted portal link (card, invoices, receipts)
+        // instead of saying that's not available.
+        if (session.customer) update.stripe_customer_id = session.customer;
         const { error: updateErr } = await supabaseAdmin
           .from("students")
-          .update({ paid_until: paidUntil, cancelled: false })
+          .update(update)
           .eq("id", student.id);
         if (updateErr) console.error("stripe-webhook: update failed:", updateErr.message);
       }

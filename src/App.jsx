@@ -155,6 +155,14 @@ function periodFor(me) {
   return { start: dateKey(s), end: dateKey(e) };
 }
 
+function lessonsLeftFor(student, bookings) {
+  const plan = PLANS[student.plan];
+  if (!plan) return 0;
+  const period = periodFor(student);
+  const count = bookings.filter((b) => b.subscriberId === student.id && b.date >= period.start && b.date < period.end).length;
+  return Math.max(plan.lessons - count, 0);
+}
+
 const notifyServer = (payload) => {
   try { fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => {}); } catch (e) {}
 };
@@ -873,7 +881,7 @@ function MyLessonsCalendar({ mine }) {
 }
 
 /* ---------- student booking calendar ---------- */
-function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email, joinWaitlist }) {
+function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email, joinWaitlist, removeWaitlistEntry }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const earliestBookable = new Date(Math.max(today, new Date(TERM_START + "T00:00:00")));
   const horizon = new Date(earliestBookable); horizon.setDate(horizon.getDate() + 56);
@@ -910,6 +918,11 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
       if (!weekIsPast(weeks[i])) { setWeekIdx(i); setSel(null); weekRefs.current[i]?.focus(); return; }
     }
   };
+  const jumpWeekFocus = (toEnd) => {
+    const order = toEnd ? [...weeks].reverse() : weeks;
+    const target = order.find((w) => !weekIsPast(w));
+    if (target) { setWeekIdx(target.index); setSel(null); weekRefs.current[target.index]?.focus(); }
+  };
 
   const WEEKLY_CAP = 2; // a parent can only place 2 lessons in any one week — keeps it spread out, not front-loaded
   const weekBookingCount = (w) => w.days.reduce((sum, d) => sum + mine.filter((b) => b.date === dateKey(d)).length, 0);
@@ -925,13 +938,18 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
   const slotRefs = React.useRef({});
   const focusSlot = (dayIdx, blockIdx) => slotRefs.current[dayIdx + "-" + blockIdx]?.focus();
 
-  const onWaitlisted = (dk, blockId) => store.waitlist.some((w) => w.email === email && w.date === dk && w.block === blockId);
+  const WAITLIST_CAP = 3; // a queue longer than this is a signal to open another group, not a queue to grow
+  const waitlistFor = (dk, blockId) => [...store.waitlist].filter((w) => w.date === dk && w.block === blockId).sort((a, b) => (a.created || "").localeCompare(b.created || ""));
+  const myWaitlistEntry = (dk, blockId) => waitlistFor(dk, blockId).find((w) => w.email === email);
   const handleWaitlist = async (subj, dk, bl) => {
-    if (!confirm(`Join the waitlist for ${subj} · ${prettyDate(new Date(dk + "T00:00:00"))} · ${bl.label}? Isham will see you're waiting and message you if a seat opens up.`)) return;
+    if (!confirm(`Join the waitlist for ${subj} · ${prettyDate(new Date(dk + "T00:00:00"))} · ${bl.label}? This doesn't use one of your lessons — you'll only be booked in, using one, if a seat actually opens up.`)) return;
     try {
       await joinWaitlist({ student_id: me.id, name: me.name, email, date: dk, block: bl.id, subject: subj });
-      alert("You're on the waitlist — Isham will message you if a seat opens up.");
     } catch (e) { alert("Couldn't join the waitlist — please message Isham on WhatsApp instead."); }
+  };
+  const leaveWaitlist = async (entryId) => {
+    if (!confirm("Leave the waitlist for this slot?")) return;
+    try { await removeWaitlistEntry(entryId); } catch (e) { alert("Couldn't leave the waitlist — please message Isham."); }
   };
 
   if (!week) return <EmptyState icon="calendar" text="Nothing bookable right now — message Isham and he'll sort you out." />;
@@ -961,6 +979,8 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
               onKeyDown={(e) => {
                 if (e.key === "ArrowRight") { e.preventDefault(); moveWeekFocus(w.index, 1); }
                 else if (e.key === "ArrowLeft") { e.preventDefault(); moveWeekFocus(w.index, -1); }
+                else if (e.key === "Home") { e.preventDefault(); jumpWeekFocus(false); }
+                else if (e.key === "End") { e.preventDefault(); jumpWeekFocus(true); }
               }}
               aria-label={`Week of ${humanDate(dateKey(w.days[0]))}, ${w.subject}, ${booked ? "already booked" : openSeats === 0 ? "full" : openSeats + " slots left"}`}>
               <div style={{ fontSize: 11, color: selected ? c.text : "var(--ink-soft)" }}>Wk {w.index + 1}</div>
@@ -986,7 +1006,9 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
                 const already = mine.some((b) => b.date === dk && b.block === bl.id);
                 const isSel = sel && sel.date === dk && sel.block === bl.id;
                 const full = n >= seats;
-                const waitlisted = full && onWaitlisted(dk, bl.id);
+                const wl = full ? waitlistFor(dk, bl.id) : [];
+                const myEntry = full ? myWaitlistEntry(dk, bl.id) : null;
+                const waitlistFull = full && wl.length >= WAITLIST_CAP && !myEntry;
                 const blocked = left <= 0 || subjLeftForDay <= 0;
                 const weeklyLocked = plan.rotates && !already && weekCount >= WEEKLY_CAP;
                 const lockedOut = weeklyLocked || (blocked && !full);
@@ -1000,17 +1022,20 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
                     <button ref={(el) => { slotRefs.current[dayIdx + "-" + blockIdx] = el; }}
                       className="it-btn" style={{ width: "100%", padding: "7px 0", fontSize: 13,
                         ...(full || weeklyLocked ? { background: "#fff", color: "var(--ink-soft)", border: "1.5px solid var(--line)" } : {}) }}
-                      disabled={already || waitlisted || weeklyLocked || (blocked && !full)}
-                      onClick={() => weeklyLocked ? null : full ? handleWaitlist(subj, dk, bl) : setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}
+                      disabled={already || weeklyLocked || (blocked && !full) || (full && (myEntry || waitlistFull))}
+                      onClick={() => weeklyLocked || (full && (myEntry || waitlistFull)) ? null : full ? handleWaitlist(subj, dk, bl) : setSel(isSel ? null : { date: dk, block: bl.id, label: bl.label, subject: subj })}
                       onKeyDown={(e) => {
                         if (e.key === "ArrowRight") { e.preventDefault(); focusSlot(dayIdx, Math.min(blockIdx + 1, visibleBlocks.length - 1)); }
                         else if (e.key === "ArrowLeft") { e.preventDefault(); focusSlot(dayIdx, Math.max(blockIdx - 1, 0)); }
-                        else if (e.key === "ArrowDown") { e.preventDefault(); focusSlot(Math.min(dayIdx + 1, week.days.length - 1), blockIdx); }
-                        else if (e.key === "ArrowUp") { e.preventDefault(); focusSlot(Math.max(dayIdx - 1, 0), blockIdx); }
+                        else if (e.key === "ArrowDown") { e.preventDefault(); focusSlot(Math.min(dayIdx + 1, week.days.length - 1), Math.min(blockIdx, visibleBlocks.length - 1)); }
+                        else if (e.key === "ArrowUp") { e.preventDefault(); focusSlot(Math.max(dayIdx - 1, 0), Math.min(blockIdx, visibleBlocks.length - 1)); }
                       }}
-                      aria-label={`${subj}, ${prettyDate(d)}, ${bl.label}, ${already ? "already booked" : weeklyLocked ? "locked — max 2 lessons a week reached" : waitlisted ? "on waitlist" : full ? "full" : (seats - n) + " seats left"}`}>
-                      {already ? "Booked ✓" : weeklyLocked ? "Max 2/week" : waitlisted ? "On waitlist ✓" : full ? "Join waitlist" : isSel ? "Selected ✓" : "Select"}
+                      aria-label={`${subj}, ${prettyDate(d)}, ${bl.label}, ${already ? "already booked" : weeklyLocked ? "locked — max 2 lessons a week reached" : myEntry ? "on waitlist" : waitlistFull ? "full, waitlist full" : full ? "full" : (seats - n) + " seats left"}`}>
+                      {already ? "Booked ✓" : weeklyLocked ? "Max 2/week" : myEntry ? `On waitlist (${wl.findIndex((w) => w.id === myEntry.id) + 1} of ${wl.length})` : waitlistFull ? "Waitlist full" : full ? "Join waitlist" : isSel ? "Selected ✓" : "Select"}
                     </button>
+                    {myEntry && (
+                      <button className="it-navlink" style={{ padding: 0, fontSize: 11.5, marginTop: 6, color: "var(--coral)" }} onClick={() => leaveWaitlist(myEntry.id)}>Leave waitlist</button>
+                    )}
                   </div>
                 );
               })}
@@ -1221,7 +1246,7 @@ function PlanStatusCard({ plan, me, locked, onManage }) {
   );
 }
 
-function ConfirmSheet({ sel, plan, lessonsLeft, repeatCount, repeat, setRepeat, busy, onConfirm, onCancel }) {
+function ConfirmSheet({ sel, plan, lessonsLeft, repeatCount, repeatSubjects, repeatEnd, periodEnd, repeat, setRepeat, busy, onConfirm, onCancel }) {
   if (!sel) return null;
   const count = repeat ? Math.max(repeatCount, 1) : 1;
   return (
@@ -1238,11 +1263,17 @@ function ConfirmSheet({ sel, plan, lessonsLeft, repeatCount, repeat, setRepeat, 
         </p>
         <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--ink-soft)" }}>Free to cancel or change up to 24 hours before.</p>
         {repeatCount > 1 && (
-          <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <input type="checkbox" id="repeat-weekly" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-            <label htmlFor="repeat-weekly" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-              Repeat this time every week — books {sel.label.split(" ")[0]} for the next {repeatCount} weeks{plan.rotates ? " (subject follows the usual weekly rotation)" : ""}
-            </label>
+          <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <input type="checkbox" id="repeat-weekly" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} style={{ marginTop: 2 }} />
+              <label htmlFor="repeat-weekly" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+                Repeat this time every week — books {sel.label.split(" ")[0]} for {repeatCount} week{repeatCount === 1 ? "" : "s"} to {humanDate(repeatEnd)}:{" "}
+                {repeatSubjects.join(", ")}
+              </label>
+            </div>
+            {repeat && (
+              <p style={{ margin: "6px 0 0 26px", fontSize: 11.5, color: "var(--ink-soft)" }}>Stops there — this period's lessons expire on {periodEnd} and don't roll over.</p>
+            )}
           </div>
         )}
         <div style={{ display: "flex", gap: 10 }}>
@@ -1254,7 +1285,7 @@ function ConfirmSheet({ sel, plan, lessonsLeft, repeatCount, repeat, setRepeat, 
   );
 }
 
-function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
+function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry, promoteWaitlist, refresh, go }) {
   const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
   const [me, setMe] = useState(null);
   const [meChecked, setMeChecked] = useState(false);
@@ -1405,6 +1436,9 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
   // allowance covers (capped at 8). For a rotating plan the subject follows the normal
   // weekly rotation, so this places "Saturday 9am, whatever that week's subject is" —
   // not literally the same subject every time.
+  // Clamped on both constraints — the allowance AND the period end. A repeat run must never
+  // book past the date the current allowance lapses on, even if the raw lessons-remaining
+  // count would allow more weeks (those lessons wouldn't exist yet — they're next period's).
   const repeatDates = (() => {
     if (!sel) return [];
     const dates = [];
@@ -1413,6 +1447,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
       const d = new Date(sel.date + "T00:00:00");
       d.setDate(d.getDate() + i * 7);
       const dk = dateKey(d);
+      if (dk >= period.end) break; // this and every later week fall in the next period — stop here
       const subj = plan.rotates ? weekSubject(d, plan.cycle) : sel.subject;
       if (mine.some((b) => b.date === dk && b.block === sel.block)) continue;
       dates.push({ date: dk, block: sel.block, label: sel.label, subject: subj });
@@ -1420,30 +1455,39 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
     return dates;
   })();
 
+  const bookingInFlight = React.useRef(false);
   const confirmBooking = async (repeat) => {
     if (expired) return alert("Your plan has expired — renew (or message Isham) to book new lessons.");
-    if (!sel || busy) return;
+    if (!sel || bookingInFlight.current) return; // ref check is synchronous — closes the double-tap race the busy state alone can't
+    bookingInFlight.current = true;
     setBusy(true);
     const targets = repeat ? repeatDates : [{ date: sel.date, block: sel.block, label: sel.label, subject: sel.subject || subject }];
     let placed = 0;
+    const failedDates = [];
     for (const t of targets) {
       try {
         await addBooking({ student_id: me.id, student_name: me.name, plan: me.plan, subject: t.subject, date: t.date, block: t.block, block_label: t.label });
         placed++;
-      } catch (e) { /* this one didn't make it — keep going with the rest */ }
+      } catch (e) { failedDates.push(t.date); }
     }
     if (targets[0]) notifyServer({ type: "booking", name: me.name, email: session.user.email, subject: targets[0].subject, date: targets[0].date, time: targets[0].label });
     setSel(null);
     setRepeat(false);
     if (repeat) {
-      if (placed === 0) alert("Couldn't place any of those — the slots may have just filled up. The chart's been refreshed.");
-      else if (placed < targets.length) alert(`Booked ${placed} of ${targets.length} lessons — the rest had already filled up or clashed with an existing booking. Check My lessons.`);
-      else alert(`Booked ${placed} lesson${placed === 1 ? "" : "s"} ✓`);
+      if (placed === 0) {
+        alert(`That slot filled up while you were booking — ${humanDate(failedDates[0])} and the rest are gone. Pick another time.`);
+      } else if (failedDates.length > 0) {
+        alert(`Booked ${placed} of ${targets.length}. ${humanDate(failedDates[0])} filled up${failedDates.length > 1 ? ` (and ${failedDates.length - 1} more)` : ""} — pick another time that week from My lessons.`);
+      } else {
+        const last = targets[targets.length - 1];
+        alert(`Booked ${placed} lesson${placed === 1 ? "" : "s"} to ${humanDate(last.date)}. ${Math.max(lessonsLeft - placed, 0)} lesson${Math.max(lessonsLeft - placed, 0) === 1 ? "" : "s"} left, and they expire on ${period.end}.`);
+      }
     } else if (placed === 0) {
-      alert("Couldn't save that booking — the seat may have just been taken. The chart's been refreshed.");
+      alert("That slot filled up while you were booking. Pick another time.");
       await refresh();
     }
     setBusy(false);
+    bookingInFlight.current = false;
   };
 
   const changeLesson = async (b) => {
@@ -1454,6 +1498,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
     if (error || data === false) { alert("Couldn't change — lessons can only be changed more than 24 hours in advance."); return; }
     await refresh();
+    promoteWaitlist(b.date, b.block, b.blockLabel);
     setSubject(b.subject);
     setSel(null);
     setBookTab("book");
@@ -1461,8 +1506,9 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
   const cancelLesson = async (b) => {
     if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed — you can rebook a different slot.")) return;
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
-    if (error || data === false) alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance.");
-    else await refresh();
+    if (error || data === false) { alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance."); return; }
+    await refresh();
+    promoteWaitlist(b.date, b.block, b.blockLabel);
   };
   const cancelPlan = async () => {
     if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way — message Isham if you're not sure.")) return;
@@ -1476,6 +1522,22 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
       await addMessage({ name: me.name, email: session.user.email, text: "DATA DELETION REQUEST — please delete my account and all associated data (right to erasure)." });
       alert("Request sent — Isham will confirm once it's done.");
     } catch (e) { alert("Couldn't send that — please email Isham directly."); }
+  };
+  const [portalBusy, setPortalBusy] = useState(false);
+  const openBillingPortal = async () => {
+    setPortalBusy(true);
+    try {
+      const r = await fetch("/api/billing-portal", { method: "POST", headers: { Authorization: "Bearer " + session.access_token } });
+      const data = await r.json();
+      if (!r.ok || !data.url) {
+        alert(data.error === "no_customer"
+          ? "Stripe hasn't linked a payment method to your account yet — message Isham for a receipt."
+          : "Couldn't open the billing portal — message Isham for a receipt.");
+      } else {
+        window.open(data.url, "_blank");
+      }
+    } catch (e) { alert("Couldn't open the billing portal — message Isham for a receipt."); }
+    setPortalBusy(false);
   };
 
   const LessonCard = ({ b, actions }) => {
@@ -1624,7 +1686,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
                       })}
                     </div>
                   )}
-                  <BookLessonsPicker plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} email={session.user.email} joinWaitlist={joinWaitlist} />
+                  <BookLessonsPicker plan={plan} store={store} subject={subject} sel={sel} setSel={setSel} mine={mine} me={me} email={session.user.email} joinWaitlist={joinWaitlist} removeWaitlistEntry={removeWaitlistEntry} />
                 </>
               )}
             </div>
@@ -1685,18 +1747,16 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
                   {me.paid_until ? `Covered until ${me.paid_until}` : locked ? "Pending confirmation" : "—"}
                 </p>
                 <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--ink-soft)" }}>Unused lessons don't roll over — your allowance resets to {plan.lessons} on renewal.</p>
-                {/* TODO(api): invoice history and a stored payment method need a Stripe Customer object;
-                    Payment Links don't create one, so there's nothing to read here yet — the note below
-                    says so honestly instead of showing a fake card number. */}
-                <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--ink-soft)", fontStyle: "italic" }}>
-                  Card details and invoice history aren't available here — payment runs through Stripe's own checkout page, not a stored card. Message Isham for a receipt.
-                </p>
+                <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>Payments are handled by Stripe. Receipts are emailed after each payment.</p>
+                <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px", marginTop: 12 }} disabled={portalBusy} onClick={openBillingPortal}>
+                  {portalBusy ? "Opening…" : "Manage payment details"}
+                </button>
                 {me.cancelled ? (
                   <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 16 }}>
                     Your plan is set to not renew.{me.paid_until ? ` You can keep booking until ${me.paid_until}.` : " Message Isham if you'd like to rejoin."}
                   </p>
                 ) : (
-                  <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px", marginTop: 16 }} onClick={cancelPlan}>Cancel my plan</button>
+                  <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px", marginTop: 16, marginLeft: 10 }} onClick={cancelPlan}>Cancel my plan</button>
                 )}
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
                   <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, color: "var(--coral)" }} onClick={requestDeletion}>Request my data be deleted</button>
@@ -1717,7 +1777,10 @@ function Book({ store, addBooking, addMessage, joinWaitlist, refresh, go }) {
 
       <BookBottomTabs tab={bookTab} setTab={setBookTab} />
 
-      <ConfirmSheet sel={sel} plan={plan} lessonsLeft={lessonsLeft} repeatCount={repeatDates.length} repeat={repeat} setRepeat={setRepeat} busy={busy}
+      <ConfirmSheet sel={sel} plan={plan} lessonsLeft={lessonsLeft}
+        repeatCount={repeatDates.length} repeatSubjects={repeatDates.map((t) => t.subject)}
+        repeatEnd={repeatDates.length ? repeatDates[repeatDates.length - 1].date : null} periodEnd={period.end}
+        repeat={repeat} setRepeat={setRepeat} busy={busy}
         onConfirm={() => confirmBooking(repeat)} onCancel={() => { setSel(null); setRepeat(false); }} />
     </div>
   );
@@ -2489,6 +2552,31 @@ export default function App() {
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, waitlist: st.waitlist.filter((w) => w.id !== id) }));
   };
+  // Cancellation is the trigger, not admin attention: whenever a booking frees up, offer the
+  // seat to the earliest-joined waitlister who still has lessons left this period (checked now,
+  // not at the time they joined — their allowance may have changed since). If nobody on the
+  // list can take it, tell Isham rather than leaving the seat silently empty.
+  const promoteWaitlist = async (date, block, blockLabel) => {
+    const candidates = [...store.waitlist]
+      .filter((w) => w.date === date && w.block === block)
+      .sort((a, b) => (a.created || "").localeCompare(b.created || ""));
+    for (const cand of candidates) {
+      const student = store.subscribers.find((s) => s.id === cand.student_id);
+      if (!student || lessonsLeftFor(student, store.bookings) <= 0) continue;
+      try {
+        await addBooking({ student_id: student.id, student_name: student.name, plan: student.plan, subject: cand.subject, date, block, block_label: blockLabel });
+        await removeWaitlistEntry(cand.id);
+        notifyServer({ type: "booking", name: student.name, email: cand.email, subject: cand.subject, date, time: blockLabel });
+        return true;
+      } catch (e) { /* that candidate's slot vanished too — try the next one */ }
+    }
+    if (candidates.length > 0) {
+      const text = `A seat opened up (${blockLabel}, ${date}) but nobody on the waitlist had lessons left this period to take it — check the Timetable.`;
+      notifyServer({ type: "message", name: "Waitlist", email: "", text });
+      try { await addMessage({ name: "Waitlist", email: "", text }); } catch (e) {}
+    }
+    return false;
+  };
   const addMessage = async (m) => {
     const { error } = await supa.from("messages").insert(m);
     if (error) throw new Error(error.message);
@@ -2512,6 +2600,7 @@ export default function App() {
       bookings: st.bookings.map((x) => x.id === b.id ? { ...x, date: upd.date, block: upd.block, blockLabel: upd.block_label, subject: upd.subject } : x),
     }));
     notify("Moved " + b.name + " ✓");
+    promoteWaitlist(b.date, b.block, b.blockLabel); // moving them out frees their old slot too
   };
   const addStudentManual = async (s) => {
     const { data, error } = await supa.from("students").insert(s).select();
@@ -2595,7 +2684,7 @@ export default function App() {
       ) : page === "pricing" ? (
         <Pricing taken={taken} startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
-        <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} joinWaitlist={joinWaitlist} refresh={refresh} />
+        <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} joinWaitlist={joinWaitlist} removeWaitlistEntry={removeWaitlistEntry} promoteWaitlist={promoteWaitlist} refresh={refresh} />
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
       ) : (

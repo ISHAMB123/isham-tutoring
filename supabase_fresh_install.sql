@@ -26,6 +26,7 @@ create table if not exists students (
   phone text,
   plan text not null,
   paid_until date,
+  stripe_customer_id text,
   tutor text default 'isham',
   cancelled boolean not null default false,
   joined timestamptz not null default now()
@@ -168,6 +169,8 @@ create policy "public insert chat_messages" on chat_messages for insert with che
 create policy "public insert waitlist" on waitlist for insert with check (true);
 create policy "tutor select waitlist" on waitlist for select using (is_tutor());
 create policy "tutor delete waitlist" on waitlist for delete using (is_tutor());
+create policy "own delete waitlist" on waitlist for delete
+  using (lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
 
 -- ---------------------------------------------------------------------
 -- 4. Functions

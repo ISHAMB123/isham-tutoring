@@ -80,6 +80,17 @@ create table if not exists chat_messages (
   created timestamptz not null default now()
 );
 
+create table if not exists waitlist (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references students(id) on delete cascade,
+  name text not null,
+  email text not null,
+  date date not null,
+  block text not null,
+  subject text,
+  created timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------
 -- 2. is_tutor() helper — used by every tutor-only RLS policy below.
 --    Add every tutor email here. Only Isham for now.
@@ -102,6 +113,7 @@ alter table meet_links enable row level security;
 alter table testimonials enable row level security;
 alter table lesson_notes enable row level security;
 alter table chat_messages enable row level security;
+alter table waitlist enable row level security;
 
 -- students: nobody can read the raw table publicly (emails/plans are
 -- private) — the public-safe lookups go through find_student()/get_caps()
@@ -151,6 +163,11 @@ create policy "tutor update lesson_notes" on lesson_notes for update using (is_t
 -- chat_messages: public read/write (simple shared help-chat widget).
 create policy "public select chat_messages" on chat_messages for select using (true);
 create policy "public insert chat_messages" on chat_messages for insert with check (true);
+
+-- waitlist: anyone can join it (writing their own request), only tutors can see who's on it.
+create policy "public insert waitlist" on waitlist for insert with check (true);
+create policy "tutor select waitlist" on waitlist for select using (is_tutor());
+create policy "tutor delete waitlist" on waitlist for delete using (is_tutor());
 
 -- ---------------------------------------------------------------------
 -- 4. Functions
@@ -215,7 +232,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['bookings', 'students', 'meet_links', 'lesson_notes'] loop
+  foreach t in array array['bookings', 'students', 'meet_links', 'lesson_notes', 'waitlist'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t

@@ -988,7 +988,7 @@ function ChatPanel({ sender, isTutor }) {
   );
 }
 
-function Book({ store, addBooking, refresh, go }) {
+function Book({ store, addBooking, addMessage, refresh, go }) {
   const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
   const [me, setMe] = useState(null);
   const [meChecked, setMeChecked] = useState(false);
@@ -1051,30 +1051,45 @@ function Book({ store, addBooking, refresh, go }) {
   if (!session)
     return (
       <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 420, margin: "0 auto" }}>
-        <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>{mode === "signup" ? "Create your account" : "Sign in to book"}</h1>
-        <p style={{ color: "var(--ink-soft)" }}>
-          {mode === "signup"
-            ? "Already joined a plan but never made a login? Use the same email — once verified, we'll find your existing plan."
-            : "Use the email and password you signed up with."}
-        </p>
-        <div className="it-card" style={{ padding: "12px 16px", margin: "14px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div className="it-card" style={{ padding: 32 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            <Icon name="shield" size={21} />
+          </div>
+          <h1 className="it-display" style={{ fontSize: 25, fontWeight: 800, margin: "0 0 6px" }}>{mode === "signup" ? "Set up your login" : "Sign in to book"}</h1>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: "0 0 20px" }}>
+            {mode === "signup"
+              ? "Already joined a plan but never made a login? Use the same email — once verified, we'll find it."
+              : "Use the email and password you signed up with."}
+          </p>
+
+          <div style={{ display: "flex", background: "var(--aqua)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
+            <button type="button" onClick={() => { setMode("signin"); setAuthErr(""); }}
+              style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
+                background: mode === "signin" ? "#fff" : "transparent", color: mode === "signin" ? "var(--ink)" : "var(--ink-soft)",
+                boxShadow: mode === "signin" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Sign in</button>
+            <button type="button" onClick={() => { setMode("signup"); setAuthErr(""); }}
+              style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
+                background: mode === "signup" ? "#fff" : "transparent", color: mode === "signup" ? "var(--ink)" : "var(--ink-soft)",
+                boxShadow: mode === "signup" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Already a student</button>
+          </div>
+
+          <div style={{ display: "grid", gap: 12 }}>
+            <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="it-input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (mode === "signup" ? doSignUp() : doSignIn())} />
+            {mode === "signin" && (
+              <button type="button" className="it-navlink" style={{ padding: 0, justifySelf: "start", fontSize: 12.5 }} onClick={doForgot}>Forgot password?</button>
+            )}
+            <button className="it-btn" onClick={mode === "signup" ? doSignUp : doSignIn} disabled={authBusy}>
+              {authBusy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+            </button>
+            {authErr && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{authErr}</p>}
+          </div>
+        </div>
+
+        <div className="it-card" style={{ padding: "14px 18px", marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>New to Isham Tuition?</span>
           <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={() => go("pricing")}>See plans & join first →</button>
-        </div>
-        <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-          <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="it-input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (mode === "signup" ? doSignUp() : doSignIn())} />
-          <button className="it-btn" onClick={mode === "signup" ? doSignUp : doSignIn} disabled={authBusy}>
-            {authBusy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
-          </button>
-          {authErr && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{authErr}</p>}
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 13 }}>
-            <button className="it-navlink" style={{ padding: 0 }} onClick={doForgot}>Forgot password?</button>
-            <button className="it-navlink" style={{ padding: 0 }} onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setAuthErr(""); }}>
-              {mode === "signup" ? "Already have an account? Sign in" : "Already a student but no account yet?"}
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -1229,6 +1244,34 @@ function Book({ store, addBooking, refresh, go }) {
         </div>
       )}
 
+      <div className="it-card" style={{ padding: 20, marginTop: 28 }}>
+        <h3 className="it-display" style={{ fontSize: 16, fontWeight: 800, margin: "0 0 4px" }}>Account</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 14px" }}>{session.user.email}</p>
+        {me.cancelled ? (
+          <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
+            Your plan is set to not renew.{me.paid_until ? ` You can keep booking until ${me.paid_until}.` : " Message Isham if you'd like to rejoin."}
+          </p>
+        ) : (
+          <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px" }}
+            onClick={async () => {
+              if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way — message Isham if you're not sure.")) return;
+              const { data, error } = await supa.rpc("cancel_my_plan");
+              if (error || data === false) alert("Couldn't cancel — please message Isham directly.");
+              else { alert("Done — your plan won't renew."); await refresh(); }
+            }}>Cancel my plan</button>
+        )}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, color: "var(--coral)" }}
+            onClick={async () => {
+              if (!confirm("Request that Isham delete your account and all your data? He'll action this and confirm by email — it can't be undone once done.")) return;
+              try {
+                await addMessage({ name: me.name, email: session.user.email, text: "DATA DELETION REQUEST — please delete my account and all associated data (right to erasure)." });
+                alert("Request sent — Isham will confirm once it's done.");
+              } catch (e) { alert("Couldn't send that — please email Isham directly."); }
+            }}>Request my data be deleted</button>
+        </div>
+      </div>
+
       <ChatPanel sender={me.name} isTutor={false} />
     </div>
   );
@@ -1282,7 +1325,7 @@ function Contact({ addMessage }) {
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
           ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
           ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level sessions are private one-to-one."],
-          ["Can I cancel?", "Yes — plans are monthly or 3-monthly with no contract. Just don't renew."],
+          ["Can I cancel?", "Yes — there's a \"Cancel my plan\" button on your Book page under Account. You keep booking access through whatever you've already paid for, it just won't renew after that. No contract either way."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard — if your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
         ]} />
@@ -1687,7 +1730,10 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
             <tbody>
               {subs.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid var(--line)" }}>
-                  <td style={{ padding: 6, fontWeight: 600 }}>{s.name}</td>
+                  <td style={{ padding: 6, fontWeight: 600 }}>
+                    {s.name}
+                    {s.cancelled && <span className="it-chip" style={{ marginLeft: 6, background: "#FFEDE9", color: "#C2402F" }}>Not renewing</span>}
+                  </td>
                   <td style={{ padding: 6 }}>{s.email}</td>
                   <td style={{ padding: 6 }}>{(PLANS[s.plan] || {}).name || s.plan}</td>
                   <td style={{ padding: 6, color: "var(--ink-soft)" }}>{(s.joined || "").slice(0, 10)}</td>
@@ -1799,7 +1845,7 @@ function PasswordRecoveryOverlay({ onDone }) {
 
 /* ---------- app shell ---------- */
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(() => (new URLSearchParams(window.location.search).get("paid") ? "book" : "home"));
   const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], takenCount: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
@@ -1819,6 +1865,14 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
   const notify = (t) => { setToast(t); setTimeout(() => setToast(null), 3200); };
+  useEffect(() => {
+    // Stripe redirects here with ?paid=1 after a successful payment (set that as the Payment Link's
+    // "after payment" redirect URL in Stripe) — land straight on the booking dashboard instead of the homepage.
+    if (new URLSearchParams(window.location.search).get("paid")) {
+      notify("Payment received ✓ — here's your booking dashboard.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const addStudent = async (s) => {
     const { error } = await supa.from("students").insert(s);
@@ -1942,7 +1996,7 @@ export default function App() {
       ) : page === "pricing" ? (
         <Pricing taken={taken} startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
-        <Book store={store} go={setPage} addBooking={addBooking} refresh={refresh} />
+        <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} refresh={refresh} />
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
       ) : (
@@ -1969,7 +2023,7 @@ export default function App() {
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>
           <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Privacy: only names, emails and bookings are collected — never sold or shared. Email me to delete your data.
+            Privacy: only names, emails and bookings are collected — never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me.
           </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>
         </div>

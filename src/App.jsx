@@ -675,7 +675,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
     setPaying(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const { error: authErr } = await supa.auth.signUp({
+      const { data: authData, error: authErr } = await supa.auth.signUp({
         email: cleanEmail, password, options: { emailRedirectTo: "https://www.ishamtuition.com" },
       });
       if (authErr) throw authErr;
@@ -683,7 +683,12 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
       await onDone({ name: name.trim(), email: cleanEmail, plan: planId, paid_until: null });
       notifyServer({ type: "signup", name: name.trim(), email: cleanEmail, plan: plan.name });
       if (payLink) window.open(payLink, "_blank");
-      setDone(true);
+      if (authData && authData.session) {
+        // email confirmation isn't required on this project — already signed in, skip straight to the dashboard
+        onFinish();
+      } else {
+        setDone(true);
+      }
     } catch (e) {
       setPaying(false);
       console.error("Checkout failed:", e); // full detail for diagnosing — never rely on the alert text alone
@@ -1013,7 +1018,13 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
     setAuthBusy(true); setAuthErr("");
     const { error } = await supa.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     setAuthBusy(false);
-    if (error) setAuthErr("Wrong email or password.");
+    if (error) {
+      setAuthErr(
+        /confirm/i.test(error.message)
+          ? "Check your inbox and click the verification link before signing in."
+          : "Wrong email or password."
+      );
+    }
   };
   const doSignUp = async () => {
     if (!email.includes("@") || password.length < 8) return setAuthErr("Enter your email and a password of at least 8 characters.");

@@ -66,7 +66,9 @@ create table if not exists testimonials (
 create table if not exists lesson_notes (
   booking_id uuid primary key references bookings(id) on delete cascade,
   attended boolean,
-  note text
+  note text,
+  topic text,
+  homework text
 );
 
 create table if not exists chat_messages (
@@ -202,6 +204,25 @@ begin
   return found;
 end;
 $$;
+
+-- ---------------------------------------------------------------------
+-- 5. Realtime — so a parent's dashboard and the tutor's dashboard update
+--    themselves the instant a booking/payment/link changes, no manual
+--    "Refresh" click needed.
+-- ---------------------------------------------------------------------
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['bookings', 'students', 'meet_links', 'lesson_notes'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
 
 -- =====================================================================
 -- Done. Next steps are NOT SQL — see the dashboard checklist sent

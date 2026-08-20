@@ -117,7 +117,7 @@ async function fetchAll() {
   const bookings = (bk.data || []).map((r) => {
     const b = mapBooking(r);
     const n = notesByBooking[b.id];
-    return { ...b, attended: n ? n.attended : null, note: n ? n.note : null };
+    return { ...b, attended: n ? n.attended : null, note: n ? n.note : null, topic: n ? n.topic : null, homework: n ? n.homework : null };
   });
   return {
     subscribers,
@@ -1164,6 +1164,8 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
   const nextLesson = [...mine].filter((b) => b.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
   const totalAttended = mine.filter((b) => b.attended === true).length;
   const totalMarked = mine.filter((b) => b.attended === true || b.attended === false).length;
+  const completedThisPeriod = mineMonth.filter((b) => b.attended === true).length;
+  const topicsThisPeriod = new Set(mineMonth.filter((b) => b.topic).map((b) => b.topic)).size;
 
   const confirmBooking = async () => {
     if (expired) return alert("Your plan has expired — renew (or message Isham) to book new lessons.");
@@ -1223,19 +1225,26 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
       <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 18 }}>
         {[
           ["Plan", plan.name, `${gbp(plan.price)}${plan.per} · ${plan.lessons} lesson${plan.lessons > 1 ? "s" : ""}/month`],
-          ["Covered until", me.paid_until || (locked ? "Pending payment" : "—"),
-            me.cancelled ? "Not renewing" : me.paid_until && !expired ? `${daysLeft(me.paid_until)} days left` : locked ? "Confirmed once Isham verifies payment" : ""],
-          ["This period", `${lessonsLeft} of ${plan.lessons} left`, "lessons to book"],
+          ["Payment", me.paid_until ? me.paid_until : locked ? "Pending confirmation" : "—",
+            me.cancelled ? "Not renewing" : me.paid_until && !expired ? `Covered for ${daysLeft(me.paid_until)} more days` : locked ? "We'll confirm this within a few hours" : ""],
+          ["This period", `${lessonsLeft} lesson${lessonsLeft === 1 ? "" : "s"} remaining`, `of ${plan.lessons} this period`],
           ["Attendance", totalMarked > 0 ? `${totalAttended}/${totalMarked}` : "—",
             nextLesson ? `Next: ${nextLesson.date} · ${nextLesson.blockLabel}` : "No upcoming lesson"],
         ].map(([label, big, small]) => (
           <div key={label}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 4 }}>{label}</div>
-            <div className="it-display" style={{ fontSize: 16, fontWeight: 800, color: expired && label === "Covered until" ? "var(--coral)" : "var(--ink)" }}>{big}</div>
+            <div className="it-display" style={{ fontSize: 16, fontWeight: 800, color: expired && label === "Payment" ? "var(--coral)" : "var(--ink)" }}>{big}</div>
             {small && <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>{small}</div>}
           </div>
         ))}
       </div>
+
+      {!locked && mineMonth.length > 0 && (
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", padding: "0 4px", marginBottom: 18, fontSize: 13.5, color: "var(--ink-soft)" }}>
+          <span><strong style={{ color: "var(--ink)" }}>{completedThisPeriod}</strong> lesson{completedThisPeriod === 1 ? "" : "s"} completed this period</span>
+          {topicsThisPeriod > 0 && <span><strong style={{ color: "var(--ink)" }}>{topicsThisPeriod}</strong> topic{topicsThisPeriod === 1 ? "" : "s"} covered</span>}
+        </div>
+      )}
 
       {locked && (
         <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 12 }}>
@@ -1317,6 +1326,8 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
                     <strong style={{ color: c.text }}>{b.subject}</strong> — {b.date} · {b.blockLabel}
                     {b.attended === true && <span className="it-chip" style={{ marginLeft: 8, background: "var(--aqua)", color: "var(--mint-dark)" }}>Attended</span>}
                     {b.attended === false && <span className="it-chip" style={{ marginLeft: 8, background: "#FFEDE9", color: "#C2402F" }}>Missed</span>}
+                    {b.topic && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 4 }}><strong>Covered:</strong> {b.topic}</div>}
+                    {b.homework && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 2 }}><strong>Homework:</strong> {b.homework}</div>}
                     {b.note && <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4, fontStyle: "italic" }}>"{b.note}"</div>}
                   </span>
                   <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1342,9 +1353,9 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
         </div>
       )}
 
-      <div className="it-card" style={{ padding: 20, marginTop: 28 }}>
-        <h3 className="it-display" style={{ fontSize: 16, fontWeight: 800, margin: "0 0 4px" }}>Account</h3>
-        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 14px" }}>{session.user.email}</p>
+      <details style={{ marginTop: 28 }}>
+        <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--ink-soft)", padding: "6px 2px" }}>Account & billing — {session.user.email}</summary>
+        <div className="it-card" style={{ padding: 20, marginTop: 10 }}>
         {me.cancelled ? (
           <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
             Your plan is set to not renew.{me.paid_until ? ` You can keep booking until ${me.paid_until}.` : " Message Isham if you'd like to rejoin."}
@@ -1368,7 +1379,8 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
               } catch (e) { alert("Couldn't send that — please email Isham directly."); }
             }}>Request my data be deleted</button>
         </div>
-      </div>
+        </div>
+      </details>
 
       <ChatPanel sender={me.name} isTutor={false} />
     </div>
@@ -1458,6 +1470,14 @@ function StudentAttendanceRow({ b, c, onMove, saveNote }) {
 function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, emails }) {
   const cap = (PLANS[(list[0] || {}).plan] || {}).seats || 5;
   const [draft, setDraft] = useState(link || "");
+  const [topic, setTopic] = useState((list[0] || {}).topic || "");
+  const [homework, setHomework] = useState((list[0] || {}).homework || "");
+  const [savingSession, setSavingSession] = useState(false);
+  const saveSession = async () => {
+    setSavingSession(true);
+    await Promise.all(list.map((b) => saveNote(b.id, { topic: topic.trim() || null, homework: homework.trim() || null })));
+    setSavingSession(false);
+  };
   const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
   const inviteMsg = () => `Hi! Your ${subj} lesson is on ${dk}, ${block.label}. Join here: ${draft || "(link coming soon)"} — Isham`;
   const copyInvite = () => {
@@ -1484,6 +1504,17 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, 
           <StudentAttendanceRow key={b.id} b={b} c={c} onMove={onMove} saveNote={saveNote} />
         )) : "No students yet"}
       </div>
+      {list.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <input className="it-input" style={{ flex: 1, minWidth: 180, padding: "8px 12px", fontSize: 13.5 }} placeholder="What was covered (e.g. Atomic structure)"
+            value={topic} onChange={(e) => setTopic(e.target.value)} />
+          <input className="it-input" style={{ flex: 1, minWidth: 180, padding: "8px 12px", fontSize: 13.5 }} placeholder="Homework set (optional)"
+            value={homework} onChange={(e) => setHomework(e.target.value)} />
+          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13 }} disabled={savingSession} onClick={saveSession}>
+            {savingSession ? "Saving…" : "Save for whole session"}
+          </button>
+        </div>
+      )}
       {list.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input className="it-input" style={{ flex: 1, minWidth: 220, padding: "8px 12px", fontSize: 13.5 }} placeholder="Paste Google Meet link (meet.google.com/…)"
@@ -1735,6 +1766,8 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   }
   const dates = Object.keys(byDate).sort();
   const blockDef = (id) => blockById(id);
+  const todayKey = dateKey(new Date());
+  const todaysSessions = Object.entries(byDate[todayKey] || {}).sort(([a], [b]) => blockDef(a).s - blockDef(b).s);
 
   return (
     <div className="it-fade" style={{ padding: "48px 24px", maxWidth: 1120, margin: "0 auto" }}>
@@ -1750,6 +1783,24 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         {[["overview", "Overview"], ["timetable", "Timetable"], ["students", "Students"], ["testimonials", "Testimonials"], ["messages", "Messages"]].map(([id, label]) => (
           <button key={id} onClick={() => document.getElementById("admin-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{label}</button>
         ))}
+      </div>
+
+      <div className="it-card" style={{ padding: "16px 20px", marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-soft)", marginBottom: 8 }}>Today</div>
+        {todaysSessions.length === 0 ? (
+          <div style={{ fontSize: 14, color: "var(--ink-soft)" }}>No lessons today.</div>
+        ) : (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {todaysSessions.map(([blockId, list]) => {
+              const c = SUBJECT_COLORS[list[0].subject] || SUBJECT_COLORS.Maths;
+              return (
+                <div key={blockId} style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 10, padding: "8px 14px", fontSize: 13.5 }}>
+                  <strong style={{ color: c.text }}>{blockDef(blockId).label}</strong> · {list[0].subject} · {list.length} student{list.length === 1 ? "" : "s"}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {!hasMfa && (
@@ -1993,6 +2044,21 @@ export default function App() {
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
     });
     return () => sub.subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    // Live sync: the moment anyone books, cancels, gets confirmed as paid, or a
+    // Meet/Classroom link is set, every open tab (parent or tutor) refreshes on
+    // its own within a second — no manual "Refresh" click needed.
+    let timer = null;
+    const debouncedRefresh = () => { clearTimeout(timer); timer = setTimeout(refresh, 400); };
+    const channel = supa
+      .channel("db-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, debouncedRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "students" }, debouncedRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "meet_links" }, debouncedRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "lesson_notes" }, debouncedRefresh)
+      .subscribe();
+    return () => { clearTimeout(timer); supa.removeChannel(channel); };
   }, []);
   const notify = (t) => { setToast(t); setTimeout(() => setToast(null), 3200); };
   useEffect(() => {

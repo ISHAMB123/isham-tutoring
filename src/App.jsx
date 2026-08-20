@@ -84,13 +84,13 @@ const SUBJECT_COLORS = {
 const PLANS = {
   gcse: {
     id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
-    blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month.",
+    blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month. Every place is subsidised — priced well below what tutoring normally costs, on purpose, so any family can afford it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
-    deal: "£5 a lesson · £3.33 an hour",
+    deal: "Subsidised place · £5 a lesson",
   },
   gcse3: {
     id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 8, months: 3,
-    blurb: "The same GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — sort it once and forget it.",
+    blurb: "The same subsidised GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — sort it once and forget it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
   },
   alevel: {
@@ -456,7 +456,7 @@ function Home({ go, taken, testimonials }) {
               <button className="it-btn ghost" onClick={() => go("book")}>Book a lesson</button>
             </div>
             <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
-              Live group lessons, taught by real tutors, £40/month — no contract, cancel any month. No catch: see exactly what's included on the <button onClick={() => go("pricing")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Plans page</button>.
+              Live group lessons, taught by real tutors, £40/month — subsidised, not discounted, so any family can afford it. No contract, cancel any month. See exactly what's included on the <button onClick={() => go("pricing")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Plans page</button>.
             </p>
             <CapacityMeter taken={taken} />
           </div>
@@ -1348,6 +1348,7 @@ function Contact({ addMessage }) {
       <div style={{ marginTop: 32 }}>
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
         <Accordion items={[
+          ["Is this a scholarship?", "Every GCSE place is subsidised — you still pay the £40/month listed price, it's not free or means-tested. But it's priced well below what tutoring normally costs, on purpose, so any family can access it. Think subsidised place, not discount."],
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],

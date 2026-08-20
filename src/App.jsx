@@ -25,7 +25,7 @@ const feeRate = (tid) => FEES[tid] || 0;
 
 /* alevel is keyed by subject too — it's 1-to-1, so the right Stripe link
    depends on which subject the student is choosing at signup. */
-const STRIPE = {
+const STRIPE_LIVE = {
   isham: {
     gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
     gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
@@ -45,6 +45,20 @@ const STRIPE = {
     },
   },
 };
+
+/* Stripe TEST-mode links — pay with card 4242 4242 4242 4242, any future
+   expiry/CVC, nothing real is charged. Plans/tutors with no test link below
+   fall back to the demo-checkout notice while STRIPE_MODE is "test". Flip
+   STRIPE_MODE back to "live" once you're done testing. */
+const STRIPE_TEST = {
+  isham: {
+    gcse: "https://buy.stripe.com/test_dRm3cudfR5297eHdT0es000",
+  },
+  belal: {},
+};
+
+const STRIPE_MODE = "test"; // "test" | "live"
+const STRIPE = STRIPE_MODE === "test" ? STRIPE_TEST : STRIPE_LIVE;
 
 const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
 const CAP = 40;

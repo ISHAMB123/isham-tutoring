@@ -530,7 +530,21 @@ function Home({ go, taken, testimonials }) {
         </div>
       </section>
 
-      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
+      <section style={{ padding: "40px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
+        <Reveal>
+          <div className="it-card" style={{ padding: "22px 26px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="shield" size={19} /></div>
+              <h3 className="it-display" style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Keeping lessons safe</h3>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.65 }}>
+              I teach under my real name and public TikTok (@ishamdoesdentistry) — I'm not anonymous. Every lesson is live on video in a small group, never one-to-one for GCSE students, and attendance is logged for every session. I'm not yet DBS-checked — if that matters to you before signing up, message me and I'm happy to talk it through, share ID, or arrange for a parent to sit in on a lesson. See the <button onClick={() => go("privacy")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>privacy policy</button> for exactly what data is kept.
+            </p>
+          </div>
+        </Reveal>
+      </section>
+
+      <section style={{ padding: "40px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
         <Reveal>
           <div className="it-card" style={{ padding: "26px 28px", background: "linear-gradient(160deg,#fff 0%,var(--aqua) 130%)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -1829,6 +1843,7 @@ function Contact({ addMessage }) {
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
         <Accordion items={[
           ["Is this a scholarship?", "It's run like one — every GCSE place is funded down to £5 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
+          ["Are you DBS checked?", "Not yet — I'm upfront about that. Every lesson is live on video, GCSE groups are never one-to-one, and attendance is logged for every session. If a DBS check or ID matters to you before signing up, message me — I'm happy to talk it through or arrange for a parent to sit in on a lesson."],
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],

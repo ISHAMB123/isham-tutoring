@@ -1218,16 +1218,21 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
 
       {!locked && (
         <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-soft)", marginBottom: 4 }}>Classroom</div>
-            {store.meetLinks[classroomKey(me.plan)] ? (
-              <div className="it-display" style={{ fontSize: 15, fontWeight: 800 }}>Worksheets, resources & past papers live here</div>
-            ) : (
-              <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Your Google Classroom link will appear here once it's set up — check back soon.</div>
-            )}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+              <Icon name="cap" size={18} />
+            </div>
+            <div>
+              <div className="it-display" style={{ fontSize: 15, fontWeight: 800 }}>Google Classroom</div>
+              {store.meetLinks[classroomKey(me.plan)] ? (
+                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Worksheets, past papers & anything from lessons live here.</div>
+              ) : (
+                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Isham's still setting this up — you'll get an email the moment it's ready, and it'll appear here too.</div>
+              )}
+            </div>
           </div>
           {store.meetLinks[classroomKey(me.plan)] && (
-            <a href={store.meetLinks[classroomKey(me.plan)]} target="_blank" rel="noreferrer" className="it-btn ghost" style={{ textDecoration: "none" }}>Open Google Classroom →</a>
+            <a href={store.meetLinks[classroomKey(me.plan)]} target="_blank" rel="noreferrer" className="it-btn" style={{ textDecoration: "none" }}>Open Classroom →</a>
           )}
         </div>
       )}
@@ -1349,17 +1354,20 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
                     ) : (
                       <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Meet link appears before the lesson</span>
                     )}
-                    {cancellable && !plan.rotates && (
-                      <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
+                    {cancellable && (
+                      <button className="it-btn" style={{ padding: "7px 12px", fontSize: 12.5 }}
                         onClick={async () => {
-                          if (!confirm("Change this lesson's time? It'll be freed up, and the calendar will scroll down so you can pick a new slot — same subject.")) return;
+                          const msg = plan.rotates
+                            ? "Change this lesson? It'll be freed up and the calendar below will open so you can pick a new date yourself — heads up, subjects rotate weekly, so a different week may mean a different subject."
+                            : "Change this lesson's time? It'll be freed up, and the calendar will scroll down so you can pick a new slot — same subject.";
+                          if (!confirm(msg)) return;
                           const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
                           if (error || data === false) { alert("Couldn't change — lessons can only be changed more than 24 hours in advance."); return; }
                           await refresh();
                           setSubject(b.subject);
                           setSel(null);
                           document.getElementById("book-calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}>Change time</button>
+                        }}>Change time — I'll pick myself</button>
                     )}
                     {cancellable && (
                       <button className="it-btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }}
@@ -1471,23 +1479,34 @@ function Contact({ addMessage }) {
 
 function StudentAttendanceRow({ b, c, onMove, saveNote }) {
   const [note, setNote] = useState(b.note || "");
+  const [open, setOpen] = useState(false);
+  const mark = (attended) => {
+    saveNote(b.id, { attended: b.attended === attended ? null : attended });
+    setOpen(true); // ticking present/absent opens the note straight away, so it's a one-stop action
+  };
   return (
-    <div style={{ background: "#fff", border: "1px solid " + c.border, borderRadius: 10, padding: "6px 10px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <strong style={{ fontSize: 13 }}>{b.name}</strong>
+    <div style={{ background: "#fff", border: "1px solid " + c.border, borderRadius: 10, padding: "5px 8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 13, flex: 1, minWidth: 70 }}>{b.name}</strong>
         <button onClick={() => onMove(b)} title="Move this student to a different session"
-          style={{ border: "none", background: c.bg, color: c.text, borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 9px", cursor: "pointer" }}>Move</button>
-        <button onClick={() => saveNote(b.id, { attended: b.attended === true ? null : true })} title="Mark present"
-          style={{ border: "none", borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 9px", cursor: "pointer",
-            background: b.attended === true ? "var(--mint)" : "#EEF3F1", color: b.attended === true ? "#fff" : "var(--ink-soft)" }}>✓ Present</button>
-        <button onClick={() => saveNote(b.id, { attended: b.attended === false ? null : false })} title="Mark absent"
-          style={{ border: "none", borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 9px", cursor: "pointer",
-            background: b.attended === false ? "var(--coral)" : "#EEF3F1", color: b.attended === false ? "#fff" : "var(--ink-soft)" }}>✗ Absent</button>
+          style={{ border: "none", background: c.bg, color: c.text, borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "3px 8px", cursor: "pointer" }}>Move</button>
+        <button onClick={() => mark(true)} title="Mark present"
+          style={{ border: "none", borderRadius: 999, fontSize: 12, fontWeight: 800, padding: "3px 8px", cursor: "pointer",
+            background: b.attended === true ? "var(--mint)" : "#EEF3F1", color: b.attended === true ? "#fff" : "var(--ink-soft)" }}>✓</button>
+        <button onClick={() => mark(false)} title="Mark absent"
+          style={{ border: "none", borderRadius: 999, fontSize: 12, fontWeight: 800, padding: "3px 8px", cursor: "pointer",
+            background: b.attended === false ? "var(--coral)" : "#EEF3F1", color: b.attended === false ? "#fff" : "var(--ink-soft)" }}>✗</button>
+        <button onClick={() => setOpen(!open)} title="Note for this student — visible to them"
+          style={{ border: "none", background: "none", fontSize: 13, cursor: "pointer", padding: "3px 4px", color: b.note ? "var(--mint-dark)" : "var(--ink-soft)" }}>
+          📝{b.note && !open ? " •" : ""}
+        </button>
       </div>
-      <textarea rows={1} placeholder="Note for this student — visible to them"
-        value={note} onChange={(e) => setNote(e.target.value)}
-        onBlur={() => { if (note !== (b.note || "")) saveNote(b.id, { note: note.trim() || null }); }}
-        style={{ width: "100%", marginTop: 6, fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 8, fontFamily: "inherit", resize: "vertical" }} />
+      {open && (
+        <textarea rows={1} placeholder="Note for this student — visible to them" autoFocus
+          value={note} onChange={(e) => setNote(e.target.value)}
+          onBlur={() => { if (note !== (b.note || "")) saveNote(b.id, { note: note.trim() || null }); }}
+          style={{ width: "100%", marginTop: 5, fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 8, fontFamily: "inherit", resize: "vertical" }} />
+      )}
     </div>
   );
 }
@@ -1603,23 +1622,32 @@ function ClassroomLinksCard({ meetLinks, saveMeet }) {
   return (
     <div className="it-card" style={{ padding: 18, marginBottom: 20 }}>
       <strong style={{ fontSize: 14.5 }}>Google Classroom links</strong>
-      <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 12px" }}>
-        Paste each class's Google Classroom link here — students see it on their Book dashboard once their payment's confirmed.
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 6px" }}>
+        Each class needs its own Google Classroom link, pasted here once — students then see it on their Book dashboard automatically, no re-sending it by hand.
+      </p>
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px" }}>
+        Where to find it: open <strong>classroom.google.com</strong> → the class → click <strong>Settings</strong> (gear icon, top right) → copy the <strong>Class link</strong> shown there. Paste that whole link below.
       </p>
       <div style={{ display: "grid", gap: 10 }}>
-        {groups.map((g) => (
-          <div key={g.key} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 13, minWidth: 240, color: "var(--ink-soft)" }}>{g.label}</span>
-            <input className="it-input" style={{ flex: 1, minWidth: 200 }} placeholder="https://classroom.google.com/c/…"
-              value={drafts[g.key] ?? meetLinks[g.key] ?? ""} onChange={(e) => setDrafts({ ...drafts, [g.key]: e.target.value })} />
-            <button className="it-btn ghost" style={{ padding: "9px 14px", fontSize: 13 }} disabled={saving === g.key}
-              onClick={async () => {
-                setSaving(g.key);
-                await saveMeet(g.key, (drafts[g.key] ?? meetLinks[g.key] ?? "").trim());
-                setSaving(null);
-              }}>{saving === g.key ? "Saving…" : "Save"}</button>
-          </div>
-        ))}
+        {groups.map((g) => {
+          const isSet = !!meetLinks[g.key];
+          return (
+            <div key={g.key} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 12, flex: "none", width: 16, textAlign: "center" }} title={isSet ? "Link set" : "Not set yet"}>
+                {isSet ? "🟢" : "⚪"}
+              </span>
+              <span style={{ fontSize: 13, minWidth: 220, color: "var(--ink-soft)" }}>{g.label}</span>
+              <input className="it-input" style={{ flex: 1, minWidth: 200 }} placeholder="https://classroom.google.com/c/…"
+                value={drafts[g.key] ?? meetLinks[g.key] ?? ""} onChange={(e) => setDrafts({ ...drafts, [g.key]: e.target.value })} />
+              <button className="it-btn ghost" style={{ padding: "9px 14px", fontSize: 13 }} disabled={saving === g.key}
+                onClick={async () => {
+                  setSaving(g.key);
+                  await saveMeet(g.key, (drafts[g.key] ?? meetLinks[g.key] ?? "").trim());
+                  setSaving(null);
+                }}>{saving === g.key ? "Saving…" : "Save"}</button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -208,7 +208,6 @@ const css = `
 .it-slot:hover:not(:disabled){transform:translateY(-2px)}
 .it-slot:disabled{opacity:.35;cursor:not-allowed}
 .it-tag{display:inline-block;background:var(--aqua);color:var(--mint-dark);font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
-.it-charity{background:linear-gradient(120deg,#FFF7E8,#FFEDE0);border:1.5px solid #F6DDB2}
 .it-chip{display:inline-block;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:.03em}
 .it-timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:28px 20px}
 .it-timeline-item{position:relative;padding-left:22px}
@@ -356,20 +355,6 @@ function CapacityMeter({ taken }) {
   );
 }
 
-function CharityBanner() {
-  return (
-    <div className="it-card it-charity" style={{ padding: "22px 26px", display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-      <div className="it-float" style={{ width: 52, height: 52, borderRadius: 14, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#C2402F", flex: "none" }}><Icon name="heart" size={26} /></div>
-      <div style={{ flex: 1, minWidth: 240 }}>
-        <h3 className="it-display" style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 800 }}>5% of everything goes back</h3>
-        <p style={{ margin: 0, fontSize: 14.5, color: "#7A5A2E", lineHeight: 1.55 }}>
-          5% of all earnings from this tutoring go to charity and local food banks. Food banks kept my family going once — this is me paying it forward.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function ProgressBar({ subject, pct }) {
   const c = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Maths;
   return (
@@ -458,7 +443,6 @@ function Home({ go, taken, testimonials }) {
             ["cap", "Dental student, from Sept"],
             ["star", "Predicted A*A*A"],
             ["users", "20 places"],
-            ["heart", "5% of earnings to charity"],
           ].map(([icon, label]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--mint-dark)" }}>
               <Icon name={icon} size={17} />
@@ -513,10 +497,6 @@ function Home({ go, taken, testimonials }) {
         </Reveal>
       </section>
 
-      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
-        <CharityBanner />
-      </section>
-
       <section style={{ background: "var(--ink)", color: "#fff", padding: "52px 24px" }}>
         <Reveal style={{ maxWidth: 1120, margin: "0 auto" }}>
           <span className="it-tag" style={{ background: "rgba(255,255,255,.12)", color: "#9FE8DD" }}>My story</span>
@@ -546,7 +526,6 @@ function Home({ go, taken, testimonials }) {
             ["20", "places, kept small so everyone gets airtime"],
             ["5", "max per GCSE group — A-level is private 1-to-1"],
             ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
-            ["5%", "of all earnings donated to charity & food banks"],
           ].map(([big, small]) => (
             <div key={big}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
@@ -678,7 +657,6 @@ function Pricing({ startCheckout, taken }) {
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 26 }}><CharityBanner /></div>
     </div>
   );
 }
@@ -688,14 +666,12 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [password2, setPassword2] = useState("");
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
   const payLink = (STRIPE.isham || {})[planId] || null;
   const submit = async () => {
     if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
     if (password.length < 8) return alert("Password must be at least 8 characters.");
-    if (password !== password2) return alert("Passwords don't match.");
     setPaying(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
@@ -737,16 +713,28 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
     );
   }
 
+  const fieldLabel = { fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", margin: "0 0 5px", display: "block" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
-      <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto" }}>
-        <h3 className="it-display" style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>{plan.name}</h3>
-        <p style={{ color: "var(--ink-soft)", margin: "0 0 18px" }}>{gbp(plan.price)}{plan.per} · 5% goes to charity & food banks</p>
-        <div style={{ display: "grid", gap: 12 }}>
-          <input className="it-input" placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="it-input" placeholder="Password (min 8 characters)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <input className="it-input" placeholder="Repeat password" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
+      <div className="it-card it-fade" style={{ padding: 32, width: 440, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+          <h3 className="it-display" style={{ margin: 0, fontSize: 21, fontWeight: 800 }}>{plan.name}</h3>
+          <span className="it-display" style={{ fontSize: 22, fontWeight: 800, whiteSpace: "nowrap" }}>{gbp(plan.price)}<span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>{plan.per}</span></span>
+        </div>
+        <p style={{ color: "var(--ink-soft)", fontSize: 13, margin: "0 0 22px" }}>Enter your details to set up your login, then continue to payment.</p>
+        <div style={{ display: "grid", gap: 16 }}>
+          <div>
+            <label style={fieldLabel}>Student name</label>
+            <input className="it-input" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Email</label>
+            <input className="it-input" placeholder="you@example.com" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Password</label>
+            <input className="it-input" placeholder="Min 8 characters" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
           {!payLink && (
             <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
               Demo checkout — no card is charged yet. Payment details will be arranged by email until online payment goes live.
@@ -1117,6 +1105,13 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
   const mine = store.bookings.filter((b) => b.subscriberId === me.id);
   const expired = plan.months > 0 && me.paid_until && daysLeft(me.paid_until) <= 0;
   const locked = plan.months > 0 && !me.paid_until;
+  const period = periodFor(me);
+  const mineMonth = mine.filter((b) => b.date >= period.start && b.date < period.end);
+  const lessonsLeft = Math.max(plan.lessons - mineMonth.length, 0);
+  const today = dateKey(new Date());
+  const nextLesson = [...mine].filter((b) => b.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const totalAttended = mine.filter((b) => b.attended === true).length;
+  const totalMarked = mine.filter((b) => b.attended === true || b.attended === false).length;
 
   const confirmBooking = async () => {
     if (expired) return alert("Your plan has expired — renew (or message Isham) to book new lessons.");
@@ -1142,6 +1137,24 @@ function Book({ store, addBooking, addMessage, refresh, go }) {
         <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>Hi {me.name.split(" ")[0]} 👋</h1>
         <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={signOut}>Sign out</button>
       </div>
+
+      <div className="it-card" style={{ padding: "18px 20px", margin: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 18 }}>
+        {[
+          ["Plan", plan.name, `${gbp(plan.price)}${plan.per} · ${plan.lessons} lesson${plan.lessons > 1 ? "s" : ""}/month`],
+          ["Covered until", me.paid_until || (locked ? "Pending payment" : "—"),
+            me.cancelled ? "Not renewing" : me.paid_until && !expired ? `${daysLeft(me.paid_until)} days left` : locked ? "Confirmed once Isham verifies payment" : ""],
+          ["This period", `${lessonsLeft} of ${plan.lessons} left`, "lessons to book"],
+          ["Attendance", totalMarked > 0 ? `${totalAttended}/${totalMarked}` : "—",
+            nextLesson ? `Next: ${nextLesson.date} · ${nextLesson.blockLabel}` : "No upcoming lesson"],
+        ].map(([label, big, small]) => (
+          <div key={label}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 4 }}>{label}</div>
+            <div className="it-display" style={{ fontSize: 16, fontWeight: 800, color: expired && label === "Covered until" ? "var(--coral)" : "var(--ink)" }}>{big}</div>
+            {small && <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>{small}</div>}
+          </div>
+        ))}
+      </div>
+
       {locked && (
         <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 12 }}>
           Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours.
@@ -1596,7 +1609,6 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const stripeEst = (tid) => grossFor(tid) * 0.015 + 0.20 * payersFor(tid);
   const myGross = grossFor(role.id);
   const myFee = isMaster ? 0 : myGross * feeRate(role.id);
-  const charity = grossFor("isham") * 0.05; // Isham's 5% charity pledge on his own earnings
 
   const byDate = {};
   for (const b of deptBookings) {
@@ -1654,7 +1666,6 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       <div id="admin-overview" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30, scrollMarginTop: 90 }}>
         {(isMaster ? [
           ["My gross / month", "£" + grossFor("isham").toFixed(0), "💷"],
-          ["Charity pot (5%)", "£" + charity.toFixed(2), "❤️"],
           ["Places", `${store.takenCount || 0} / ${CAP}`, "🎓"],
           ["Registered students", String(store.subscribers.length), "👥"],
           ["Lessons booked", String(store.bookings.length), "📅"],
@@ -2018,7 +2029,7 @@ export default function App() {
       <footer style={{ borderTop: "1px solid var(--line)", padding: "28px 24px", marginTop: 40 }}>
         <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, fontSize: 13.5, color: "var(--ink-soft)" }}>
           <span>
-            © {new Date().getFullYear()} Isham Tuition · 5% of earnings to charity & food banks ·{" "}
+            © {new Date().getFullYear()} Isham Tuition ·{" "}
             <a href={"mailto:" + CONTACT.email} style={{ color: "var(--mint-dark)", fontWeight: 700 }}>{CONTACT.email}</a> ·{" "}
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>

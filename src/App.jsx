@@ -214,15 +214,19 @@ const css = `
 @media(max-width:640px){.it-app{font-size:17px}}
 .it-display{font-family:'Inter',system-ui,sans-serif;letter-spacing:-0.02em}
 .it-grad{background:var(--pop);-webkit-background-clip:text;background-clip:text;color:transparent}
-.it-fade{animation:itfade .45s ease both}
-@keyframes itfade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes itfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
-.it-float{animation:itfloat 5s ease-in-out infinite}
-.it-card{background:#fff;border:1px solid var(--line);border-radius:12px;transition:transform .25s ease, box-shadow .25s ease}
-.it-card:hover{transform:translateY(-2px);box-shadow:0 2px 8px rgba(11,27,51,.06)}
-.it-btn{background:var(--ink);color:#fff;border:none;border-radius:10px;padding:13px 24px;font-weight:700;cursor:pointer;transition:filter .2s, transform .15s;font-family:'Inter',sans-serif;font-size:15px}
-.it-btn:hover{filter:brightness(1.35);transform:translateY(-1px)}
+.it-fade{animation:itfade .5s cubic-bezier(.16,1,.3,1) both}
+@keyframes itfade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes itfloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14px) rotate(4deg)}}
+.it-float{animation:itfloat 6s ease-in-out infinite}
+@keyframes itpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(1.35)}}
+.it-pulse{animation:itpulse 1.8s ease-in-out infinite}
+.it-card{background:#fff;border:1px solid var(--line);border-radius:12px;transition:transform .3s cubic-bezier(.16,1,.3,1), box-shadow .3s ease}
+.it-card:hover{transform:translateY(-4px);box-shadow:0 10px 24px rgba(11,27,51,.08)}
+.it-btn{background:var(--ink);color:#fff;border:none;border-radius:10px;padding:13px 24px;font-weight:700;cursor:pointer;transition:filter .2s, transform .2s cubic-bezier(.16,1,.3,1);font-family:'Inter',sans-serif;font-size:15px}
+.it-btn:hover{filter:brightness(1.35);transform:translateY(-2px) scale(1.02)}
 .it-btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);box-shadow:none}
+.it-chip{transition:transform .2s cubic-bezier(.16,1,.3,1)}
+.it-chip:hover{transform:translateY(-2px) scale(1.06)}
 .it-btn.ghost:hover{background:var(--aqua);filter:none}
 .it-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .it-pip{width:14px;height:18px;border-radius:7px 7px 9px 9px;background:#E3EFEC;transition:background .4s}
@@ -253,7 +257,7 @@ const css = `
 .it-accordion-item.open .it-accordion-icon{transform:rotate(45deg);background:var(--mint);color:#fff;border-color:var(--mint)}
 .it-accordion-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
 .it-accordion-item.open .it-accordion-body{max-height:240px}
-.it-reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease, transform .5s ease}
+.it-reveal{opacity:0;transform:translateY(26px);transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1)}
 .it-reveal.in{opacity:1;transform:none}
 .it-hero-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:40px;align-items:center}
 .it-preview{transform:rotate(-1deg)}
@@ -438,8 +442,9 @@ function CapacityMeter({ taken }) {
           <div key={i} className={"it-pip" + (i < taken ? " on" : "")} style={{ width: 10, height: 14, transitionDelay: `${i * 25}ms` }} />
         ))}
       </div>
-      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0 }}>
-        <strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(CAP - taken, 0)} of {CAP} places left</strong>, capped so groups stay tiny and prices stay low.
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+        {taken < CAP && <span className="it-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--mint)", flex: "none" }} />}
+        <span><strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(CAP - taken, 0)} of {CAP} places left</strong>, capped so groups stay tiny and prices stay low.</span>
       </p>
     </div>
   );
@@ -503,7 +508,10 @@ function DashboardPreview() {
 function Home({ go, taken, testimonials }) {
   return (
     <div className="it-fade">
-      <section style={{ padding: "70px 24px 44px", maxWidth: 1120, margin: "0 auto" }}>
+      <section style={{ padding: "70px 24px 44px", maxWidth: 1120, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+        <span className="it-float" aria-hidden="true" style={{ position: "absolute", top: 10, right: 8, color: "var(--mint)", opacity: 0.14, pointerEvents: "none" }}>
+          <Icon name="cap" size={120} />
+        </span>
         <div className="it-hero-grid">
           <div>
             <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> Dental student · ranked top of my school for grades</span>
@@ -537,11 +545,11 @@ function Home({ go, taken, testimonials }) {
             ["cap", "Dental student, from Sept"],
             ["star", "Predicted A*A*A"],
             ["users", "20 places"],
-          ].map(([icon, label]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--mint-dark)" }}>
+          ].map(([icon, label], i) => (
+            <Reveal key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--mint-dark)", transitionDelay: i * 0.08 + "s" }}>
               <Icon name={icon} size={17} />
               <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{label}</span>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -590,15 +598,20 @@ function Home({ go, taken, testimonials }) {
           <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 22px", maxWidth: 640 }}>Teaching because I remember exactly what it's like to need this.</p>
           <div className="it-card" style={{ padding: 24, maxWidth: 400 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-              <Avatar initials="IB" />
+              <div style={{ position: "relative", flex: "none" }}>
+                <Avatar initials="IB" />
+                <span style={{ position: "absolute", bottom: -2, right: -2, width: 22, height: 22, borderRadius: 7, background: "var(--mint)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff" }}>
+                  <Icon name="cap" size={12} />
+                </span>
+              </div>
               <div>
                 <div className="it-display" style={{ fontSize: 17, fontWeight: 800 }}>Isham Bari</div>
                 <div style={{ fontSize: 13, color: "var(--mint-dark)", fontWeight: 700 }}>Dental student, from September</div>
               </div>
             </div>
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 13.5, color: "var(--ink-soft)" }}>
-              {["Predicted A*A*A · ranked top of his school", "Ran a tutoring service teaching ~50 students/month", "Personally tutored 65 students for the UCAT", "Teaches Maths, Biology, Chemistry, Physics"].map((l) => (
-                <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name="check" size={14} /></span>{l}</li>
+              {[["star", "Predicted A*A*A · ranked top of his school"], ["users", "Ran a tutoring service teaching ~50 students/month"], ["target", "Personally tutored 65 students for the UCAT"], ["check", "Teaches Maths, Biology, Chemistry, Physics"]].map(([icon, l]) => (
+                <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 2 }}><Icon name={icon} size={14} /></span>{l}</li>
               ))}
             </ul>
           </div>
@@ -615,12 +628,12 @@ function Home({ go, taken, testimonials }) {
               ["Sixth form", "Ranked top of my school for grades: predicted A*A*A, AB in AS Chemistry & Maths, all while running a tutoring service teaching around 50 students a month."],
               ["This September", "Dental school. Now I teach the way I wish someone had taught me."],
             ].map(([t, b], i, arr) => (
-              <div key={t} className="it-timeline-item">
+              <Reveal key={t} className="it-timeline-item" style={{ transitionDelay: i * 0.1 + "s" }}>
                 <div className="it-timeline-dot" />
                 {i < arr.length - 1 && <div className="it-timeline-line" />}
                 <div className="it-display it-grad" style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>{t}</div>
                 <p style={{ color: "#C4D6E4", fontSize: 14.5, lineHeight: 1.6, margin: 0 }}>{b}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </Reveal>
@@ -634,11 +647,11 @@ function Home({ go, taken, testimonials }) {
             ["20", "places, kept small so everyone gets airtime"],
             ["5", "max per GCSE group, A-level is private 1-to-1"],
             ["£3.33", "per hour of live teaching, around a tenth of a private tutor"],
-          ].map(([big, small]) => (
-            <div key={big}>
+          ].map(([big, small], i) => (
+            <Reveal key={big} style={{ transitionDelay: i * 0.07 + "s" }}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
               <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5 }}>{small}</div>
-            </div>
+            </Reveal>
           ))}
         </Reveal>
       </section>
@@ -647,13 +660,13 @@ function Home({ go, taken, testimonials }) {
         <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
           <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 18 }}>What students say</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
-            {testimonials.map((t) => (
-              <div key={t.id} className="it-card" style={{ padding: 24 }}>
+            {testimonials.map((t, i) => (
+              <Reveal key={t.id} className="it-card" style={{ padding: 24, transitionDelay: (i % 3) * 0.08 + "s" }}>
                 <div style={{ fontSize: 22, color: "var(--mint)", lineHeight: 1 }}>"</div>
                 <p style={{ fontSize: 14.5, lineHeight: 1.65, margin: "6px 0 12px" }}>{t.quote}</p>
                 <strong className="it-display" style={{ fontSize: 14 }}>{t.name}</strong>
                 {t.detail && <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{t.detail}</div>}
-              </div>
+              </Reveal>
             ))}
           </div>
         </section>
@@ -671,14 +684,20 @@ function Home({ go, taken, testimonials }) {
               ["03", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know, the stuff school never has time for."],
               ["04", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week, to you and your parents."],
             ].map(([n, t, b], i) => (
-              <div key={t} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--line)" : "none", borderBottom: "1px solid var(--line)" }}>
+              <Reveal key={t} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--line)" : "none", borderBottom: "1px solid var(--line)", transitionDelay: i * 0.08 + "s" }}>
                 <div className="it-display" style={{ fontSize: 14, fontWeight: 800, color: "var(--mint)", minWidth: 28, paddingTop: 2 }}>{n}</div>
                 <div>
                   <h3 className="it-display" style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px" }}>{t}</h3>
                   <p style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.6, margin: 0, maxWidth: 560 }}>{b}</p>
                 </div>
-              </div>
+              </Reveal>
             ))}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "20px 0 0" }}>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 600 }}>Exam boards covered:</span>
+              {["AQA", "Edexcel", "OCR"].map((b) => (
+                <span key={b} className="it-chip" style={{ background: "var(--aqua)", color: "var(--mint-dark)" }}>{b}</span>
+              ))}
+            </div>
           </div>
         </Reveal>
       </section>

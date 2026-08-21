@@ -2480,9 +2480,40 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
 function PasswordRecoveryOverlay({ onDone }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const [code, setCode] = useState("");
+  const [challenge, setChallenge] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // A recovery link only signs someone in at AAL1. If the account also has
+  // 2FA turned on, Supabase requires AAL2 before it'll let updateUser change
+  // the password, so that has to be cleared here first, same as normal login.
+  useEffect(() => {
+    (async () => {
+      const { data: aal } = await supa.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+        const { data: f } = await supa.auth.mfa.listFactors();
+        const factor = f?.totp?.[0];
+        if (factor) {
+          const { data: ch, error: chErr } = await supa.auth.mfa.challenge({ factorId: factor.id });
+          if (chErr) { setErr(chErr.message); setChecking(false); return; }
+          setChallenge({ factorId: factor.id, challengeId: ch.id });
+        }
+      }
+      setChecking(false);
+    })();
+  }, []);
+
+  const verifyCode = async () => {
+    setBusy(true); setErr("");
+    const { error } = await supa.auth.mfa.verify({ factorId: challenge.factorId, challengeId: challenge.challengeId, code: code.trim() });
+    setBusy(false);
+    if (error) return setErr("Wrong code, check your authenticator app.");
+    setChallenge(null);
+  };
+
   const submit = async () => {
     if (pw.length < 8) return setErr("Password must be at least 8 characters.");
     if (pw !== pw2) return setErr("Passwords don't match.");
@@ -2495,11 +2526,23 @@ function PasswordRecoveryOverlay({ onDone }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }}>
       <div className="it-card it-fade" style={{ padding: 30, width: 400, maxWidth: "100%" }}>
-        {done ? (
+        {checking ? (
+          <p style={{ color: "var(--ink-soft)", margin: 0 }}>Checking your account…</p>
+        ) : done ? (
           <>
             <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>Password updated ✓</h3>
             <p style={{ color: "var(--ink-soft)", margin: "0 0 16px" }}>You can now sign in with your new password.</p>
             <button className="it-btn" onClick={onDone}>Done</button>
+          </>
+        ) : challenge ? (
+          <>
+            <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>Enter your 2FA code</h3>
+            <p style={{ color: "var(--ink-soft)", margin: "0 0 16px", fontSize: 13.5 }}>This account has 2FA on, so confirm it's you before setting a new password.</p>
+            <div style={{ display: "grid", gap: 12 }}>
+              <input className="it-input" placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} />
+              <button className="it-btn" onClick={verifyCode} disabled={busy}>{busy ? "Checking…" : "Verify"}</button>
+              {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
+            </div>
           </>
         ) : (
           <>

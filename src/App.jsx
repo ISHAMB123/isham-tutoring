@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 /* ============================================================
-   Isham Tutoring — LIVE version, connected to Supabase.
+   Isham Tutoring: LIVE version, connected to Supabase.
    Every booking / sign-up / message saves to your database.
    GCSE weekends rotate: Wk1 Maths → Bio → Chem → Physics.
-   NOTE: payments still simulated — swap in Stripe Payment
+   NOTE: payments still simulated, swap in Stripe Payment
    Links where marked STRIPE below.
    ============================================================ */
 
@@ -28,7 +28,7 @@ const STRIPE_LIVE = {
   },
 };
 
-/* Stripe TEST-mode links — pay with card 4242 4242 4242 4242, any future
+/* Stripe TEST-mode links, pay with card 4242 4242 4242 4242, any future
    expiry/CVC, nothing real is charged. Plans with no test link below fall
    back to the demo-checkout notice while STRIPE_MODE is "test". Flip
    STRIPE_MODE back to "live" once you're done testing. */
@@ -68,24 +68,24 @@ const SUBJECT_COLORS = {
   Maths:           { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
   Biology:         { bg: "#E8F8EC", border: "#2FA45B", text: "#1F7A41" },
   Chemistry:       { bg: "#F1EBFE", border: "#7C5CE0", text: "#5B3EC4" },
-  Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#9C4E10" }, // darkened from #B85F14 — that stop was 4.01:1 on the tint, below the 4.5:1 floor
+  Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#9C4E10" }, // darkened from #B85F14 since that stop was 4.01:1 on the tint, below the 4.5:1 floor
 };
 
 const PLANS = {
   gcse: {
     id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
-    blurb: "8 group lessons a month (90 minutes each) — 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics — everything covered twice a month. Every place is subsidised — priced well below what tutoring normally costs, on purpose, so any family can afford it.",
+    blurb: "8 group lessons a month (90 minutes each), 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered twice a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
     deal: "Scholarship place · £5 a lesson",
   },
   gcse3: {
     id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 8, months: 3,
-    blurb: "The same subsidised GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120 — sort it once and forget it.",
+    blurb: "The same subsidised GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120. Sort it once and forget it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
   },
   alevel: {
     id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
-    blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject — just you and the tutor. Wednesdays & Fridays.",
+    blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject, just you and the tutor. Wednesdays & Fridays.",
     subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
   },
 };
@@ -111,7 +111,7 @@ async function fetchAll() {
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
   const subscribers = st.data || [];
-  // get_caps() may still return a "hum" field from the old dept split — ignore it, we only use "stem" now.
+  // get_caps() may still return a "hum" field from the old dept split; ignore it, we only use "stem" now.
   const cnt = () => subscribers.filter((x) => (PLANS[x.plan] || {}).months > 0 && x.paid_until).length;
   const capsRow = (caps.data && caps.data[0]) || null;
   const notesByBooking = {};
@@ -139,7 +139,7 @@ const daysLeft = (paidUntil) => paidUntil ? Math.ceil((new Date(paidUntil + "T00
 const blockById = (id) => ALL_BLOCKS.find((b) => b.id === id) || { id, label: id, s: 0, e: 0 };
 
 /* Billing-period allowance: lessons count against the student's own paid month,
-   not the calendar month — joining on the 25th no longer loses 6 lessons a week later. */
+   not the calendar month; joining on the 25th no longer loses 6 lessons a week later. */
 function periodFor(me) {
   const months = (PLANS[me.plan] || {}).months || 1;
   let anchor;
@@ -320,7 +320,7 @@ const SubjectChip = ({ subject }) => {
   return <span className="it-chip" style={{ background: c.bg, color: c.text, border: "1px solid " + c.border }}>{subject}</span>;
 };
 
-// Seat availability is a status signal, never a subject colour — green/amber/grey only, so it
+// Seat availability is a status signal, never a subject colour: green/amber/grey only, so it
 // never gets mistaken for "which subject" the way a subject-tinted pill would.
 function SeatPill({ taken, cap }) {
   if (cap === 1) {
@@ -423,7 +423,7 @@ function CapacityMeter({ taken }) {
         ))}
       </div>
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0 }}>
-        <strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(CAP - taken, 0)} of {CAP} places left</strong> — capped so groups stay tiny and prices stay low.
+        <strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(CAP - taken, 0)} of {CAP} places left</strong>, capped so groups stay tiny and prices stay low.
       </p>
     </div>
   );
@@ -455,7 +455,7 @@ function DashboardPreview() {
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--aqua)", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px", marginBottom: 16 }}>
         <span style={{ fontSize: 20 }}>🏆</span>
-        <p style={{ margin: 0, fontSize: 12.5, color: "var(--mint-dark)", fontWeight: 700, lineHeight: 1.4 }}>Nice work — Chemistry attendance is up this month.</p>
+        <p style={{ margin: 0, fontSize: 12.5, color: "var(--mint-dark)", fontWeight: 700, lineHeight: 1.4 }}>Nice work, Chemistry attendance is up this month.</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 18 }}>
@@ -495,15 +495,15 @@ function Home({ go, taken, testimonials }) {
               GCSE tuition for <span className="it-grad">£5 a lesson.</span>
             </h1>
             <p style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", maxWidth: 560, lineHeight: 1.5, margin: "0 0 14px" }}>
-              Serious GCSE support without the serious price tag — £40/month for 8 lessons.
-              I subsidise it myself: no premises, no staff, just me teaching straight after school — so the saving goes to your family, not cut from the lessons.
+              Serious GCSE support without the serious price tag: £40/month for 8 lessons.
+              I subsidise it myself: no premises, no staff, just me teaching straight after school, so the saving goes to your family, not cut from the lessons.
             </p>
             <p style={{ fontSize: 15, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.65 }}>
               I was born to a single mum and we were made homeless when I was 3. I ranked top of my school for grades,
-              and this September I start dental school — now I'm doing the same for the next kid like me.
+              and this September I start dental school. Now I'm doing the same for the next kid like me.
             </p>
             <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
-              <button className="it-btn" onClick={() => go("pricing")}>Start learning — from £5 a lesson</button>
+              <button className="it-btn" onClick={() => go("pricing")}>Start learning, from £5 a lesson</button>
               <button className="it-btn ghost" onClick={() => go("book")}>Already a student? Book</button>
             </div>
             <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
@@ -538,7 +538,7 @@ function Home({ go, taken, testimonials }) {
               <h3 className="it-display" style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Keeping lessons safe</h3>
             </div>
             <p style={{ margin: 0, fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.65 }}>
-              I teach under my real name and public TikTok (@ishamdoesdentistry) — I'm not anonymous. Every lesson is live on video in a small group, never one-to-one for GCSE students, and attendance is logged for every session. See the <button onClick={() => go("privacy")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>privacy policy</button> for exactly what data is kept.
+              I teach under my real name and public TikTok (@ishamdoesdentistry): I'm not anonymous. Every lesson is live on video in a small group, never one-to-one for GCSE students, and attendance is logged for every session. See the <button onClick={() => go("privacy")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>privacy policy</button> for exactly what data is kept.
             </p>
           </div>
         </Reveal>
@@ -595,8 +595,8 @@ function Home({ go, taken, testimonials }) {
           <div className="it-timeline" style={{ marginTop: 28 }}>
             {[
               ["Age 3", "Made homeless. Raised by a single mum who never let me feel it."],
-              ["GCSEs", "No tutors, no quiet desk — just library sessions and free resources. It worked."],
-              ["Sixth form", "Ranked top of my school for grades — predicted A*A*A, AB in AS Chemistry & Maths — all while running a tutoring service teaching around 50 students a month."],
+              ["GCSEs", "No tutors, no quiet desk, just library sessions and free resources. It worked."],
+              ["Sixth form", "Ranked top of my school for grades: predicted A*A*A, AB in AS Chemistry & Maths, all while running a tutoring service teaching around 50 students a month."],
               ["This September", "Dental school. Now I teach the way I wish someone had taught me."],
             ].map(([t, b], i, arr) => (
               <div key={t} className="it-timeline-item">
@@ -616,8 +616,8 @@ function Home({ go, taken, testimonials }) {
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["65", "students I've personally tutored for the UCAT"],
             ["20", "places, kept small so everyone gets airtime"],
-            ["5", "max per GCSE group — A-level is private 1-to-1"],
-            ["£3.33", "per hour of live teaching — around a tenth of a private tutor"],
+            ["5", "max per GCSE group, A-level is private 1-to-1"],
+            ["£3.33", "per hour of live teaching, around a tenth of a private tutor"],
           ].map(([big, small]) => (
             <div key={big}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
@@ -647,13 +647,13 @@ function Home({ go, taken, testimonials }) {
       <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
         <Reveal>
           <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Every lesson includes</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 24px", maxWidth: 640 }}>Not generic content — every session is built around exam technique and what actually earns marks.</p>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14.5, margin: "0 0 24px", maxWidth: 640 }}>Not generic content: every session is built around exam technique and what actually earns marks.</p>
           <div style={{ display: "grid", gap: 0 }}>
             {[
-              ["01", "Exam-board specific", "Taught to your exact spec — AQA, Edexcel or OCR — not generic content. Tell me your board when you join."],
+              ["01", "Exam-board specific", "Taught to your exact spec, AQA, Edexcel or OCR, not generic content. Tell me your board when you join."],
               ["02", "Past-paper practice", "Real exam questions in every session, with mark-scheme walkthroughs so you learn how examiners think."],
-              ["03", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know — the stuff school never has time for."],
-              ["04", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week — to you and your parents."],
+              ["03", "Exam technique", "Command words, timing, how to squeeze marks from questions you half-know, the stuff school never has time for."],
+              ["04", "Homework & feedback", "Work set after every lesson and marked, so progress is visible week to week, to you and your parents."],
             ].map(([n, t, b], i) => (
               <div key={t} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--line)" : "none", borderBottom: "1px solid var(--line)" }}>
                 <div className="it-display" style={{ fontSize: 14, fontWeight: 800, color: "var(--mint)", minWidth: 28, paddingTop: 2 }}>{n}</div>
@@ -681,7 +681,7 @@ function Home({ go, taken, testimonials }) {
             <li>submitted every piece of homework on time, completed to a genuine standard.</li>
           </ul>
           <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, margin: "0 0 12px", maxWidth: 760, fontSize: 13 }}>
-            This isn't small print designed to wriggle out — homework and attendance are tracked from day one, so
+            This isn't small print designed to wriggle out. Homework and attendance are tracked from day one, so
             whether you qualify is a matter of record, not my opinion. Separately, plans are monthly or 3-monthly with
             no contract: cancelling is simply not renewing.
           </p>
@@ -703,7 +703,7 @@ function Pricing({ startCheckout, taken }) {
       <span className="it-tag">Plans &amp; pricing</span>
       <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 8px" }}>Simple, transparent plans</h1>
       <p style={{ color: "var(--ink-soft)", marginBottom: 28, maxWidth: 620 }}>
-        Priced for families who can't stretch to normal tutoring. No contracts — cancel any month.{" "}
+        Priced for families who can't stretch to normal tutoring. No contracts, cancel any month.{" "}
         {`${Math.max(CAP - taken, 0)} of ${CAP} places left.`}
       </p>
       <div className="it-steps">
@@ -728,7 +728,7 @@ function Pricing({ startCheckout, taken }) {
             <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
               <Icon name={PLAN_ICON[p.id] || "star"} size={20} />
             </div>
-            {p.deal && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10, background: "#FFEDE9", color: "#C2402F" }}>{p.deal} — places go fast</span>}
+            {p.deal && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10, background: "#FFEDE9", color: "#C2402F" }}>{p.deal}, places go fast</span>}
             <h3 className="it-display" style={{ fontSize: 21, fontWeight: 800, margin: "0 0 6px" }}>{p.name}</h3>
             <div style={{ margin: "6px 0 12px" }}>
               <span className="it-display" style={{ fontSize: 38, fontWeight: 800 }}>{gbp(p.price)}</span>
@@ -777,22 +777,22 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
       notifyServer({ type: "signup", name: name.trim(), email: cleanEmail, plan: plan.name });
       if (payLink) window.open(payLink, "_blank");
       if (authData && authData.session) {
-        // email confirmation isn't required on this project — already signed in, skip straight to the dashboard
+        // email confirmation isn't required on this project; already signed in, skip straight to the dashboard
         onFinish();
       } else {
         setDone(true);
       }
     } catch (e) {
       setPaying(false);
-      console.error("Checkout failed:", e); // full detail for diagnosing — never rely on the alert text alone
+      console.error("Checkout failed:", e); // full detail for diagnosing; never rely on the alert text alone
       const raw = (e && e.message) || "";
       const msg = raw && raw !== "{}" ? raw : "";
       if (String(e).includes("duplicate") || e.status === 409) {
-        alert("That email already has a plan — go to Book and sign in there.");
+        alert("That email already has a plan, go to Book and sign in there.");
       } else if (msg) {
         alert(msg);
       } else {
-        alert("Something went wrong saving your details — this usually means a temporary connection hiccup. Please wait a few seconds and try again, and message Isham if it keeps happening.");
+        alert("Something went wrong saving your details. This usually means a temporary connection hiccup. Please wait a few seconds and try again, and message Isham if it keeps happening.");
       }
     }
   };
@@ -803,7 +803,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
         <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%" }}>
           <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800 }}>Almost there ✓</h3>
           <p style={{ color: "var(--ink-soft)", margin: "0 0 20px" }}>
-            Check your inbox to verify your email. Booking unlocks the moment payment is confirmed — usually within hours.
+            Check your inbox to verify your email. Booking unlocks the moment payment is confirmed, usually within hours.
           </p>
           <button className="it-btn" onClick={onFinish}>Done</button>
         </div>
@@ -839,10 +839,10 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
           </div>
           {!payLink && (
             <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
-              Demo checkout — no card is charged yet. Payment details will be arranged by email until online payment goes live.
+              Demo checkout: no card is charged yet. Payment details will be arranged by email until online payment goes live.
             </div>
           )}
-          <button className="it-btn" onClick={submit} disabled={paying}>{paying ? "Saving…" : payLink ? `Continue to payment — ${gbp(plan.price)}` : `Join — ${gbp(plan.price)}`}</button>
+          <button className="it-btn" onClick={submit} disabled={paying}>{paying ? "Saving…" : payLink ? `Continue to payment, ${gbp(plan.price)}` : `Join, ${gbp(plan.price)}`}</button>
           <button className="it-btn ghost" onClick={onCancel}>Cancel</button>
         </div>
       </div>
@@ -907,9 +907,9 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
   const subjectFor = (d) => (plan.rotates ? weekSubject(d, plan.cycle) : subject);
   const countAt = (dk, blockId, subj) =>
     store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
-  const visibleBlocks = plan.blocks; // single tutor — no per-block ownership filtering needed
+  const visibleBlocks = plan.blocks; // single tutor, no per-block ownership filtering needed
 
-  // Group the bookable days into "weeks" — a run of consecutive wanted days (Sat+Sun for
+  // Group the bookable days into "weeks": a run of consecutive wanted days (Sat+Sun for
   // weekend plans, Wed+Fri for evening plans) no more than 2 days apart.
   const weeks = [];
   for (let d = new Date(earliestBookable); d <= horizon; d.setDate(d.getDate() + 1)) {
@@ -938,7 +938,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
     if (target) { setWeekIdx(target.index); setSel(null); weekRefs.current[target.index]?.focus(); }
   };
 
-  const WEEKLY_CAP = 2; // a parent can only place 2 lessons in any one week — keeps it spread out, not front-loaded
+  const WEEKLY_CAP = 2; // a parent can only place 2 lessons in any one week, keeps it spread out, not front-loaded
   const weekBookingCount = (w) => w.days.reduce((sum, d) => sum + mine.filter((b) => b.date === dateKey(d)).length, 0);
   const weekAtCap = (w) => plan.rotates && weekBookingCount(w) >= WEEKLY_CAP;
   const weekOpenSeats = (w) => w.days.reduce((sum, d) => {
@@ -956,17 +956,17 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
   const waitlistFor = (dk, blockId) => [...store.waitlist].filter((w) => w.date === dk && w.block === blockId).sort((a, b) => (a.created || "").localeCompare(b.created || ""));
   const myWaitlistEntry = (dk, blockId) => waitlistFor(dk, blockId).find((w) => w.email === email);
   const handleWaitlist = async (subj, dk, bl) => {
-    if (!confirm(`Join the waitlist for ${subj} · ${prettyDate(new Date(dk + "T00:00:00"))} · ${bl.label}? This doesn't use one of your lessons — you'll only be booked in, using one, if a seat actually opens up.`)) return;
+    if (!confirm(`Join the waitlist for ${subj} · ${prettyDate(new Date(dk + "T00:00:00"))} · ${bl.label}? This doesn't use one of your lessons, you'll only be booked in, using one, if a seat actually opens up.`)) return;
     try {
       await joinWaitlist({ student_id: me.id, name: me.name, email, date: dk, block: bl.id, subject: subj });
-    } catch (e) { alert("Couldn't join the waitlist — please message Isham on WhatsApp instead."); }
+    } catch (e) { alert("Couldn't join the waitlist. Please message Isham on WhatsApp instead."); }
   };
   const leaveWaitlist = async (entryId) => {
     if (!confirm("Leave the waitlist for this slot?")) return;
-    try { await removeWaitlistEntry(entryId); } catch (e) { alert("Couldn't leave the waitlist — please message Isham."); }
+    try { await removeWaitlistEntry(entryId); } catch (e) { alert("Couldn't leave the waitlist. Please message Isham."); }
   };
 
-  if (!week) return <EmptyState icon="calendar" text="Nothing bookable right now — message Isham and he'll sort you out." />;
+  if (!week) return <EmptyState icon="calendar" text="Nothing bookable right now. Message Isham and he'll sort you out." />;
 
   return (
     <div>
@@ -1044,7 +1044,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
                         else if (e.key === "ArrowDown") { e.preventDefault(); focusSlot(Math.min(dayIdx + 1, week.days.length - 1), Math.min(blockIdx, visibleBlocks.length - 1)); }
                         else if (e.key === "ArrowUp") { e.preventDefault(); focusSlot(Math.max(dayIdx - 1, 0), Math.min(blockIdx, visibleBlocks.length - 1)); }
                       }}
-                      aria-label={`${subj}, ${prettyDate(d)}, ${bl.label}, ${already ? "already booked" : weeklyLocked ? "locked — max 2 lessons a week reached" : myEntry ? "on waitlist" : waitlistFull ? "full, waitlist full" : full ? "full" : (seats - n) + " seats left"}`}>
+                      aria-label={`${subj}, ${prettyDate(d)}, ${bl.label}, ${already ? "already booked" : weeklyLocked ? "locked, max 2 lessons a week reached" : myEntry ? "on waitlist" : waitlistFull ? "full, waitlist full" : full ? "full" : (seats - n) + " seats left"}`}>
                       {already ? "Booked ✓" : weeklyLocked ? "Max 2/week" : myEntry ? `On waitlist (${wl.findIndex((w) => w.id === myEntry.id) + 1} of ${wl.length})` : waitlistFull ? "Waitlist full" : full ? "Join waitlist" : isSel ? "Selected ✓" : "Select"}
                     </button>
                     {myEntry && (
@@ -1059,7 +1059,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
       })}
 
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 16 }}>
-        {left <= 0 ? "You've used all the lessons in your current paid month — more unlock when it renews."
+        {left <= 0 ? "You've used all the lessons in your current paid month. More unlock when it renews."
           : `${left} lesson${left === 1 ? "" : "s"} left in your paid month (to ${period.end}) · max ${plan.perSubjectCap} per subject.`}
       </p>
     </div>
@@ -1135,10 +1135,10 @@ function ChatPanel({ sender, isTutor }) {
     <div className="it-card" style={{ padding: 18, marginTop: 20 }}>
       <strong className="it-display" style={{ fontSize: 16 }}>Group Q&A</strong>
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 12px" }}>
-        Group Q&A — visible to all students and tutors. Keep it to study questions.
+        Group Q&A, visible to all students and tutors. Keep it to study questions.
       </p>
       <div style={{ maxHeight: 320, overflowY: "auto", display: "grid", gap: 8, marginBottom: 12 }}>
-        {messages.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: 0 }}>No messages yet — ask the first question!</p>}
+        {messages.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: 0 }}>No messages yet, ask the first question!</p>}
         {messages.map((m) => (
           <div key={m.id} style={{ fontSize: 13.5, lineHeight: 1.5 }}>
             <strong>{m.sender}</strong>{" "}
@@ -1252,9 +1252,9 @@ function PlanStatusCard({ plan, me, locked, onManage }) {
       <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--ink-soft)" }}>Plan</p>
       <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{plan.name}</p>
       <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
-        {me.paid_until ? `Renews ${me.paid_until}` : locked ? "Pending confirmation" : "—"}
+        {me.paid_until ? `Renews ${me.paid_until}` : locked ? "Pending confirmation" : "-"}
       </p>
-      {/* TODO(api): card-on-file details aren't available — Stripe Payment Links don't give us a stored Customer/PaymentMethod to read from */}
+      {/* TODO(api): card-on-file details aren't available; Stripe Payment Links don't give us a stored Customer/PaymentMethod to read from */}
       <button className="it-navlink" style={{ padding: 0, marginTop: 8, fontSize: 12.5 }} onClick={onManage}>Manage plan</button>
     </div>
   );
@@ -1281,12 +1281,12 @@ function ConfirmSheet({ sel, plan, lessonsLeft, repeatCount, repeatSubjects, rep
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <input type="checkbox" id="repeat-weekly" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} style={{ marginTop: 2 }} />
               <label htmlFor="repeat-weekly" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-                Repeat this time every week — books {sel.label.split(" ")[0]} for {repeatCount} week{repeatCount === 1 ? "" : "s"} to {humanDate(repeatEnd)}:{" "}
+                Repeat this time every week: books {sel.label.split(" ")[0]} for {repeatCount} week{repeatCount === 1 ? "" : "s"} to {humanDate(repeatEnd)}:{" "}
                 {repeatSubjects.join(", ")}
               </label>
             </div>
             {repeat && (
-              <p style={{ margin: "6px 0 0 26px", fontSize: 11.5, color: "var(--ink-soft)" }}>Stops there — this period's lessons expire on {periodEnd} and don't roll over.</p>
+              <p style={{ margin: "6px 0 0 26px", fontSize: 11.5, color: "var(--ink-soft)" }}>Stops there, this period's lessons expire on {periodEnd} and don't roll over.</p>
             )}
           </div>
         )}
@@ -1379,7 +1379,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
           <h1 className="it-display" style={{ fontSize: 25, fontWeight: 800, margin: "0 0 6px" }}>{mode === "signup" ? "Set up your login" : "Sign in to book"}</h1>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: "0 0 20px" }}>
             {mode === "signup"
-              ? "Already joined a plan but never made a login? Use the same email — once verified, we'll find it."
+              ? "Already joined a plan but never made a login? Use the same email, once verified, we'll find it."
               : "Use the email and password you signed up with."}
           </p>
 
@@ -1419,7 +1419,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     return (
       <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 460, margin: "0 auto" }}>
         <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>No plan found yet</h1>
-        <p style={{ color: "var(--ink-soft)" }}>We couldn't find a plan for {session.user.email} — join a plan first on the Plans page.</p>
+        <p style={{ color: "var(--ink-soft)" }}>We couldn't find a plan for {session.user.email}. Join a plan first on the Plans page.</p>
         <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
           <button className="it-btn" onClick={() => go("pricing")}>See plans</button>
           <button className="it-btn ghost" onClick={signOut}>Sign out</button>
@@ -1431,7 +1431,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
   if (!plan)
     return (
       <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 460, margin: "0 auto", textAlign: "center" }}>
-        <EmptyState icon="calendar" text="This plan is no longer bookable online — message Isham directly to arrange your lessons." />
+        <EmptyState icon="calendar" text="This plan is no longer bookable online. Message Isham directly to arrange your lessons." />
         <button className="it-btn ghost" style={{ marginTop: 12 }} onClick={signOut}>Sign out</button>
       </div>
     );
@@ -1450,11 +1450,11 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
 
   // "Repeat weekly": same day-of-week/time for as many future weeks as the remaining
   // allowance covers (capped at 8). For a rotating plan the subject follows the normal
-  // weekly rotation, so this places "Saturday 9am, whatever that week's subject is" —
+  // weekly rotation, so this places "Saturday 9am, whatever that week's subject is",
   // not literally the same subject every time.
-  // Clamped on both constraints — the allowance AND the period end. A repeat run must never
+  // Clamped on both constraints: the allowance AND the period end. A repeat run must never
   // book past the date the current allowance lapses on, even if the raw lessons-remaining
-  // count would allow more weeks (those lessons wouldn't exist yet — they're next period's).
+  // count would allow more weeks (those lessons wouldn't exist yet, they're next period's).
   const repeatDates = (() => {
     if (!sel) return [];
     const dates = [];
@@ -1463,7 +1463,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
       const d = new Date(sel.date + "T00:00:00");
       d.setDate(d.getDate() + i * 7);
       const dk = dateKey(d);
-      if (dk >= period.end) break; // this and every later week fall in the next period — stop here
+      if (dk >= period.end) break; // this and every later week fall in the next period, stop here
       const subj = plan.rotates ? weekSubject(d, plan.cycle) : sel.subject;
       if (mine.some((b) => b.date === dk && b.block === sel.block)) continue;
       dates.push({ date: dk, block: sel.block, label: sel.label, subject: subj });
@@ -1472,8 +1472,8 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
   })();
 
   const confirmBooking = async (repeat) => {
-    if (expired) return alert("Your plan has expired — renew (or message Isham) to book new lessons.");
-    if (!sel || bookingInFlight.current) return; // ref check is synchronous — closes the double-tap race the busy state alone can't
+    if (expired) return alert("Your plan has expired. Renew (or message Isham) to book new lessons.");
+    if (!sel || bookingInFlight.current) return; // ref check is synchronous; closes the double-tap race the busy state alone can't
     bookingInFlight.current = true;
     setBusy(true);
     const targets = repeat ? repeatDates : [{ date: sel.date, block: sel.block, label: sel.label, subject: sel.subject || subject }];
@@ -1490,9 +1490,9 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     setRepeat(false);
     if (repeat) {
       if (placed === 0) {
-        alert(`That slot filled up while you were booking — ${humanDate(failedDates[0])} and the rest are gone. Pick another time.`);
+        alert(`That slot filled up while you were booking. ${humanDate(failedDates[0])} and the rest are gone. Pick another time.`);
       } else if (failedDates.length > 0) {
-        alert(`Booked ${placed} of ${targets.length}. ${humanDate(failedDates[0])} filled up${failedDates.length > 1 ? ` (and ${failedDates.length - 1} more)` : ""} — pick another time that week from My lessons.`);
+        alert(`Booked ${placed} of ${targets.length}. ${humanDate(failedDates[0])} filled up${failedDates.length > 1 ? ` (and ${failedDates.length - 1} more)` : ""} . Pick another time that week from My lessons.`);
       } else {
         const last = targets[targets.length - 1];
         alert(`Booked ${placed} lesson${placed === 1 ? "" : "s"} to ${humanDate(last.date)}. ${Math.max(lessonsLeft - placed, 0)} lesson${Math.max(lessonsLeft - placed, 0) === 1 ? "" : "s"} left, and they expire on ${period.end}.`);
@@ -1507,11 +1507,11 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
 
   const changeLesson = async (b) => {
     const msg = plan.rotates
-      ? "Change this lesson? It'll be freed up and the calendar will open so you can pick a new date yourself — heads up, subjects rotate weekly, so a different week may mean a different subject."
-      : "Change this lesson's time? It'll be freed up, and the calendar will open so you can pick a new slot — same subject.";
+      ? "Change this lesson? It'll be freed up and the calendar will open so you can pick a new date yourself. Heads up, subjects rotate weekly, so a different week may mean a different subject."
+      : "Change this lesson's time? It'll be freed up, and the calendar will open so you can pick a new slot, same subject.";
     if (!confirm(msg)) return;
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
-    if (error || data === false) { alert("Couldn't change — lessons can only be changed more than 24 hours in advance."); return; }
+    if (error || data === false) { alert("Couldn't change. Lessons can only be changed more than 24 hours in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
     setSubject(b.subject);
@@ -1519,24 +1519,24 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     setBookTab("book");
   };
   const cancelLesson = async (b) => {
-    if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed — you can rebook a different slot.")) return;
+    if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed, you can rebook a different slot.")) return;
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
-    if (error || data === false) { alert("Couldn't cancel — lessons can only be cancelled more than 24 hours in advance."); return; }
+    if (error || data === false) { alert("Couldn't cancel. Lessons can only be cancelled more than 24 hours in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
   };
   const cancelPlan = async () => {
-    if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way — message Isham if you're not sure.")) return;
+    if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way. Message Isham if you're not sure.")) return;
     const { data, error } = await supa.rpc("cancel_my_plan");
-    if (error || data === false) alert("Couldn't cancel — please message Isham directly.");
-    else { alert("Done — your plan won't renew."); await refresh(); }
+    if (error || data === false) alert("Couldn't cancel. Please message Isham directly.");
+    else { alert("Done. Your plan won't renew."); await refresh(); }
   };
   const requestDeletion = async () => {
-    if (!confirm("Request that Isham delete your account and all your data? He'll action this and confirm by email — it can't be undone once done.")) return;
+    if (!confirm("Request that Isham delete your account and all your data? He'll action this and confirm by email. It can't be undone once done.")) return;
     try {
-      await addMessage({ name: me.name, email: session.user.email, text: "DATA DELETION REQUEST — please delete my account and all associated data (right to erasure)." });
-      alert("Request sent — Isham will confirm once it's done.");
-    } catch (e) { alert("Couldn't send that — please email Isham directly."); }
+      await addMessage({ name: me.name, email: session.user.email, text: "DATA DELETION REQUEST: please delete my account and all associated data (right to erasure)." });
+      alert("Request sent. Isham will confirm once it's done.");
+    } catch (e) { alert("Couldn't send that. Please email Isham directly."); }
   };
   const openBillingPortal = async () => {
     setPortalBusy(true);
@@ -1545,12 +1545,12 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
       const data = await r.json();
       if (!r.ok || !data.url) {
         alert(data.error === "no_customer"
-          ? "Stripe hasn't linked a payment method to your account yet — message Isham for a receipt."
-          : "Couldn't open the billing portal — message Isham for a receipt.");
+          ? "Stripe hasn't linked a payment method to your account yet. Message Isham for a receipt."
+          : "Couldn't open the billing portal. Message Isham for a receipt.");
       } else {
         window.open(data.url, "_blank");
       }
-    } catch (e) { alert("Couldn't open the billing portal — message Isham for a receipt."); }
+    } catch (e) { alert("Couldn't open the billing portal. Message Isham for a receipt."); }
     setPortalBusy(false);
   };
 
@@ -1563,7 +1563,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     return (
       <li style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 12, padding: "12px 14px", fontSize: 14, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <span>
-          <strong style={{ color: c.text }}>{b.subject}</strong> — {humanDate(b.date)} · {b.blockLabel}
+          <strong style={{ color: c.text }}>{b.subject}</strong>, {humanDate(b.date)} · {b.blockLabel}
           {b.attended === true && <span className="it-chip" style={{ marginLeft: 8, background: "var(--aqua)", color: "var(--mint-dark)" }}>Attended</span>}
           {b.attended === false && <span className="it-chip" style={{ marginLeft: 8, background: "#FFEDE9", color: "#C2402F" }}>Missed</span>}
           {b.topic && <div style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 4 }}><strong>Covered:</strong> {b.topic}</div>}
@@ -1579,7 +1579,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             )}
             {cancellable && <button className="it-btn" style={{ padding: "7px 12px", minHeight: 44, fontSize: 12.5 }} onClick={() => changeLesson(b)}>Reschedule</button>}
             {cancellable && <button className="it-btn ghost" style={{ padding: "7px 12px", minHeight: 44, fontSize: 12.5 }} onClick={() => cancelLesson(b)}>Cancel lesson</button>}
-            {!cancellable && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Inside the 24-hour window — message Isham if something's come up</span>}
+            {!cancellable && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Inside the 24-hour window, message Isham if something's come up</span>}
           </span>
         )}
       </li>
@@ -1616,12 +1616,12 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             <div>
               {locked && (
                 <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#7A5A2E", marginBottom: 14 }}>
-                  Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours.
+                  Payment received? You'll be able to book the moment Isham confirms it, usually within a few hours.
                 </div>
               )}
               {expired && (
                 <div style={{ background: "#FFF1EF", border: "1px solid #F6C4BC", borderRadius: 12, padding: "10px 14px", fontSize: 13.5, color: "#8A3126", marginBottom: 14 }}>
-                  Your plan ended on {me.paid_until}. Message Isham or renew to keep booking — your existing bookings are safe.
+                  Your plan ended on {me.paid_until}. Message Isham or renew to keep booking, your existing bookings are safe.
                 </div>
               )}
 
@@ -1678,13 +1678,13 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             <div>
               <h1 className="it-display" style={pageTitle}>Book lessons</h1>
               {locked ? (
-                <EmptyState icon="calendar" text="Payment received? You'll be able to book the moment Isham confirms it — usually within a few hours." />
+                <EmptyState icon="calendar" text="Payment received? You'll be able to book the moment Isham confirms it, usually within a few hours." />
               ) : expired ? (
-                <EmptyState icon="calendar" text="Your plan has expired — renew or message Isham to keep booking." />
+                <EmptyState icon="calendar" text="Your plan has expired. Renew or message Isham to keep booking." />
               ) : (
                 <>
                   {dateKey(new Date()) < TERM_START && (
-                    <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Lessons start 1 October — you're locking in your place now, and the calendar below opens straight on the first bookable week.</p>
+                    <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Lessons start 1 October, you're locking in your place now, and the calendar below opens straight on the first bookable week.</p>
                   )}
                   {!plan.rotates && plan.subjects.length > 1 && (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 20px" }}>
@@ -1714,7 +1714,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
               </div>
               <h3 className="it-display" style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>Upcoming</h3>
               {upcoming.length === 0 ? (
-                <div style={{ marginBottom: 24 }}><EmptyState icon="calendar" text="Your calendar is empty — you've got lessons ready to book." /></div>
+                <div style={{ marginBottom: 24 }}><EmptyState icon="calendar" text="Your calendar is empty, you've got lessons ready to book." /></div>
               ) : (
                 <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8, marginBottom: 26 }}>
                   {upcoming.map((b) => <LessonCard key={b.id} b={b} actions />)}
@@ -1735,7 +1735,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             <div>
               <h1 className="it-display" style={pageTitle}>Progress</h1>
               {totalMarked === 0 ? (
-                <EmptyState icon="star" text="No lessons attended yet — what's covered and any homework will show up here after each lesson." />
+                <EmptyState icon="star" text="No lessons attended yet, what's covered and any homework will show up here after each lesson." />
               ) : (
                 <>
                   <div className="it-card" style={{ padding: "16px 18px", margin: "16px 0 18px", maxWidth: 260 }}>
@@ -1758,9 +1758,9 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
                 <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)" }}>{gbp(plan.price)}{plan.per}</p>
                 <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>{session.user.email}</p>
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
-                  {me.paid_until ? `Covered until ${me.paid_until}` : locked ? "Pending confirmation" : "—"}
+                  {me.paid_until ? `Covered until ${me.paid_until}` : locked ? "Pending confirmation" : "-"}
                 </p>
-                <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--ink-soft)" }}>Unused lessons don't roll over — your allowance resets to {plan.lessons} on renewal.</p>
+                <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--ink-soft)" }}>Unused lessons don't roll over, your allowance resets to {plan.lessons} on renewal.</p>
                 <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>Payments are handled by Stripe. Receipts are emailed after each payment.</p>
                 <button className="it-btn ghost" style={{ fontSize: 13.5, padding: "9px 16px", marginTop: 12 }} disabled={portalBusy} onClick={openBillingPortal}>
                   {portalBusy ? "Opening…" : "Manage payment details"}
@@ -1782,7 +1782,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
           {bookTab === "questions" && (
             <div>
               <h1 className="it-display" style={pageTitle}>Questions</h1>
-              <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Visible to every student and to Isham — a good place for anything another family might also wonder about.</p>
+              <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Visible to every student and to Isham, a good place for anything another family might also wonder about.</p>
               <ChatPanel sender={me.name} isTutor={false} />
             </div>
           )}
@@ -1806,13 +1806,13 @@ function Contact({ addMessage }) {
   const submit = async () => {
     if (!f.name.trim() || !f.text.trim()) return alert("Please add your name and a message.");
     try { await addMessage(f); notifyServer({ type: "message", name: f.name, email: f.email, text: f.text }); setSent(true); }
-    catch (e) { alert("Couldn't send — please try again."); }
+    catch (e) { alert("Couldn't send. Please try again."); }
   };
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 620, margin: "0 auto" }}>
       <span className="it-tag">Get in touch</span>
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, margin: "12px 0 6px" }}>Questions?</h1>
-      <p style={{ color: "var(--ink-soft)" }}>Money worries, subjects, exam boards, availability — ask anything. I usually reply within a day.</p>
+      <p style={{ color: "var(--ink-soft)" }}>Money worries, subjects, exam boards, availability, ask anything. I usually reply within a day.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, margin: "16px 0 6px" }}>
         <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer" className="it-card it-contact-tile">
           <div className="it-step-icon"><Icon name="users" size={16} /></div>
@@ -1828,7 +1828,7 @@ function Contact({ addMessage }) {
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="check" size={20} /></div>
           <div>
             <strong>Message sent</strong>
-            <p style={{ color: "var(--ink-soft)", margin: "4px 0 0" }}>Thanks {f.name.split(" ")[0]} — I'll get back to you at {f.email || "your email"}.</p>
+            <p style={{ color: "var(--ink-soft)", margin: "4px 0 0" }}>Thanks {f.name.split(" ")[0]}, I'll get back to you at {f.email || "your email"}.</p>
           </div>
         </div>
       ) : (
@@ -1842,15 +1842,15 @@ function Contact({ addMessage }) {
       <div style={{ marginTop: 32 }}>
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
         <Accordion items={[
-          ["Is this a scholarship?", "It's run like one — every GCSE place is funded down to £5 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
+          ["Is this a scholarship?", "It's run like one: every GCSE place is funded down to £5 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
-          ["Where are lessons held?", "Live on Google Meet — your join link appears on your booking page before each lesson."],
+          ["Where are lessons held?", "Live on Google Meet, your join link appears on your booking page before each lesson."],
           ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level sessions are private one-to-one."],
-          ["Can I cancel?", "Yes — there's a \"Cancel my plan\" button on your Book page under Account. You keep booking access through whatever you've already paid for, it just won't renew after that. No contract either way."],
-          ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard — if your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
-          ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want — just don't renew. For anything else, message, call or email and we'll talk like humans."],
+          ["Can I cancel?", "Yes, there's a \"Cancel my plan\" button on your Book page under Account. You keep booking access through whatever you've already paid for, it just won't renew after that. No contract either way."],
+          ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard. If your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
+          ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want, just don't renew. For anything else, message, call or email and we'll talk like humans."],
         ]} />
       </div>
     </div>
@@ -1867,30 +1867,30 @@ function Privacy() {
   return (
     <div className="it-fade" style={{ padding: "48px 24px 90px", maxWidth: 760, margin: "0 auto" }}>
       <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Privacy policy</h1>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>Last updated {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}. This describes exactly what Isham Tuition collects and why — nothing more.</p>
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>Last updated {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}. This describes exactly what Isham Tuition collects and why, nothing more.</p>
 
       <Section title="Who this covers">
-        <p>Isham Tuition is run by Isham Bari ({CONTACT.email}). He's the only person with access to student records — there's no separate company, no data processor beyond the tools listed below, and no data is sold or shared with anyone else.</p>
+        <p>Isham Tuition is run by Isham Bari ({CONTACT.email}). He's the only person with access to student records, there's no separate company, no data processor beyond the tools listed below, and no data is sold or shared with anyone else.</p>
       </Section>
 
       <Section title="What's collected, and why">
-        <p>When you join a plan: your (or your child's) name, email address, and phone number if you choose to give one — used to create your login, confirm your place, and get in touch if there's a change to a lesson.</p>
-        <p style={{ marginTop: 8 }}>When you book: the lessons you book, which subject, and which dates — used to run the timetable and know who's expected in each session.</p>
-        <p style={{ marginTop: 8 }}>During term: attendance (present/absent) and short tutor notes on what was covered or set as homework — used so you can see your own progress, and as a basic safeguarding record of who attended what.</p>
+        <p>When you join a plan: your (or your child's) name, email address, and phone number if you choose to give one, used to create your login, confirm your place, and get in touch if there's a change to a lesson.</p>
+        <p style={{ marginTop: 8 }}>When you book: the lessons you book, which subject, and which dates, used to run the timetable and know who's expected in each session.</p>
+        <p style={{ marginTop: 8 }}>During term: attendance (present/absent) and short tutor notes on what was covered or set as homework, used so you can see your own progress, and as a basic safeguarding record of who attended what.</p>
         <p style={{ marginTop: 8 }}>If you message or ask a question: the text of that message, tied to your name and email, so it can be answered.</p>
-        <p style={{ marginTop: 8 }}>Payment itself is handled entirely by Stripe. Card details never reach Isham Tuition's own systems — only a confirmation that payment succeeded, and (if Stripe creates one) a customer reference used to show you your own billing portal.</p>
+        <p style={{ marginTop: 8 }}>Payment itself is handled entirely by Stripe. Card details never reach Isham Tuition's own systems, only a confirmation that payment succeeded, and (if Stripe creates one) a customer reference used to show you your own billing portal.</p>
       </Section>
 
       <Section title="Where it's stored">
-        <p>Records are stored in Supabase, a hosted database provider, protected so that only a signed-in tutor account can read other students' data — a student can only ever see their own. There are no analytics or advertising trackers on this site — nothing is collected beyond what's listed above.</p>
+        <p>Records are stored in Supabase, a hosted database provider, protected so that only a signed-in tutor account can read other students' data; a student can only ever see their own. There are no analytics or advertising trackers on this site, nothing is collected beyond what's listed above.</p>
       </Section>
 
       <Section title="How long it's kept">
-        <p>For as long as you're an active or recently-active student, so the timetable and progress history make sense. You can ask for it to be deleted at any time — see below.</p>
+        <p>For as long as you're an active or recently-active student, so the timetable and progress history make sense. You can ask for it to be deleted at any time, see below.</p>
       </Section>
 
       <Section title="Your rights">
-        <p>You can see your own plan, bookings and notes any time by signing in on the Book page. You can cancel your plan yourself from the Billing tab. You can request full deletion of your account and every record tied to it from the Billing tab ("Request my data be deleted"), or by emailing {CONTACT.email} — this is actioned personally and confirmed by email. You can also ask to see a copy of everything held about you, or to correct anything that's wrong, the same way.</p>
+        <p>You can see your own plan, bookings and notes any time by signing in on the Book page. You can cancel your plan yourself from the Billing tab. You can request full deletion of your account and every record tied to it from the Billing tab ("Request my data be deleted"), or by emailing {CONTACT.email}, this is actioned personally and confirmed by email. You can also ask to see a copy of everything held about you, or to correct anything that's wrong, the same way.</p>
       </Section>
 
       <Section title="Questions">
@@ -1919,13 +1919,13 @@ function StudentAttendanceRow({ b, c, onMove, saveNote }) {
         <button onClick={() => mark(false)} title="Mark absent"
           style={{ border: "none", borderRadius: 999, fontSize: 12, fontWeight: 800, padding: "3px 8px", cursor: "pointer",
             background: b.attended === false ? "var(--coral)" : "#EEF3F1", color: b.attended === false ? "#fff" : "var(--ink-soft)" }}>✗</button>
-        <button onClick={() => setOpen(!open)} title="Note for this student — visible to them"
+        <button onClick={() => setOpen(!open)} title="Note for this student, visible to them"
           style={{ border: "none", background: "none", fontSize: 13, cursor: "pointer", padding: "3px 4px", color: b.note ? "var(--mint-dark)" : "var(--ink-soft)" }}>
           📝{b.note && !open ? " •" : ""}
         </button>
       </div>
       {open && (
-        <textarea rows={1} placeholder="Note for this student — visible to them" autoFocus
+        <textarea rows={1} placeholder="Note for this student, visible to them" autoFocus
           value={note} onChange={(e) => setNote(e.target.value)}
           onBlur={() => { if (note !== (b.note || "")) saveNote(b.id, { note: note.trim() || null }); }}
           style={{ width: "100%", marginTop: 5, fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 8, fontFamily: "inherit", resize: "vertical" }} />
@@ -1946,14 +1946,14 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, 
     setSavingSession(false);
   };
   const c = SUBJECT_COLORS[subj] || SUBJECT_COLORS.Maths;
-  const inviteMsg = () => `Hi! Your ${subj} lesson is on ${dk}, ${block.label}. Join here: ${draft || "(link coming soon)"} — Isham`;
+  const inviteMsg = () => `Hi! Your ${subj} lesson is on ${dk}, ${block.label}. Join here: ${draft || "(link coming soon)"}. Isham`;
   const copyInvite = () => {
-    if (navigator.clipboard) navigator.clipboard.writeText(inviteMsg()).then(() => alert("Invite message copied — paste it into email or WhatsApp."));
+    if (navigator.clipboard) navigator.clipboard.writeText(inviteMsg()).then(() => alert("Invite message copied. Paste it into email or WhatsApp."));
     else alert(inviteMsg());
   };
   const emailInvite = () => {
     const to = (emails || []).filter(Boolean).join(",");
-    window.location.href = `mailto:${to}?subject=${encodeURIComponent(`Your ${subj} lesson — ${dk}`)}&body=${encodeURIComponent(inviteMsg())}`;
+    window.location.href = `mailto:${to}?subject=${encodeURIComponent(`Your ${subj} lesson, ${dk}`)}&body=${encodeURIComponent(inviteMsg())}`;
   };
   return (
     <div style={{ border: "1.5px solid " + c.border, background: c.bg, borderRadius: 14, padding: 14, marginTop: 10 }}>
@@ -1977,7 +1977,7 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, 
           <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
             {waitlist.map((w) => (
               <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5 }}>
-                <span>{w.name} — <a href={"mailto:" + w.email} style={{ color: "var(--mint-dark)" }}>{w.email}</a></span>
+                <span>{w.name} · <a href={"mailto:" + w.email} style={{ color: "var(--mint-dark)" }}>{w.email}</a></span>
                 <button style={{ border: "none", background: "none", color: "var(--ink-soft)", fontSize: 11.5, cursor: "pointer" }}
                   onClick={() => removeWaitlistEntry(w.id)}>Remove</button>
               </div>
@@ -2000,7 +2000,7 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input className="it-input" style={{ flex: 1, minWidth: 220, padding: "8px 12px", fontSize: 13.5 }} placeholder="Paste Google Meet link (meet.google.com/…)"
             value={draft} onChange={(e) => setDraft(e.target.value)} />
-          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13 }} onClick={async () => { await saveLink(draft.trim()); alert("Saved — students now see this link on their booking page."); }}>Save link</button>
+          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13 }} onClick={async () => { await saveLink(draft.trim()); alert("Saved. Students now see this link on their booking page."); }}>Save link</button>
           <button className="it-btn" style={{ padding: "8px 14px", fontSize: 13 }} onClick={copyInvite}>Copy invite</button>
           <button className="it-btn" style={{ padding: "8px 14px", fontSize: 13 }} onClick={emailInvite}>✉️ Email invites</button>
         </div>
@@ -2060,7 +2060,7 @@ function ClassroomLinksCard({ meetLinks, saveMeet }) {
     <div className="it-card" style={{ padding: 18, marginBottom: 20 }}>
       <strong style={{ fontSize: 14.5 }}>Google Classroom links</strong>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 6px" }}>
-        Each class needs its own Google Classroom link, pasted here once — students then see it on their Book dashboard automatically, no re-sending it by hand.
+        Each class needs its own Google Classroom link, pasted here once, students then see it on their Book dashboard automatically, no re-sending it by hand.
       </p>
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px" }}>
         Where to find it: open <strong>classroom.google.com</strong> → the class → click <strong>Settings</strong> (gear icon, top right) → copy the <strong>Class link</strong> shown there. Paste that whole link below.
@@ -2175,7 +2175,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
     setBusy(true); setErr("");
     const { error } = await supa.auth.mfa.verify({ factorId: challenge.factorId, challengeId: challenge.challengeId, code: code.trim() });
     setBusy(false);
-    if (error) return setErr("Wrong code — check your authenticator app.");
+    if (error) return setErr("Wrong code, check your authenticator app.");
     await finishLogin();
   };
 
@@ -2191,9 +2191,9 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
     if (chErr) { setBusy(false); return setErr(chErr.message); }
     const { error } = await supa.auth.mfa.verify({ factorId: enroll.factorId, challengeId: ch.id, code: enrollCode.trim() });
     setBusy(false);
-    if (error) return setErr("Code didn't match — try the newest code in your app.");
+    if (error) return setErr("Code didn't match, try the newest code in your app.");
     setEnroll(null); setEnrollCode(""); setHasMfa(true);
-    alert("2FA is on ✓ — from now on, logging in needs your password AND a code from your app.");
+    alert("2FA is on ✓. From now on, logging in needs your password AND a code from your app.");
   };
   const signOut = async () => { await supa.auth.signOut(); setStep("login"); setPassword(""); setCode(""); };
 
@@ -2231,7 +2231,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
 
   const isMaster = !!(role && role.master);
   const tutorOf = (s) => s.tutor || "isham";
-  // Scoped to this tutor's own students, not every student — a non-master tutor
+  // Scoped to this tutor's own students, not every student; a non-master tutor
   // must not see or manage another tutor's students, even within the same subject.
   const subs = store.subscribers.filter((s) => isMaster || tutorOf(s) === role.id);
   const mySubIds = new Set(subs.map((s) => s.id));
@@ -2306,7 +2306,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
               <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
-                Step 1: scan this QR code with your authenticator app — or type the secret in manually. Step 2: enter the 6-digit code it shows.
+                Step 1: scan this QR code with your authenticator app, or type the secret in manually. Step 2: enter the 6-digit code it shows.
               </p>
               <img src={enroll.qr} alt="2FA QR code" style={{ width: 170, height: 170, background: "#fff", borderRadius: 8, border: "1px solid var(--line)" }} />
               <code style={{ fontSize: 12, background: "var(--aqua)", padding: "6px 10px", borderRadius: 8, wordBreak: "break-all" }}>{enroll.secret}</code>
@@ -2348,8 +2348,8 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
 
       <ChatPanel sender={role.name} isTutor={true} />
 
-      <h2 id="admin-timetable" className="it-display" style={{ fontSize: 20, fontWeight: 800, scrollMarginTop: 90 }}>Timetable — who booked what & when</h2>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session — students instantly see it on their booking page.</p>
+      <h2 id="admin-timetable" className="it-display" style={{ fontSize: 20, fontWeight: 800, scrollMarginTop: 90 }}>Timetable: who booked what & when</h2>
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session, students instantly see it on their booking page.</p>
       <AdminCalendar bookings={store.bookings} active={calFilter} onPick={(dk) => setCalFilter(calFilter === dk ? null : dk)} />
       {dates.length === 0 && <EmptyState icon="calendar" text="No bookings yet." />}
       {(calFilter ? dates.filter((d) => d === calFilter) : dates).map((dk) => {
@@ -2377,7 +2377,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       <h2 id="admin-students" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Students</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
         <strong style={{ fontSize: 14.5 }}>Add a student manually</strong>
-        <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 10px" }}>For anyone who paid or arranged differently (bank transfer, cash, DM) — adds them so they can book like everyone else.</p>
+        <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 10px" }}>For anyone who paid or arranged differently (bank transfer, cash, DM), adds them so they can book like everyone else.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input className="it-input" style={{ flex: 2, minWidth: 140 }} placeholder="Name" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} />
           <input className="it-input" style={{ flex: 2, minWidth: 160 }} placeholder="Email" value={nf.email} onChange={(e) => setNf({ ...nf, email: e.target.value })} />
@@ -2393,7 +2393,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
               await addStudentManual({ name: nf.name.trim(), email: nf.email.trim().toLowerCase(), phone: nf.phone?.trim() || null, plan: nf.plan, paid_until: nf.paid_until || null, tutor: "isham" });
               setNf({ name: "", email: "", phone: "", plan: "gcse3", paid_until: addMonths(3) });
             }
-            catch (e) { alert(String(e).includes("duplicate") ? "That email is already registered." : "Couldn't add — try again."); }
+            catch (e) { alert(String(e).includes("duplicate") ? "That email is already registered." : "Couldn't add, try again."); }
           }}>Add</button>
         </div>
       </div>
@@ -2434,11 +2434,11 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       <h2 id="admin-testimonials" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Testimonials</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
         <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" }}>
-          Only add real quotes with the student's (or parent's) permission — these show publicly on the home page. Ask past students today; three honest lines beat any design tweak.
+          Only add real quotes with the student's (or parent's) permission, these show publicly on the home page. Ask past students today; three honest lines beat any design tweak.
         </p>
         <div style={{ display: "grid", gap: 8 }}>
           <input className="it-input" placeholder="Student / parent name (e.g. Amira K.)" value={tf.name} onChange={(e) => setTf({ ...tf, name: e.target.value })} />
-          <input className="it-input" placeholder="Detail (e.g. GCSE Maths — grade 5 → 8)" value={tf.detail} onChange={(e) => setTf({ ...tf, detail: e.target.value })} />
+          <input className="it-input" placeholder="Detail (e.g. GCSE Maths: grade 5 → 8)" value={tf.detail} onChange={(e) => setTf({ ...tf, detail: e.target.value })} />
           <textarea className="it-input" rows={2} placeholder="Their quote, in their words" value={tf.quote} onChange={(e) => setTf({ ...tf, quote: e.target.value })} />
           <button className="it-btn" style={{ justifySelf: "start" }} onClick={async () => {
             if (!tf.name.trim() || !tf.quote.trim()) return alert("Name and quote needed.");
@@ -2450,7 +2450,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
           <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
             {store.testimonials.map((t) => (
               <div key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", background: "var(--aqua)", borderRadius: 10, padding: "9px 12px", fontSize: 13.5 }}>
-                <span>"{t.quote}" — <strong>{t.name}</strong>{t.detail ? ` (${t.detail})` : ""}</span>
+                <span>"{t.quote}" · <strong>{t.name}</strong>{t.detail ? ` (${t.detail})` : ""}</span>
                 <button className="it-btn ghost" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => removeTestimonial(t.id)}>Remove</button>
               </div>
             ))}
@@ -2463,7 +2463,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         {store.messages.length === 0 && <EmptyState icon="mail" text="No questions yet." />}
         {[...store.messages].reverse().map((m) => (
           <div key={m.id} className="it-card" style={{ padding: 16 }}>
-            <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>{(m.created || "").slice(0, 16).replace("T", " · ")} — <strong style={{ color: "var(--ink)" }}>{m.name}</strong> {m.email && `(${m.email})`}</div>
+            <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>{(m.created || "").slice(0, 16).replace("T", " · ")} · <strong style={{ color: "var(--ink)" }}>{m.name}</strong> {m.email && `(${m.email})`}</div>
             <p style={{ margin: "6px 0 0", fontSize: 14.5 }}>{m.text}</p>
           </div>
         ))}
@@ -2541,7 +2541,7 @@ export default function App() {
   useEffect(() => {
     // Live sync: the moment anyone books, cancels, gets confirmed as paid, or a
     // Meet/Classroom link is set, every open tab (parent or tutor) refreshes on
-    // its own within a second — no manual "Refresh" click needed.
+    // its own within a second, no manual "Refresh" click needed.
     let timer = null;
     const debouncedRefresh = () => { clearTimeout(timer); timer = setTimeout(refresh, 400); };
     const channel = supa
@@ -2557,9 +2557,9 @@ export default function App() {
   const notify = (t) => { setToast(t); setTimeout(() => setToast(null), 3200); };
   useEffect(() => {
     // Stripe redirects here with ?paid=1 after a successful payment (set that as the Payment Link's
-    // "after payment" redirect URL in Stripe) — land straight on the booking dashboard instead of the homepage.
+    // "after payment" redirect URL in Stripe), land straight on the booking dashboard instead of the homepage.
     if (new URLSearchParams(window.location.search).get("paid")) {
-      notify("Payment received ✓ — here's your booking dashboard.");
+      notify("Payment received ✓. Here's your booking dashboard.");
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
@@ -2593,7 +2593,7 @@ export default function App() {
       const { data, error } = await supa.from("bookings").insert(b).select();
       if (error) { rollback(); throw new Error(error.message); }
       setStore((st) => ({ ...st, bookings: st.bookings.map((x) => x.id === tempId ? mapBooking(data[0]) : x) }));
-      notify("Lesson booked ✓ — your Meet link will appear here");
+      notify("Lesson booked ✓. Your Meet link will appear here");
     } catch (e) {
       rollback();
       throw e;
@@ -2611,7 +2611,7 @@ export default function App() {
   };
   // Cancellation is the trigger, not admin attention: whenever a booking frees up, offer the
   // seat to the earliest-joined waitlister who still has lessons left this period (checked now,
-  // not at the time they joined — their allowance may have changed since). If nobody on the
+  // not at the time they joined, their allowance may have changed since). If nobody on the
   // list can take it, tell Isham rather than leaving the seat silently empty.
   const promoteWaitlist = async (date, block, blockLabel) => {
     const candidates = [...store.waitlist]
@@ -2625,10 +2625,10 @@ export default function App() {
         await removeWaitlistEntry(cand.id);
         notifyServer({ type: "booking", name: student.name, email: cand.email, subject: cand.subject, date, time: blockLabel });
         return true;
-      } catch (e) { /* that candidate's slot vanished too — try the next one */ }
+      } catch (e) { /* that candidate's slot vanished too, try the next one */ }
     }
     if (candidates.length > 0) {
-      const text = `A seat opened up (${blockLabel}, ${date}) but nobody on the waitlist had lessons left this period to take it — check the Timetable.`;
+      const text = `A seat opened up (${blockLabel}, ${date}) but nobody on the waitlist had lessons left this period to take it. Check the Timetable.`;
       notifyServer({ type: "message", name: "Waitlist", email: "", text });
       try { await addMessage({ name: "Waitlist", email: "", text }); } catch (e) {}
     }
@@ -2682,7 +2682,7 @@ export default function App() {
     const { data, error } = await supa.from("testimonials").insert(t).select();
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, testimonials: [...(st.testimonials || []), data[0]] }));
-    notify("Testimonial added ✓ — now live on the home page");
+    notify("Testimonial added ✓. Now live on the home page");
   };
   const removeTestimonial = async (id) => {
     await supa.from("testimonials").delete().eq("id", id);
@@ -2730,7 +2730,7 @@ export default function App() {
 
       {loadErr && (
         <div style={{ background: "#FFF1EF", borderBottom: "1px solid #F6C4BC", padding: "10px 24px", fontSize: 13.5, color: "#8A3126", textAlign: "center" }}>
-          Couldn't reach the booking database — check your connection and refresh.
+          Couldn't reach the booking database. Check your connection and refresh.
         </div>
       )}
 
@@ -2770,7 +2770,7 @@ export default function App() {
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>
           <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Privacy: only names, emails and bookings are collected — never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
+            Privacy: only names, emails and bookings are collected, never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
             <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12, fontWeight: 700 }} onClick={() => setPage("privacy")}>privacy policy</button>.
           </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>

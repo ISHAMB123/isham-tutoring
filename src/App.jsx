@@ -1542,7 +1542,10 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     promoteWaitlist(b.date, b.block, b.blockLabel);
   };
   const cancelPlan = async () => {
-    if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.\n\nNote: this doesn't automatically cancel a recurring Stripe subscription if you set one up that way. Message Isham if you're not sure.")) return;
+    if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.")) return;
+    try {
+      await fetch("/api/cancel-subscription", { method: "POST", headers: { Authorization: "Bearer " + session.access_token } });
+    } catch (e) { /* local cancel below still goes ahead even if Stripe couldn't be reached */ }
     const { data, error } = await supa.rpc("cancel_my_plan");
     if (error || data === false) alert("Couldn't cancel. Please message Isham directly.");
     else { alert("Done. Your plan won't renew."); await refresh(); }

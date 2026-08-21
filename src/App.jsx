@@ -2568,7 +2568,11 @@ export default function App() {
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
   const [toast, setToast] = useState(null);
-  const [recovery, setRecovery] = useState(false);
+  // Read this synchronously off the URL, not from the "PASSWORD_RECOVERY" auth
+  // event: that event fires as soon as Supabase's client is created (module load,
+  // before React even mounts), so a listener added later in a useEffect can miss
+  // it, and the reset bubble silently never appears.
+  const [recovery, setRecovery] = useState(() => window.location.hash.includes("type=recovery"));
 
   const refresh = async () => {
     try { const d = await fetchAll(); setStore(d); setLoadErr(false); return d; }

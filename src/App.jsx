@@ -345,12 +345,27 @@ const ICONS = {
   target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   mail: "M3.5 5.5h17A1 1 0 0 1 21.5 6.5v11a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1Zm0 0 8.5 7 8.5-7",
   home: "M4 11 12 4l8 7M6 10v9.5h5V14h2v5.5h5V10",
+  eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  eyeOff: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M3 3l18 18",
 };
 function Icon({ name, size = 20, style }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={style}>
       <path d={ICONS[name]} />
     </svg>
+  );
+}
+function PasswordField({ value, onChange, placeholder, onKeyDown }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <input className="it-input" style={{ paddingRight: 42 }} type={show ? "text" : "password"}
+        placeholder={placeholder} value={value} onChange={onChange} onKeyDown={onKeyDown} />
+      <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? "Hide password" : "Show password"}
+        style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", padding: 8, cursor: "pointer", color: "var(--ink-soft)", display: "flex" }}>
+        <Icon name={show ? "eyeOff" : "eye"} size={18} />
+      </button>
+    </div>
   );
 }
 function EmptyState({ icon, text }) {
@@ -835,7 +850,7 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
           </div>
           <div>
             <label style={fieldLabel}>Password</label>
-            <input className="it-input" placeholder="Min 8 characters" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordField placeholder="Min 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {!payLink && (
             <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
@@ -1376,7 +1391,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
           <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
             <Icon name="shield" size={21} />
           </div>
-          <h1 className="it-display" style={{ fontSize: 25, fontWeight: 800, margin: "0 0 6px" }}>{mode === "signup" ? "Set up your login" : "Sign in to book"}</h1>
+          <h1 className="it-display" style={{ fontSize: 25, fontWeight: 800, margin: "0 0 6px" }}>{mode === "signup" ? "Set up your login" : "Login to book"}</h1>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: "0 0 20px" }}>
             {mode === "signup"
               ? "Already joined a plan but never made a login? Use the same email, once verified, we'll find it."
@@ -1387,22 +1402,22 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             <button type="button" onClick={() => { setMode("signin"); setAuthErr(""); }}
               style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
                 background: mode === "signin" ? "#fff" : "transparent", color: mode === "signin" ? "var(--ink)" : "var(--ink-soft)",
-                boxShadow: mode === "signin" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Sign in</button>
+                boxShadow: mode === "signin" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Login</button>
             <button type="button" onClick={() => { setMode("signup"); setAuthErr(""); }}
               style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
                 background: mode === "signup" ? "#fff" : "transparent", color: mode === "signup" ? "var(--ink)" : "var(--ink-soft)",
-                boxShadow: mode === "signup" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Already a student</button>
+                boxShadow: mode === "signup" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Sign up</button>
           </div>
 
           <div style={{ display: "grid", gap: 12 }}>
             <input className="it-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className="it-input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            <PasswordField placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (mode === "signup" ? doSignUp() : doSignIn())} />
             {mode === "signin" && (
               <button type="button" className="it-navlink" style={{ padding: 0, justifySelf: "start", fontSize: 12.5 }} onClick={doForgot}>Forgot password?</button>
             )}
             <button className="it-btn" onClick={mode === "signup" ? doSignUp : doSignIn} disabled={authBusy}>
-              {authBusy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+              {authBusy ? "Please wait…" : mode === "signup" ? "Create account" : "Login"}
             </button>
             {authErr && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{authErr}</p>}
           </div>
@@ -2207,7 +2222,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         <p style={{ color: "var(--ink-soft)", fontSize: 14 }}>Sign in with the admin account you created in Supabase.</p>
         <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
           <input className="it-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="it-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
+          <PasswordField placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && doLogin()} />
           <button className="it-btn" onClick={doLogin} disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
@@ -2548,8 +2563,8 @@ function PasswordRecoveryOverlay({ onDone }) {
           <>
             <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>Set a new password</h3>
             <div style={{ display: "grid", gap: 12 }}>
-              <input className="it-input" type="password" placeholder="New password (min 8 characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
-              <input className="it-input" type="password" placeholder="Repeat password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+              <PasswordField placeholder="New password (min 8 characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
+              <PasswordField placeholder="Repeat password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
               <button className="it-btn" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Update password"}</button>
               {err && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{err}</p>}
             </div>

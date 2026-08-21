@@ -203,23 +203,24 @@ function upcomingDays(mode, count = 8) {
 
 /* ---------- styles ---------- */
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root{
-  --ink:#0B1B33; --ink-soft:#55677E; --mint:#9BE13D; --mint-dark:#5C9A1B;
-  --aqua:#F3F7E9; --paper:#FBF9F3; --coral:#FF6A5C; --line:#E6E1D2;
-  --pop:linear-gradient(92deg,#0B1B33 0%,#2F4F6B 55%,#8FD13F 100%);
+  --ink:#0B1B33; --ink-soft:#55677E; --mint:#0E7C86; --mint-dark:#0B5F68;
+  --aqua:#E8F4F4; --paper:#FAFAFA; --coral:#FF6A5C; --line:#E5E7EB;
+  --pop:#0B1B33;
 }
 *{box-sizing:border-box} body{margin:0}
-.it-app{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--paper);min-height:100vh}
-.it-display{font-family:'Space Grotesk','Inter',system-ui,sans-serif;letter-spacing:-0.02em}
+.it-app{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--paper);min-height:100vh;font-size:16px}
+@media(max-width:640px){.it-app{font-size:17px}}
+.it-display{font-family:'Inter',system-ui,sans-serif;letter-spacing:-0.02em}
 .it-grad{background:var(--pop);-webkit-background-clip:text;background-clip:text;color:transparent}
 .it-fade{animation:itfade .45s ease both}
 @keyframes itfade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes itfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .it-float{animation:itfloat 5s ease-in-out infinite}
-.it-card{background:#fff;border:1px solid var(--line);border-radius:18px;transition:transform .25s ease, box-shadow .25s ease}
-.it-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(11,27,51,.09)}
-.it-btn{background:var(--ink);color:#fff;border:none;border-radius:12px;padding:13px 24px;font-weight:700;cursor:pointer;transition:filter .2s, transform .15s;font-family:'Inter',sans-serif;font-size:15px;box-shadow:0 6px 18px rgba(11,27,51,.22)}
+.it-card{background:#fff;border:1px solid var(--line);border-radius:12px;transition:transform .25s ease, box-shadow .25s ease}
+.it-card:hover{transform:translateY(-2px);box-shadow:0 2px 8px rgba(11,27,51,.06)}
+.it-btn{background:var(--ink);color:#fff;border:none;border-radius:10px;padding:13px 24px;font-weight:700;cursor:pointer;transition:filter .2s, transform .15s;font-family:'Inter',sans-serif;font-size:15px}
 .it-btn:hover{filter:brightness(1.35);transform:translateY(-1px)}
 .it-btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);box-shadow:none}
 .it-btn.ghost:hover{background:var(--aqua);filter:none}
@@ -241,7 +242,7 @@ const css = `
 .it-chip{display:inline-block;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:.03em}
 .it-timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:28px 20px}
 .it-timeline-item{position:relative;padding-left:22px}
-.it-timeline-dot{position:absolute;left:0;top:6px;width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(15,181,160,.22)}
+.it-timeline-dot{position:absolute;left:0;top:6px;width:9px;height:9px;border-radius:50%;background:var(--mint)}
 .it-timeline-line{position:absolute;left:4px;top:15px;bottom:-28px;width:1px;background:rgba(255,255,255,.16)}
 @media(max-width:719px){.it-timeline{grid-template-columns:1fr}.it-timeline-line{bottom:-28px}}
 .it-accordion{border-top:1px solid var(--line)}
@@ -303,7 +304,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .it-shell{padding:0 16px 82px;display:block}
   .it-sidebar{display:none}
   .it-shell-main{padding:16px 0}
-  .it-bottomtabs{position:fixed;left:0;right:0;bottom:0;z-index:45;display:flex;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(11,27,51,.06)}
+  .it-bottomtabs{position:fixed;left:0;right:0;bottom:0;z-index:45;display:flex;background:#fff;border-top:1px solid var(--line)}
 }
 @media(min-width:769px){.it-bottomtabs{display:none}}
 .it-bottomtabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 8px;border:none;background:none;font:inherit;font-size:10.5px;font-weight:700;color:var(--ink-soft);cursor:pointer}
@@ -335,7 +336,7 @@ function SeatPill({ taken, cap }) {
 }
 
 const ICONS = {
-  cap: "M12 3 1 8l11 5 9-4.1V16h2V8L12 3Zm-7 8.7V16c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5v-4.3l-7 3.2-7-3.2Z",
+  cap: "M8 3c-1.8 0-3 1.3-3 3.2 0 2 .6 4.3 1.3 6.6.5 1.7 1 3.7 1.9 3.7.8 0 1-1.7 1.3-3 .3-1.2.6-2.3 1.5-2.3s1.2 1.1 1.5 2.3c.3 1.3.5 3 1.3 3 .9 0 1.4-2 1.9-3.7.7-2.3 1.3-4.6 1.3-6.6 0-1.9-1.2-3.2-3-3.2-1 0-1.7.6-2.8.6S9 3 8 3Z",
   heart: "M12 20.5s-7.4-4.5-9.9-9C.6 8.1 1.8 4.8 5 4.1c2-.4 3.9.5 5 2.1 1.1-1.6 3-2.5 5-2.1 3.2.7 4.4 4 2.9 7.4-2.5 4.5-9.9 9-9.9 9Z",
   users: "M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.3 0-8 1.7-8 5v1.5h16V19c0-3.3-4.7-5-8-5Zm9-8a3.5 3.5 0 1 0 0 7c-.5 0-1-.1-1.4-.2M17 13.3c2.7.5 5 1.9 5 3.7v1.5h-4",
   calendar: "M7 2v3M17 2v3M3.5 8.5h17M4 5.5h16A1.5 1.5 0 0 1 21.5 7v13a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 20V7A1.5 1.5 0 0 1 4 5.5Z",
@@ -1971,7 +1972,7 @@ function SessionCard({ dk, block, list, subj, link, saveLink, onMove, saveNote, 
     window.location.href = `mailto:${to}?subject=${encodeURIComponent(`Your ${subj} lesson, ${dk}`)}&body=${encodeURIComponent(inviteMsg())}`;
   };
   return (
-    <div style={{ border: "1.5px solid " + c.border, background: c.bg, borderRadius: 14, padding: 14, marginTop: 10 }}>
+    <div style={{ border: "1.5px solid " + c.border, background: c.bg, borderRadius: 12, padding: 14, marginTop: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <div>
           <strong style={{ color: c.text }}>{block.label}</strong>{" "}
@@ -2772,7 +2773,7 @@ export default function App() {
         <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={() => setPage("home")} style={{ display: "flex", alignItems: "center", gap: 9, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-              <span className="it-display" style={{ width: 30, height: 30, borderRadius: 9, background: "var(--mint)", color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, flex: "none" }}>i</span>
+              <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--mint)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="cap" size={17} /></span>
               <span className="it-display" style={{ fontSize: 19, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "baseline", gap: 5 }}>
                 isham<span style={{ color: "var(--mint-dark)" }}>.</span>
                 <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--ink-soft)" }}>Tuition</span>
@@ -2819,7 +2820,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="it-fade" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "#fff", padding: "12px 20px", borderRadius: 12, fontSize: 14.5, zIndex: 60, boxShadow: "0 10px 30px rgba(0,0,0,.25)" }}>
+        <div className="it-fade" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "#fff", padding: "12px 20px", borderRadius: 12, fontSize: 14.5, zIndex: 60, boxShadow: "0 2px 10px rgba(0,0,0,.15)" }}>
           {toast}
         </div>
       )}

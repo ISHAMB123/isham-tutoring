@@ -90,6 +90,24 @@ const PLANS = {
   },
 };
 
+/* ---- Medicine & Dentistry Access Scholarship ----
+   An application-and-review programme, not a self-serve checkout: no
+   plan/Stripe link, students apply, Isham reviews and features/accepts.
+   SCHOLARSHIP_SPOTS and the deadline are display-only; get_scholarship_count()
+   is the real source of truth for "spots taken" (counts featured+accepted rows). */
+const SCHOLARSHIP_SPOTS = 10;
+const SCHOLARSHIP_DEADLINE = "2026-10-26";
+const SCHOLARSHIP_SUBJECTS = ["Maths", "Biology", "Chemistry", "Physics", "UCAT & interview prep"];
+const WIDENING_CRITERIA = [
+  ["firstGen", "First in my family to go to university"],
+  ["freeSchoolMeals", "Currently or previously eligible for free school meals"],
+  ["care", "Currently or previously in care, or a young carer"],
+  ["areaAccess", "Live in an area with low progression to higher education"],
+  ["schoolAccess", "Attend a school with below-average GCSE/A-level results"],
+  ["disability", "Long-term illness or disability affecting my studies"],
+  ["refugee", "Refugee, asylum seeker, or newly arrived in the UK"],
+];
+
 const supa = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const mapBooking = (r) => ({
@@ -98,7 +116,7 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [st, bk, ms, ml, ts, caps, ln, wl] = await Promise.all([
+  const [st, bk, ms, ml, ts, caps, ln, wl, sa, sc, scc] = await Promise.all([
     supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
     supa.from("bookings").select("*").order("date"),
     supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
@@ -107,6 +125,9 @@ async function fetchAll() {
     supa.rpc("get_caps"),                                     // safe public per-department counts for the capacity meters
     supa.from("lesson_notes").select("*"),                    // RLS-scoped: tutors see all, a student sees only their own
     supa.from("waitlist").select("*").order("created"),       // returns [] unless logged in as tutor
+    supa.from("scholarship_applications").select("*").order("created"), // returns [] unless logged in as tutor
+    supa.rpc("get_featured_scholars"),                        // safe public showcase: only consented, non-sensitive fields
+    supa.rpc("get_scholarship_count"),                        // safe public "spots taken" count
   ]);
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
@@ -129,6 +150,9 @@ async function fetchAll() {
     testimonials: ts.data || [],
     waitlist: wl.data || [],
     takenCount: capsRow ? (capsRow.stem || 0) : cnt(),
+    scholarshipApps: sa.data || [],
+    featuredScholars: sc.data || [],
+    scholarshipSpotsTaken: typeof scc.data === "number" ? scc.data : 0,
   };
 }
 
@@ -784,6 +808,200 @@ function Pricing({ startCheckout, taken }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function daysUntil(dateStr) {
+  const ms = new Date(dateStr + "T23:59:59") - new Date();
+  return Math.max(Math.ceil(ms / 864e5), 0);
+}
+
+function Scholarship({ store, addScholarshipApplication, go }) {
+  const blank = {
+    student_name: "", student_email: "", student_phone: "",
+    parent_name: "", parent_phone: "", parent_email: "",
+    school: "", subjects: [], predicted_grades: "", gcse_summary: "", personal_statement: "",
+    widening_participation: {}, wp_note: "", consent_privacy: false, consent_public: false,
+  };
+  const [f, setF] = useState(blank);
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
+  const daysLeftToApply = daysUntil(SCHOLARSHIP_DEADLINE);
+  const closed = daysLeftToApply <= 0 || spotsLeft <= 0;
+  const toggleSubject = (s) => setF((p) => ({ ...p, subjects: p.subjects.includes(s) ? p.subjects.filter((x) => x !== s) : [...p.subjects, s] }));
+  const toggleWP = (key) => setF((p) => ({ ...p, widening_participation: { ...p.widening_participation, [key]: !p.widening_participation[key] } }));
+
+  const submit = async () => {
+    if (!f.student_name.trim() || !f.student_email.includes("@")) return alert("Please add the student's name and email.");
+    if (!f.parent_name.trim() || !f.parent_phone.trim() || !f.parent_email.includes("@")) return alert("Please add a parent/guardian name, phone and email, we'll need to reach them too.");
+    if (f.subjects.length === 0) return alert("Please select at least one subject.");
+    if (!f.consent_privacy) return alert("Please confirm you've read the Privacy Policy to continue.");
+    setBusy(true);
+    try {
+      await addScholarshipApplication({
+        student_name: f.student_name.trim(), student_email: f.student_email.trim().toLowerCase(), student_phone: f.student_phone.trim(),
+        parent_name: f.parent_name.trim(), parent_phone: f.parent_phone.trim(), parent_email: f.parent_email.trim().toLowerCase(),
+        school: f.school.trim(), year_group: "Year 12", subjects: f.subjects,
+        predicted_grades: f.predicted_grades.trim(), gcse_summary: f.gcse_summary.trim(), personal_statement: f.personal_statement.trim(),
+        widening_participation: { ...f.widening_participation, note: f.wp_note.trim() || undefined },
+        consent_public: f.consent_public, status: "pending",
+      });
+      notifyServer({ type: "message", name: f.parent_name, email: f.parent_email, text: `Scholarship application from ${f.student_name} (student: ${f.student_email}). Subjects: ${f.subjects.join(", ")}.` });
+      setSent(true);
+    } catch (e) {
+      setBusy(false);
+      alert(String(e).includes("duplicate") ? "It looks like this email has already applied." : "Couldn't submit. Please try again.");
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="check" size={26} /></div>
+        <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 8px" }}>You're on the shortlist queue</h1>
+        <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
+          Thanks, {f.student_name.split(" ")[0]}. Your application is being reviewed alongside everyone else who's applied.
+          We'll email {f.parent_email || "your parent/guardian"} and {f.student_email} if you're selected, before applications close on {new Date(SCHOLARSHIP_DEADLINE + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}.
+        </p>
+        <div className="it-card" style={{ padding: 16, marginTop: 20, display: "inline-block" }}>
+          <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Spots remaining right now</span>{" "}
+          <strong className="it-display" style={{ color: "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
+      <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
+      <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s aiming at medicine or dentistry</h1>
+      <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
+        A-level support, UCAT strategy and interview coaching, built specifically for students applying to medicine or dentistry, run by a current dental student who's been through the same application. Priority goes to students who'd struggle to access this kind of support otherwise.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, margin: "22px 0" }}>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} left</div>
+        </div>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Applications close</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800 }}>{daysLeftToApply}d left</div>
+        </div>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Track record</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>102 tutored</div>
+        </div>
+      </div>
+
+      <div className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
+        <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
+        <Accordion items={[
+          ["A-level subject support", "Regular one-to-one A-level teaching in your chosen sciences, same structure as the main A-level programme."],
+          ["UCAT strategy", "Timing, tactics and section-by-section technique for the sections that trip people up."],
+          ["Interview & personal statement workshops", "Mock questions, thinking-out-loud technique, and structured feedback on personal statement drafts."],
+          ["How this is funded", "This is subsidised access, not a free service: selected students join the same subsidised monthly programme used across the site (the one already priced well below normal tutoring rates), not a separate hidden price. Nothing is charged until you're actually accepted and choose to continue."],
+        ]} />
+      </div>
+
+      <div className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
+        <strong className="it-display" style={{ fontSize: 15 }}>Who this is for</strong>
+        <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
+          {["Year 12 only, applying (or planning to apply) to medicine or dentistry", "Any GCSE/predicted A-level profile, we look at the whole picture, not just grades", "Priority given to applicants facing the widening-participation circumstances below"].map((l) => (
+            <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 3 }}><Icon name="check" size={14} /></span>{l}</li>
+          ))}
+        </ul>
+      </div>
+
+      {store.featuredScholars && store.featuredScholars.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <strong className="it-display" style={{ fontSize: 15 }}>This year's scholars</strong>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginTop: 10 }}>
+            {store.featuredScholars.map((s) => (
+              <div key={s.id} className="it-card" style={{ padding: 14 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                  <Avatar initials={(s.student_name[0] || "?").toUpperCase()} size={30} />
+                  <strong style={{ fontSize: 13.5 }}>{s.student_name}</strong>
+                </div>
+                {s.headline && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0" }}>{s.headline}</p>}
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(s.subjects || []).map((sub) => <SubjectChip key={sub} subject={sub} />)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {closed ? (
+        <div className="it-card" style={{ padding: 20, textAlign: "center" }}>
+          <strong>Applications are currently closed</strong>
+          <p style={{ color: "var(--ink-soft)", margin: "6px 0 0" }}>Message us via the Contact page to be notified when the next round opens.</p>
+        </div>
+      ) : (
+        <div className="it-card" style={{ padding: "22px 24px" }}>
+          <strong className="it-display" style={{ fontSize: 17 }}>Apply now</strong>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Takes about 5 minutes. A parent or guardian needs to be involved since we'll be in touch with them too.</p>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Student</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
+            <input className="it-input" placeholder="Student full name" value={f.student_name} onChange={(e) => setF({ ...f, student_name: e.target.value })} />
+            <input className="it-input" placeholder="Student email" type="email" value={f.student_email} onChange={(e) => setF({ ...f, student_email: e.target.value })} />
+            <input className="it-input" placeholder="Student phone (optional)" value={f.student_phone} onChange={(e) => setF({ ...f, student_phone: e.target.value })} />
+            <input className="it-input" placeholder="School" value={f.school} onChange={(e) => setF({ ...f, school: e.target.value })} />
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Parent / guardian</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
+            <input className="it-input" placeholder="Parent/guardian name" value={f.parent_name} onChange={(e) => setF({ ...f, parent_name: e.target.value })} />
+            <input className="it-input" placeholder="Parent/guardian phone" value={f.parent_phone} onChange={(e) => setF({ ...f, parent_phone: e.target.value })} />
+            <input className="it-input" placeholder="Parent/guardian email" type="email" value={f.parent_email} onChange={(e) => setF({ ...f, parent_email: e.target.value })} />
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Subjects wanted</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+            {SCHOLARSHIP_SUBJECTS.map((s) => (
+              <button key={s} type="button" onClick={() => toggleSubject(s)} className="it-chip"
+                style={{ border: f.subjects.includes(s) ? "1.5px solid var(--mint)" : "1.5px solid var(--line)", background: f.subjects.includes(s) ? "var(--aqua)" : "#fff", color: f.subjects.includes(s) ? "var(--mint-dark)" : "var(--ink-soft)", borderRadius: 999, padding: "7px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Grades</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10, marginBottom: 16 }}>
+            <textarea className="it-input" rows={2} placeholder="Predicted A-level grades (e.g. Biology A*, Chemistry A, Maths A)" value={f.predicted_grades} onChange={(e) => setF({ ...f, predicted_grades: e.target.value })} />
+            <textarea className="it-input" rows={2} placeholder="GCSE results summary" value={f.gcse_summary} onChange={(e) => setF({ ...f, gcse_summary: e.target.value })} />
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Why this place matters to you</div>
+          <textarea className="it-input" rows={4} placeholder="A few sentences on why you want to study medicine/dentistry and why this scholarship would help." value={f.personal_statement} onChange={(e) => setF({ ...f, personal_statement: e.target.value })} style={{ marginBottom: 16 }} />
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Widening participation (optional, helps us prioritise fairly)</div>
+          <div className="it-card" style={{ padding: 14, marginBottom: 10, background: "var(--aqua)", border: "none" }}>
+            <div style={{ display: "grid", gap: 8 }}>
+              {WIDENING_CRITERIA.map(([key, label]) => (
+                <label key={key} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13.5, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!f.widening_participation[key]} onChange={() => toggleWP(key)} style={{ marginTop: 3 }} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <textarea className="it-input" rows={2} placeholder="Anything else about your circumstances you'd like us to know (optional)" value={f.wp_note} onChange={(e) => setF({ ...f, wp_note: e.target.value })} style={{ marginBottom: 16 }} />
+
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={f.consent_privacy} onChange={(e) => setF({ ...f, consent_privacy: e.target.checked })} style={{ marginTop: 3 }} />
+            A parent/guardian and I have read the <button type="button" onClick={() => go("privacy")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Privacy Policy</button> and consent to this information being used to assess this application.
+          </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 18, cursor: "pointer" }}>
+            <input type="checkbox" checked={f.consent_public} onChange={(e) => setF({ ...f, consent_public: e.target.checked })} style={{ marginTop: 3 }} />
+            Optional: if selected, the student's first name, subjects and a short blurb may be shown on this page. Never contact details or the answers above.
+          </label>
+
+          <button className="it-btn" onClick={submit} disabled={busy} style={{ width: "100%" }}>{busy ? "Submitting…" : "Submit application"}</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1919,8 +2137,12 @@ function Privacy() {
         <p style={{ marginTop: 8 }}>Payment itself is handled entirely by Stripe. Card details never reach Isham Tuition's own systems, only a confirmation that payment succeeded, and (if Stripe creates one) a customer reference used to show you your own billing portal.</p>
       </Section>
 
+      <Section title="If you apply for the scholarship">
+        <p>The scholarship application form collects more than a normal sign-up: the student's name, email and (optional) phone; a parent or guardian's name, phone and email; school and year group; predicted grades and GCSE results as you choose to describe them; a short personal statement; and, optionally, self-declared widening-participation circumstances (for example free school meals eligibility, care experience, or similar), used only to help prioritise limited places fairly. Nobody but Isham can read these, and they're never used for anything except reviewing that application. Only the students actually selected can be shown publicly, and only if that box was ticked on the form, and even then only a first name, chosen subjects and a short blurb, never contact details or the widening-participation answers.</p>
+      </Section>
+
       <Section title="Where it's stored">
-        <p>Records are stored in Supabase, a hosted database provider, protected so that only a signed-in tutor account can read other students' data; a student can only ever see their own. There are no analytics or advertising trackers on this site, nothing is collected beyond what's listed above.</p>
+        <p>Records are stored in Supabase, a hosted database provider, protected so that only a signed-in tutor account can read other students' or applicants' data; a student can only ever see their own. There are no analytics or advertising trackers on this site, nothing is collected beyond what's listed above.</p>
       </Section>
 
       <Section title="How long it's kept">
@@ -2141,7 +2363,7 @@ function RenewBadge({ paidUntil, plan }) {
   );
 }
 
-function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry }) {
+function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus }) {
   const [step, setStep] = useState("checking"); // checking | login | challenge | in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -2308,7 +2530,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       </div>
 
       <div className="it-admin-jumpnav">
-        {[["overview", "Overview"], ["timetable", "Timetable"], ["students", "Students"], ["testimonials", "Testimonials"], ["messages", "Messages"]].map(([id, label]) => (
+        {[["overview", "Overview"], ["timetable", "Timetable"], ["students", "Students"], ["scholarship", "Scholarship"], ["testimonials", "Testimonials"], ["messages", "Messages"]].map(([id, label]) => (
           <button key={id} onClick={() => document.getElementById("admin-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{label}</button>
         ))}
       </div>
@@ -2468,6 +2690,55 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         )}
       </div>
 
+      <h2 id="admin-scholarship" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Scholarship applications</h2>
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>
+        {SCHOLARSHIP_SPOTS - (store.scholarshipApps || []).filter((a) => a.status === "featured" || a.status === "accepted").length} of {SCHOLARSHIP_SPOTS} spots still open.
+        Feature an applicant to show them (first name only) on the public Scholarship page, or accept them directly.
+      </p>
+      <div className="it-card" style={{ padding: 18, marginTop: 12, overflowX: "auto" }}>
+        {(store.scholarshipApps || []).length === 0 ? (
+          <EmptyState icon="heart" text="No scholarship applications yet." />
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {store.scholarshipApps.map((a) => (
+              <div key={a.id} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <strong style={{ fontSize: 14.5 }}>{a.student_name}</strong>{" "}
+                    <span className="it-chip" style={{
+                      background: a.status === "featured" ? "var(--aqua)" : a.status === "accepted" ? "#E8F8EC" : a.status === "declined" ? "#FFF1EF" : "#F4F4F4",
+                      color: a.status === "featured" ? "var(--mint-dark)" : a.status === "accepted" ? "#1F7A41" : a.status === "declined" ? "#8A3126" : "var(--ink-soft)",
+                    }}>{a.status}</span>
+                  </div>
+                  <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{(a.created || "").slice(0, 10)}</span>
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 8, display: "grid", gap: 3 }}>
+                  <div>Student: {a.student_email} {a.student_phone && `· ${a.student_phone}`}</div>
+                  <div>Parent/guardian: {a.parent_name} · {a.parent_phone} · {a.parent_email}</div>
+                  {a.school && <div>School: {a.school} ({a.year_group})</div>}
+                  {a.predicted_grades && <div>Predicted: {a.predicted_grades}</div>}
+                  {a.gcse_summary && <div>GCSEs: {a.gcse_summary}</div>}
+                  {a.widening_participation && Object.keys(a.widening_participation).filter((k) => k !== "note" && a.widening_participation[k]).length > 0 && (
+                    <div>Widening participation: {Object.keys(a.widening_participation).filter((k) => k !== "note" && a.widening_participation[k]).map((k) => (WIDENING_CRITERIA.find((c) => c[0] === k) || [k, k])[1]).join("; ")}</div>
+                  )}
+                  {a.widening_participation && a.widening_participation.note && <div>Note: {a.widening_participation.note}</div>}
+                </div>
+                {a.personal_statement && (
+                  <p style={{ fontSize: 13, background: "var(--aqua)", borderRadius: 8, padding: 10, margin: "0 0 8px" }}>{a.personal_statement}</p>
+                )}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>{(a.subjects || []).map((s) => <SubjectChip key={s} subject={s} />)}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {a.status !== "featured" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "featured")}>Feature publicly</button>}
+                  {a.status !== "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "accepted")}>Accept</button>}
+                  {a.status !== "declined" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "declined")}>Decline</button>}
+                  {a.status !== "pending" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "pending")}>Reset</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {isMaster && (<>
       <h2 id="admin-testimonials" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Testimonials</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
@@ -2601,7 +2872,7 @@ function PasswordRecoveryOverlay({ onDone }) {
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState(() => (new URLSearchParams(window.location.search).get("paid") ? "book" : "home"));
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0 });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
@@ -2773,6 +3044,16 @@ export default function App() {
     await supa.from("testimonials").delete().eq("id", id);
     setStore((st) => ({ ...st, testimonials: (st.testimonials || []).filter((t) => t.id !== id) }));
   };
+  const addScholarshipApplication = async (a) => {
+    const { error } = await supa.from("scholarship_applications").insert(a);
+    if (error) throw new Error(error.message);
+  };
+  const updateScholarshipStatus = async (id, status) => {
+    const { error } = await supa.from("scholarship_applications").update({ status }).eq("id", id);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, scholarshipApps: st.scholarshipApps.map((a) => a.id === id ? { ...a, status } : a) }));
+    notify(status === "featured" ? "Applicant featured ✓" : status === "accepted" ? "Applicant accepted ✓" : status === "declined" ? "Applicant declined" : "Status updated");
+  };
   const removeSubscriber = async (id) => {
     const gone = store.subscribers.find((s) => s.id === id);
     await supa.from("students").delete().eq("id", id);
@@ -2785,7 +3066,7 @@ export default function App() {
   };
 
   const taken = store.takenCount || 0;
-  const nav = [["home", "Home", "home"], ["pricing", "Plans", "star"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
+  const nav = [["home", "Home", "home"], ["pricing", "Plans", "star"], ["scholarship", "Scholarship", "heart"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
 
   return (
     <div className="it-app">
@@ -2829,10 +3110,12 @@ export default function App() {
         <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} joinWaitlist={joinWaitlist} removeWaitlistEntry={removeWaitlistEntry} promoteWaitlist={promoteWaitlist} refresh={refresh} />
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
+      ) : page === "scholarship" ? (
+        <Scholarship store={store} addScholarshipApplication={addScholarshipApplication} go={setPage} />
       ) : page === "privacy" ? (
         <Privacy />
       ) : (
-        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} />
+        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} />
       )}
 
       {checkoutPlan && (
@@ -2855,7 +3138,7 @@ export default function App() {
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>
           <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Privacy: only names, emails and bookings are collected, never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
+            Privacy: we collect names, emails and bookings for every student, plus parent/guardian contact details and the information you choose to share if you apply for the scholarship. Never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
             <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12, fontWeight: 700 }} onClick={() => setPage("privacy")}>privacy policy</button>.
           </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>

@@ -93,10 +93,10 @@ const PLANS = {
 /* ---- Medicine & Dentistry Access Scholarship ----
    An application-and-review programme, not a self-serve checkout: no
    plan/Stripe link, students apply, Isham reviews and features/accepts.
-   SCHOLARSHIP_SPOTS and the deadline are display-only; get_scholarship_count()
-   is the real source of truth for "spots taken" (counts featured+accepted rows). */
+   Rolling admissions, no fixed deadline: applications close once
+   SCHOLARSHIP_SPOTS is reached. get_scholarship_count() is the real source
+   of truth for "spots taken" (counts featured+accepted rows). */
 const SCHOLARSHIP_SPOTS = 10;
-const SCHOLARSHIP_DEADLINE = "2026-10-26";
 const WIDENING_CRITERIA = [
   ["firstGen", "First in my family to go to university"],
   ["freeSchoolMeals", "Currently or previously eligible for free school meals"],
@@ -115,7 +115,7 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [st, bk, ms, ml, ts, caps, ln, wl, sa, sc, scc] = await Promise.all([
+  const [st, bk, ms, ml, ts, caps, ln, wl, sa, sc, scc, scr] = await Promise.all([
     supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
     supa.from("bookings").select("*").order("date"),
     supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
@@ -127,6 +127,7 @@ async function fetchAll() {
     supa.from("scholarship_applications").select("*").order("created"), // returns [] unless logged in as tutor
     supa.rpc("get_featured_scholars"),                        // safe public showcase: only consented, non-sensitive fields
     supa.rpc("get_scholarship_count"),                        // safe public "spots taken" count
+    supa.rpc("get_scholarship_recent_count"),                 // safe public "applications this week" count, for urgency copy
   ]);
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
@@ -152,6 +153,7 @@ async function fetchAll() {
     scholarshipApps: sa.data || [],
     featuredScholars: sc.data || [],
     scholarshipSpotsTaken: typeof scc.data === "number" ? scc.data : 0,
+    scholarshipRecentCount: typeof scr.data === "number" ? scr.data : 0,
   };
 }
 
@@ -811,11 +813,6 @@ function Pricing({ startCheckout, taken }) {
   );
 }
 
-function daysUntil(dateStr) {
-  const ms = new Date(dateStr + "T23:59:59") - new Date();
-  return Math.max(Math.ceil(ms / 864e5), 0);
-}
-
 const ALEVEL_GRADE_OPTIONS = ["A*", "A", "B", "C", "D", "E"];
 const GCSE_GRADE_OPTIONS = ["9", "8", "7", "6", "5", "4", "3", "2", "1"];
 
@@ -889,7 +886,93 @@ function gcseToText(v) {
   return parts.join(", ");
 }
 
-function Scholarship({ store, addScholarshipApplication, go }) {
+function ScholarshipLanding({ store, go }) {
+  const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
+  const closed = spotsLeft <= 0;
+  const recent = store.scholarshipRecentCount || 0;
+  return (
+    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
+      <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
+      <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s aiming at medicine or dentistry</h1>
+      <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
+        Taught by a UK dental student and a UCL medical student: A-level Biology and Chemistry, UCAT strategy, interview coaching and personal statement support, in one place. Built for families who couldn't otherwise afford this kind of help.
+      </p>
+
+      <Reveal style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, margin: "22px 0" }}>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} left</div>
+        </div>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>This week</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800 }}>{recent} applied</div>
+        </div>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Track record</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>102 tutored</div>
+        </div>
+      </Reveal>
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-12px 0 22px" }}>Rolling admissions, no fixed deadline: applications close automatically the moment all {SCHOLARSHIP_SPOTS} spots are filled, so earlier is better.</p>
+
+      <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
+        <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
+        <Accordion items={[
+          ["A-level subject support", "Regular one-to-one A-level teaching in Biology and Chemistry, same structure as the main A-level programme."],
+          ["UCAT strategy", "Timing, tactics and section-by-section technique for the sections that trip people up."],
+          ["Interview & personal statement workshops", "Mock questions, thinking-out-loud technique, and structured feedback on personal statement drafts."],
+          ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay just £3.33 an hour of live teaching, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue."],
+        ]} />
+      </Reveal>
+
+      <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22, border: "1.5px solid var(--mint)" }}>
+        <strong className="it-display" style={{ fontSize: 15 }}>Who this is for</strong>
+        <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
+          {[
+            "Year 12 only, applying (or planning to apply) to medicine or dentistry",
+            "Open only to students studying A-level Biology and Chemistry, that's the tutoring on offer here",
+            "Aimed at low-income families: priority goes to applicants facing the widening-participation circumstances below",
+            "We don't rank or weight applications by grade: a straight-A applicant and one still building confidence are considered equally",
+          ].map((l) => (
+            <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 3 }}><Icon name="check" size={14} /></span>{l}</li>
+          ))}
+        </ul>
+      </Reveal>
+
+      {store.featuredScholars && store.featuredScholars.length > 0 && (
+        <Reveal style={{ marginBottom: 22 }}>
+          <strong className="it-display" style={{ fontSize: 15 }}>This year's scholars</strong>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginTop: 10 }}>
+            {store.featuredScholars.map((s) => (
+              <div key={s.id} className="it-card" style={{ padding: 14 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                  <Avatar initials={(s.student_name[0] || "?").toUpperCase()} size={30} />
+                  <strong style={{ fontSize: 13.5 }}>{s.student_name}</strong>
+                </div>
+                {s.headline && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0" }}>{s.headline}</p>}
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(s.subjects || []).map((sub) => <SubjectChip key={sub} subject={sub} />)}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      )}
+
+      {closed ? (
+        <div className="it-card" style={{ padding: 20, textAlign: "center" }}>
+          <strong>Applications are currently closed</strong>
+          <p style={{ color: "var(--ink-soft)", margin: "6px 0 0" }}>All {SCHOLARSHIP_SPOTS} spots are filled. Message us via the Contact page to be notified when the next round opens.</p>
+        </div>
+      ) : (
+        <div className="it-card" style={{ padding: "22px 24px", textAlign: "center" }}>
+          <strong className="it-display" style={{ fontSize: 17 }}>Ready to apply?</strong>
+          <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "6px 0 16px" }}>Takes about 5 minutes. You'll need to sign in or create a free account first.</p>
+          <button className="it-btn" onClick={() => go("scholarship-apply")} style={{ width: "100%" }}>Start application →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScholarshipApply({ store, addScholarshipApplication, go }) {
   const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
   const [authMode, setAuthMode] = useState("signin"); // signin | signup
   const [authEmail, setAuthEmail] = useState("");
@@ -944,18 +1027,18 @@ function Scholarship({ store, addScholarshipApplication, go }) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
-  const daysLeftToApply = daysUntil(SCHOLARSHIP_DEADLINE);
-  const closed = daysLeftToApply <= 0 || spotsLeft <= 0;
+  const closed = spotsLeft <= 0;
   const toggleWP = (key) => setF((p) => ({ ...p, widening_participation: { ...p.widening_participation, [key]: !p.widening_participation[key] } }));
   const gradesToText = (rows) => rows.filter((r) => r.subject.trim() && r.grade).map((r) => `${r.subject.trim()}: ${r.grade}`).join(", ");
-  const filledCount = [f.student_name, f.student_email, f.parent_name, f.parent_phone, f.parent_email, f.personal_statement].filter((x) => x.trim()).length
+  const filledCount = [f.student_name, f.student_email, f.parent_name, f.parent_phone, f.parent_email, f.personal_statement, f.wp_note].filter((x) => x.trim()).length
     + alevelGrades.filter((r) => r.subject.trim() && r.grade).length + (gcse.english && gcse.maths ? 1 : 0);
-  const totalFields = 7;
+  const totalFields = 8;
   const progressPct = Math.min(Math.round((filledCount / totalFields) * 100), 100);
 
   const submit = async () => {
     if (!f.student_name.trim() || !f.student_email.includes("@")) return alert("Please add the student's name and email.");
     if (!f.parent_name.trim() || !f.parent_phone.trim() || !f.parent_email.includes("@")) return alert("Please add a parent/guardian name, phone and email, we'll need to reach them too.");
+    if (!f.wp_note.trim()) return alert("Please fill out the contextual statement, it's required.");
     if (!f.consent_privacy) return alert("Please confirm you've read the Privacy Policy to continue.");
     setBusy(true);
     try {
@@ -980,6 +1063,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
   if (!session) {
     return (
       <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 420, margin: "0 auto" }}>
+        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 10 }} onClick={() => go("scholarship")}>← Back to Scholarship</button>
         <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
         <div className="it-card" style={{ padding: 32, marginTop: 16 }}>
           <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
@@ -1025,7 +1109,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
         <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 8px" }}>You're on the shortlist queue</h1>
         <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
           Thanks, {f.student_name.split(" ")[0]}. Your application is being reviewed alongside everyone else who's applied.
-          We'll email {f.parent_email || "your parent/guardian"} and {f.student_email} if you're selected, before applications close on {new Date(SCHOLARSHIP_DEADLINE + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}.
+          We'll email {f.parent_email || "your parent/guardian"} and {f.student_email} if you're selected. Admissions are rolling, applications close automatically once all spots are filled.
         </p>
         <div className="it-card" style={{ padding: 16, marginTop: 20, display: "inline-block" }}>
           <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Spots remaining right now</span>{" "}
@@ -1037,73 +1121,14 @@ function Scholarship({ store, addScholarshipApplication, go }) {
 
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5 }} onClick={() => go("scholarship")}>← Back to Scholarship</button>
         <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
           Signed in as {session.user.email} · <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12.5 }} onClick={signOut}>Sign out</button>
         </span>
       </div>
-      <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
-      <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s aiming at medicine or dentistry</h1>
-      <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
-        A-level support, UCAT strategy and interview coaching, built specifically for students applying to medicine or dentistry, run by a current dental student who's been through the same application. Priority goes to students who'd struggle to access this kind of support otherwise.
-      </p>
-
-      <Reveal style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, margin: "22px 0" }}>
-        <div className="it-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
-          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} left</div>
-        </div>
-        <div className="it-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Applications close</div>
-          <div className="it-display" style={{ fontSize: 24, fontWeight: 800 }}>{daysLeftToApply}d left</div>
-        </div>
-        <div className="it-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Track record</div>
-          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>102 tutored</div>
-        </div>
-      </Reveal>
-
-      <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
-        <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
-        <Accordion items={[
-          ["A-level subject support", "Regular one-to-one A-level teaching in your chosen sciences, same structure as the main A-level programme."],
-          ["UCAT strategy", "Timing, tactics and section-by-section technique for the sections that trip people up."],
-          ["Interview & personal statement workshops", "Mock questions, thinking-out-loud technique, and structured feedback on personal statement drafts."],
-          ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay just £3.33 an hour of live teaching, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue."],
-        ]} />
-      </Reveal>
-
-      <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22, border: "1.5px solid var(--mint)" }}>
-        <strong className="it-display" style={{ fontSize: 15 }}>Who this is for</strong>
-        <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
-          {[
-            "Year 12 only, applying (or planning to apply) to medicine or dentistry",
-            "Open only to students studying A-level Biology and Chemistry, that's the tutoring on offer here",
-            "We don't rank or weight applications by grade: a straight-A applicant and one still building confidence are considered equally",
-            "Priority given to applicants facing the widening-participation circumstances below",
-          ].map((l) => (
-            <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 3 }}><Icon name="check" size={14} /></span>{l}</li>
-          ))}
-        </ul>
-      </Reveal>
-
-      {store.featuredScholars && store.featuredScholars.length > 0 && (
-        <div style={{ marginBottom: 22 }}>
-          <strong className="it-display" style={{ fontSize: 15 }}>This year's scholars</strong>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginTop: 10 }}>
-            {store.featuredScholars.map((s) => (
-              <div key={s.id} className="it-card" style={{ padding: 14 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                  <Avatar initials={(s.student_name[0] || "?").toUpperCase()} size={30} />
-                  <strong style={{ fontSize: 13.5 }}>{s.student_name}</strong>
-                </div>
-                {s.headline && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0" }}>{s.headline}</p>}
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(s.subjects || []).map((sub) => <SubjectChip key={sub} subject={sub} />)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>Complete your application</h1>
+      <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginBottom: 20 }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} spots left. Takes about 5 minutes.</p>
 
       {closed ? (
         <div className="it-card" style={{ padding: 20, textAlign: "center" }}>
@@ -1113,13 +1138,13 @@ function Scholarship({ store, addScholarshipApplication, go }) {
       ) : (
         <div className="it-card" style={{ padding: "22px 24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-            <strong className="it-display" style={{ fontSize: 17 }}>Apply now</strong>
+            <strong className="it-display" style={{ fontSize: 15 }}>Application progress</strong>
             <span style={{ fontSize: 12, fontWeight: 700, color: progressPct === 100 ? "var(--mint-dark)" : "var(--ink-soft)" }}>{progressPct}% complete</span>
           </div>
           <div style={{ height: 5, borderRadius: 999, background: "var(--aqua)", overflow: "hidden", marginBottom: 12 }}>
             <div style={{ height: "100%", width: progressPct + "%", background: "var(--mint)", borderRadius: 999, transition: "width .3s ease" }} />
           </div>
-          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Takes about 5 minutes. A parent or guardian needs to be involved since we'll be in touch with them too.</p>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 16px" }}>A parent or guardian needs to be involved since we'll be in touch with them too.</p>
 
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Student</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
@@ -1150,8 +1175,9 @@ function Scholarship({ store, addScholarshipApplication, go }) {
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Why this place matters to you</div>
           <textarea className="it-input" rows={4} placeholder="A few sentences on why you want to study medicine/dentistry and why this scholarship would help." value={f.personal_statement} onChange={(e) => setF({ ...f, personal_statement: e.target.value })} style={{ marginBottom: 16 }} />
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Widening participation (optional, helps us prioritise fairly)</div>
-          <div className="it-card" style={{ padding: 14, marginBottom: 10, background: "var(--aqua)", border: "none" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Widening participation</div>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-2px 0 8px" }}>Tick anything that applies, this helps us prioritise fairly. Optional.</p>
+          <div className="it-card" style={{ padding: 14, marginBottom: 14, background: "var(--aqua)", border: "none" }}>
             <div style={{ display: "grid", gap: 8 }}>
               {WIDENING_CRITERIA.map(([key, label]) => (
                 <label key={key} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13.5, cursor: "pointer" }}>
@@ -1161,7 +1187,9 @@ function Scholarship({ store, addScholarshipApplication, go }) {
               ))}
             </div>
           </div>
-          <textarea className="it-input" rows={2} placeholder="Anything else about your circumstances you'd like us to know (optional)" value={f.wp_note} onChange={(e) => setF({ ...f, wp_note: e.target.value })} style={{ marginBottom: 16 }} />
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Contextual statement (required)</div>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-2px 0 8px" }}>Tell us about your circumstances, in your own words. This is how we understand what "low income" or "widening participation" actually means for your family, it's the most important part of the form.</p>
+          <textarea className="it-input" rows={3} placeholder="Your circumstances, in your own words" value={f.wp_note} onChange={(e) => setF({ ...f, wp_note: e.target.value })} style={{ marginBottom: 16 }} />
 
           <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
             <input type="checkbox" checked={f.consent_privacy} onChange={(e) => setF({ ...f, consent_privacy: e.target.checked })} style={{ marginTop: 3 }} />
@@ -3064,7 +3092,7 @@ function PasswordRecoveryOverlay({ onDone }) {
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState(() => (new URLSearchParams(window.location.search).get("paid") ? "book" : "home"));
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0 });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0, scholarshipRecentCount: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
@@ -3303,7 +3331,9 @@ export default function App() {
       ) : page === "contact" ? (
         <Contact addMessage={addMessage} />
       ) : page === "scholarship" ? (
-        <Scholarship store={store} addScholarshipApplication={addScholarshipApplication} go={setPage} />
+        <ScholarshipLanding store={store} go={setPage} />
+      ) : page === "scholarship-apply" ? (
+        <ScholarshipApply store={store} addScholarshipApplication={addScholarshipApplication} go={setPage} />
       ) : page === "privacy" ? (
         <Privacy />
       ) : (

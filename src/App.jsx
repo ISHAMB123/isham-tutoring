@@ -841,6 +841,55 @@ function GradeList({ rows, setRows, gradeOptions, subjectPlaceholder }) {
   );
 }
 
+const GCSE_SCIENCE_LABELS = {
+  double: ["Combined Science (grade 1)", "Combined Science (grade 2)"],
+  triple: ["Biology", "Chemistry", "Physics"],
+};
+function GcseScienceForm({ value, setValue }) {
+  const setType = (type) => setValue({ ...value, type, science: (type === "double" ? [0, 1] : [0, 1, 2]).map((i) => value.science[i] || "") });
+  const setScience = (i, g) => setValue({ ...value, science: value.science.map((s, idx) => idx === i ? g : s) });
+  const GradeSelect = ({ v, onChange }) => (
+    <select className="it-input" value={v} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Grade</option>
+      {GCSE_GRADE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
+    </select>
+  );
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        {[["double", "Double Science"], ["triple", "Triple Science"]].map(([id, label]) => (
+          <button key={id} type="button" onClick={() => setType(id)}
+            style={{ flex: 1, padding: "9px 10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+              border: value.type === id ? "1.5px solid var(--mint)" : "1.5px solid var(--line)",
+              background: value.type === id ? "var(--aqua)" : "#fff", color: value.type === id ? "var(--mint-dark)" : "var(--ink-soft)" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {GCSE_SCIENCE_LABELS[value.type].map((label, i) => (
+        <div key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ flex: 2, fontSize: 13.5 }}>{label}</span>
+          <div style={{ flex: 1 }}><GradeSelect v={value.science[i] || ""} onChange={(g) => setScience(i, g)} /></div>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ flex: 2, fontSize: 13.5 }}>English Language</span>
+        <div style={{ flex: 1 }}><GradeSelect v={value.english} onChange={(g) => setValue({ ...value, english: g })} /></div>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ flex: 2, fontSize: 13.5 }}>Maths</span>
+        <div style={{ flex: 1 }}><GradeSelect v={value.maths} onChange={(g) => setValue({ ...value, maths: g })} /></div>
+      </div>
+    </div>
+  );
+}
+function gcseToText(v) {
+  const parts = GCSE_SCIENCE_LABELS[v.type].map((label, i) => v.science[i] ? `${label}: ${v.science[i]}` : null).filter(Boolean);
+  if (v.english) parts.push(`English Language: ${v.english}`);
+  if (v.maths) parts.push(`Maths: ${v.maths}`);
+  return parts.join(", ");
+}
+
 function Scholarship({ store, addScholarshipApplication, go }) {
   const blank = {
     student_name: "", student_email: "", student_phone: "",
@@ -850,7 +899,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
   };
   const [f, setF] = useState(blank);
   const [alevelGrades, setAlevelGrades] = useState([{ subject: "", grade: "" }]);
-  const [gcseGrades, setGcseGrades] = useState([{ subject: "", grade: "" }]);
+  const [gcse, setGcse] = useState({ type: "double", science: ["", ""], english: "", maths: "" });
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
@@ -871,7 +920,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
         student_name: f.student_name.trim(), student_email: f.student_email.trim().toLowerCase(), student_phone: f.student_phone.trim(),
         parent_name: f.parent_name.trim(), parent_phone: f.parent_phone.trim(), parent_email: f.parent_email.trim().toLowerCase(),
         school: f.school.trim(), year_group: "Year 12", subjects: f.subjects,
-        predicted_grades: gradesToText(alevelGrades), gcse_summary: gradesToText(gcseGrades), personal_statement: f.personal_statement.trim(),
+        predicted_grades: gradesToText(alevelGrades), gcse_summary: gcseToText(gcse), personal_statement: f.personal_statement.trim(),
         widening_participation: { ...f.widening_participation, note: f.wp_note.trim() || undefined },
         consent_public: f.consent_public, status: "pending",
       });
@@ -1002,7 +1051,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>GCSE results</div>
-              <GradeList rows={gcseGrades} setRows={setGcseGrades} gradeOptions={GCSE_GRADE_OPTIONS} subjectPlaceholder="Subject, e.g. Maths" />
+              <GcseScienceForm value={gcse} setValue={setGcse} />
             </div>
           </div>
 

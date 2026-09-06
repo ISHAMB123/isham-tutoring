@@ -817,14 +817,40 @@ function daysUntil(dateStr) {
   return Math.max(Math.ceil(ms / 864e5), 0);
 }
 
+const ALEVEL_GRADE_OPTIONS = ["A*", "A", "B", "C", "D", "E"];
+const GCSE_GRADE_OPTIONS = ["9", "8", "7", "6", "5", "4", "3", "2", "1"];
+
+function GradeList({ rows, setRows, gradeOptions, subjectPlaceholder }) {
+  const setRow = (i, patch) => setRows(rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  const addRow = () => setRows([...rows, { subject: "", grade: "" }]);
+  const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: "flex", gap: 8 }}>
+          <input className="it-input" placeholder={subjectPlaceholder} value={r.subject} onChange={(e) => setRow(i, { subject: e.target.value })} style={{ flex: 2 }} />
+          <select className="it-input" value={r.grade} onChange={(e) => setRow(i, { grade: e.target.value })} style={{ flex: 1 }}>
+            <option value="">Grade</option>
+            {gradeOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+          <button type="button" className="it-btn ghost" onClick={() => removeRow(i)} disabled={rows.length === 1} style={{ padding: "0 12px", fontSize: 16 }} aria-label="Remove subject">×</button>
+        </div>
+      ))}
+      <button type="button" className="it-btn ghost" onClick={addRow} style={{ padding: "8px 14px", fontSize: 13, alignSelf: "flex-start" }}>+ Add subject</button>
+    </div>
+  );
+}
+
 function Scholarship({ store, addScholarshipApplication, go }) {
   const blank = {
     student_name: "", student_email: "", student_phone: "",
     parent_name: "", parent_phone: "", parent_email: "",
-    school: "", subjects: [], predicted_grades: "", gcse_summary: "", personal_statement: "",
+    school: "", subjects: [], personal_statement: "",
     widening_participation: {}, wp_note: "", consent_privacy: false, consent_public: false,
   };
   const [f, setF] = useState(blank);
+  const [alevelGrades, setAlevelGrades] = useState([{ subject: "", grade: "" }]);
+  const [gcseGrades, setGcseGrades] = useState([{ subject: "", grade: "" }]);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
@@ -832,6 +858,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
   const closed = daysLeftToApply <= 0 || spotsLeft <= 0;
   const toggleSubject = (s) => setF((p) => ({ ...p, subjects: p.subjects.includes(s) ? p.subjects.filter((x) => x !== s) : [...p.subjects, s] }));
   const toggleWP = (key) => setF((p) => ({ ...p, widening_participation: { ...p.widening_participation, [key]: !p.widening_participation[key] } }));
+  const gradesToText = (rows) => rows.filter((r) => r.subject.trim() && r.grade).map((r) => `${r.subject.trim()}: ${r.grade}`).join(", ");
 
   const submit = async () => {
     if (!f.student_name.trim() || !f.student_email.includes("@")) return alert("Please add the student's name and email.");
@@ -844,7 +871,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
         student_name: f.student_name.trim(), student_email: f.student_email.trim().toLowerCase(), student_phone: f.student_phone.trim(),
         parent_name: f.parent_name.trim(), parent_phone: f.parent_phone.trim(), parent_email: f.parent_email.trim().toLowerCase(),
         school: f.school.trim(), year_group: "Year 12", subjects: f.subjects,
-        predicted_grades: f.predicted_grades.trim(), gcse_summary: f.gcse_summary.trim(), personal_statement: f.personal_statement.trim(),
+        predicted_grades: gradesToText(alevelGrades), gcse_summary: gradesToText(gcseGrades), personal_statement: f.personal_statement.trim(),
         widening_participation: { ...f.widening_participation, note: f.wp_note.trim() || undefined },
         consent_public: f.consent_public, status: "pending",
       });
@@ -902,7 +929,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
           ["A-level subject support", "Regular one-to-one A-level teaching in your chosen sciences, same structure as the main A-level programme."],
           ["UCAT strategy", "Timing, tactics and section-by-section technique for the sections that trip people up."],
           ["Interview & personal statement workshops", "Mock questions, thinking-out-loud technique, and structured feedback on personal statement drafts."],
-          ["How this is funded", "This is subsidised access, not a free service: selected students join the same subsidised monthly programme used across the site (the one already priced well below normal tutoring rates), not a separate hidden price. Nothing is charged until you're actually accepted and choose to continue."],
+          ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay just £3.33 an hour of live teaching, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue."],
         ]} />
       </div>
 
@@ -968,10 +995,15 @@ function Scholarship({ store, addScholarshipApplication, go }) {
             ))}
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Grades</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10, marginBottom: 16 }}>
-            <textarea className="it-input" rows={2} placeholder="Predicted A-level grades (e.g. Biology A*, Chemistry A, Maths A)" value={f.predicted_grades} onChange={(e) => setF({ ...f, predicted_grades: e.target.value })} />
-            <textarea className="it-input" rows={2} placeholder="GCSE results summary" value={f.gcse_summary} onChange={(e) => setF({ ...f, gcse_summary: e.target.value })} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Predicted A-level grades</div>
+              <GradeList rows={alevelGrades} setRows={setAlevelGrades} gradeOptions={ALEVEL_GRADE_OPTIONS} subjectPlaceholder="Subject, e.g. Biology" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>GCSE results</div>
+              <GradeList rows={gcseGrades} setRows={setGcseGrades} gradeOptions={GCSE_GRADE_OPTIONS} subjectPlaceholder="Subject, e.g. Maths" />
+            </div>
           </div>
 
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Why this place matters to you</div>

@@ -890,6 +890,44 @@ function gcseToText(v) {
 }
 
 function Scholarship({ store, addScholarshipApplication, go }) {
+  const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
+  const [authMode, setAuthMode] = useState("signin"); // signin | signup
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authErr, setAuthErr] = useState("");
+
+  useEffect(() => {
+    supa.auth.getSession().then(({ data: { session } }) => setSession(session || null));
+    const { data: sub } = supa.auth.onAuthStateChange((_evt, sess) => setSession(sess || null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const doSignIn = async () => {
+    if (!authEmail.includes("@") || !authPassword) return setAuthErr("Enter your email and password.");
+    setAuthBusy(true); setAuthErr("");
+    const { error } = await supa.auth.signInWithPassword({ email: authEmail.trim().toLowerCase(), password: authPassword });
+    setAuthBusy(false);
+    if (error) setAuthErr(/confirm/i.test(error.message) ? "Check your inbox and click the verification link before signing in." : "Wrong email or password.");
+  };
+  const doSignUp = async () => {
+    if (!authEmail.includes("@") || authPassword.length < 8) return setAuthErr("Enter your email and a password of at least 8 characters.");
+    setAuthBusy(true); setAuthErr("");
+    const { error } = await supa.auth.signUp({ email: authEmail.trim().toLowerCase(), password: authPassword, options: { emailRedirectTo: "https://www.ishamtuition.com" } });
+    setAuthBusy(false);
+    if (error) return setAuthErr(error.message);
+    alert("Check your inbox to verify your email, then sign in.");
+    setAuthMode("signin");
+  };
+  const doForgot = async () => {
+    if (!authEmail.includes("@")) return setAuthErr("Enter your email first.");
+    setAuthErr("");
+    const { error } = await supa.auth.resetPasswordForEmail(authEmail.trim().toLowerCase(), { redirectTo: "https://www.ishamtuition.com" });
+    if (error) setAuthErr(error.message);
+    else alert("Reset link sent");
+  };
+  const signOut = async () => { await supa.auth.signOut(); };
+
   const blank = {
     student_name: "", student_email: "", student_phone: "",
     parent_name: "", parent_phone: "", parent_email: "",
@@ -898,6 +936,9 @@ function Scholarship({ store, addScholarshipApplication, go }) {
   };
   const SCHOLARSHIP_FIXED_SUBJECTS = ["Biology", "Chemistry"];
   const [f, setF] = useState(blank);
+  useEffect(() => {
+    if (session && session.user && session.user.email) setF((p) => ({ ...p, student_email: session.user.email }));
+  }, [session]);
   const [alevelGrades, setAlevelGrades] = useState([{ subject: "", grade: "" }]);
   const [gcse, setGcse] = useState({ type: "double", science: ["", ""], english: "", maths: "" });
   const [sent, setSent] = useState(false);
@@ -934,6 +975,49 @@ function Scholarship({ store, addScholarshipApplication, go }) {
     }
   };
 
+  if (session === undefined) return <Spinner label="Loading…" />;
+
+  if (!session) {
+    return (
+      <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 420, margin: "0 auto" }}>
+        <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
+        <div className="it-card" style={{ padding: 32, marginTop: 16 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            <Icon name="shield" size={21} />
+          </div>
+          <h1 className="it-display" style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>{authMode === "signup" ? "Create an account to apply" : "Sign in to apply"}</h1>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: "0 0 20px" }}>
+            An account keeps your application safe and lets you come back to check its status. If you already have an Isham Tuition login (from a plan), just sign in with that.
+          </p>
+
+          <div style={{ display: "flex", background: "var(--aqua)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
+            <button type="button" onClick={() => { setAuthMode("signin"); setAuthErr(""); }}
+              style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
+                background: authMode === "signin" ? "#fff" : "transparent", color: authMode === "signin" ? "var(--ink)" : "var(--ink-soft)",
+                boxShadow: authMode === "signin" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Sign in</button>
+            <button type="button" onClick={() => { setAuthMode("signup"); setAuthErr(""); }}
+              style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
+                background: authMode === "signup" ? "#fff" : "transparent", color: authMode === "signup" ? "var(--ink)" : "var(--ink-soft)",
+                boxShadow: authMode === "signup" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Sign up</button>
+          </div>
+
+          <div style={{ display: "grid", gap: 12 }}>
+            <input className="it-input" placeholder="Student email" type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+            <PasswordField placeholder="Password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (authMode === "signup" ? doSignUp() : doSignIn())} />
+            {authMode === "signin" && (
+              <button type="button" className="it-navlink" style={{ padding: 0, justifySelf: "start", fontSize: 12.5 }} onClick={doForgot}>Forgot password?</button>
+            )}
+            <button className="it-btn" onClick={authMode === "signup" ? doSignUp : doSignIn} disabled={authBusy}>
+              {authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"}
+            </button>
+            {authErr && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{authErr}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (sent) {
     return (
       <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
@@ -953,6 +1037,11 @@ function Scholarship({ store, addScholarshipApplication, go }) {
 
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          Signed in as {session.user.email} · <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12.5 }} onClick={signOut}>Sign out</button>
+        </span>
+      </div>
       <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
       <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s aiming at medicine or dentistry</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
@@ -1035,7 +1124,7 @@ function Scholarship({ store, addScholarshipApplication, go }) {
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Student</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
             <input className="it-input" placeholder="Student full name" value={f.student_name} onChange={(e) => setF({ ...f, student_name: e.target.value })} />
-            <input className="it-input" placeholder="Student email" type="email" value={f.student_email} onChange={(e) => setF({ ...f, student_email: e.target.value })} />
+            <input className="it-input" title="Locked to the email on your account" disabled value={f.student_email} style={{ background: "var(--aqua)", color: "var(--ink-soft)" }} />
             <input className="it-input" placeholder="Student phone (optional)" value={f.student_phone} onChange={(e) => setF({ ...f, student_phone: e.target.value })} />
             <input className="it-input" placeholder="School" value={f.school} onChange={(e) => setF({ ...f, school: e.target.value })} />
           </div>

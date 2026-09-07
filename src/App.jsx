@@ -816,24 +816,44 @@ function Pricing({ startCheckout, taken }) {
 
 const ALEVEL_GRADE_OPTIONS = ["A*", "A", "B", "C", "D", "E"];
 const GCSE_GRADE_OPTIONS = ["9", "8", "7", "6", "5", "4", "3", "2", "1"];
+const EXAM_BOARDS = ["AQA", "OCR", "Pearson Edexcel", "WJEC/Eduqas", "CCEA"];
 
-function GradeList({ rows, setRows, gradeOptions, subjectPlaceholder }) {
-  const setRow = (i, patch) => setRows(rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
-  const addRow = () => setRows([...rows, { subject: "", grade: "" }]);
-  const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
+// Fixed to Biology and Chemistry, that's the only A-level tutoring on offer
+// here, so there's no free-text subject entry or add/remove rows.
+function AlevelGradesForm({ value, setValue }) {
+  const setSubject = (key, patch) => setValue({ ...value, [key]: { ...value[key], ...patch } });
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      {rows.map((r, i) => (
-        <div key={i} style={{ display: "flex", gap: 8 }}>
-          <input className="it-input" placeholder={subjectPlaceholder} value={r.subject} onChange={(e) => setRow(i, { subject: e.target.value })} style={{ flex: 2 }} />
-          <select className="it-input" value={r.grade} onChange={(e) => setRow(i, { grade: e.target.value })} style={{ flex: 1 }}>
-            <option value="">Grade</option>
-            {gradeOptions.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <button type="button" className="it-btn ghost" onClick={() => removeRow(i)} disabled={rows.length === 1} style={{ padding: "0 12px", fontSize: 16 }} aria-label="Remove subject">×</button>
+    <div style={{ display: "grid", gap: 12 }}>
+      {[["biology", "Biology"], ["chemistry", "Chemistry"]].map(([key, label]) => (
+        <div key={key} className="it-card" style={{ padding: 12 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 8 }}>{label}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <select className="it-input" value={value[key].grade} onChange={(e) => setSubject(key, { grade: e.target.value })} style={{ flex: 1 }}>
+              <option value="">Grade</option>
+              {ALEVEL_GRADE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <select className="it-input" value={value[key].board} onChange={(e) => setSubject(key, { board: e.target.value })} style={{ flex: 1 }}>
+              <option value="">Exam board</option>
+              {EXAM_BOARDS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
         </div>
       ))}
-      <button type="button" className="it-btn ghost" onClick={addRow} style={{ padding: "8px 14px", fontSize: 13, alignSelf: "flex-start" }}>+ Add subject</button>
+    </div>
+  );
+}
+
+function FieldGroup({ icon, title, subtitle, children }) {
+  return (
+    <div style={{ marginBottom: 26, paddingBottom: 26, borderBottom: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: subtitle ? 4 : 12 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+          <Icon name={icon} size={14} />
+        </div>
+        <strong className="it-display" style={{ fontSize: 14.5 }}>{title}</strong>
+      </div>
+      {subtitle && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 12px 38px" }}>{subtitle}</p>}
+      <div style={{ marginLeft: 38 }}>{children}</div>
     </div>
   );
 }
@@ -885,6 +905,13 @@ function gcseToText(v) {
   if (v.english) parts.push(`English Language: ${v.english}`);
   if (v.maths) parts.push(`Maths: ${v.maths}`);
   return parts.join(", ");
+}
+
+function alevelToText(v) {
+  return [["biology", "Biology"], ["chemistry", "Chemistry"]]
+    .filter(([key]) => v[key].grade)
+    .map(([key, label]) => `${label}: ${v[key].grade}${v[key].board ? ` (${v[key].board})` : ""}`)
+    .join(", ");
 }
 
 function ScholarshipLanding({ store, go }) {
@@ -996,6 +1023,17 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // One application per person: check on load whether this account has
+  // already applied, rather than only finding out when the submit fails.
+  const [existingApp, setExistingApp] = useState(undefined); // undefined = checking, null = none found, object = found
+  useEffect(() => {
+    if (!session || !session.user || !session.user.email) { setExistingApp(session === null ? null : undefined); return; }
+    (async () => {
+      const { data } = await supa.from("scholarship_applications").select("*").eq("student_email", session.user.email.toLowerCase()).maybeSingle();
+      setExistingApp(data || null);
+    })();
+  }, [session]);
+
   const doSignIn = async () => {
     if (!authEmail.includes("@") || !authPassword) return setAuthErr("Enter your email and password.");
     setAuthBusy(true); setAuthErr("");
@@ -1032,16 +1070,15 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
   useEffect(() => {
     if (session && session.user && session.user.email) setF((p) => ({ ...p, student_email: session.user.email }));
   }, [session]);
-  const [alevelGrades, setAlevelGrades] = useState([{ subject: "", grade: "" }]);
+  const [alevelGrades, setAlevelGrades] = useState({ biology: { grade: "", board: "" }, chemistry: { grade: "", board: "" } });
   const [gcse, setGcse] = useState({ type: "double", science: ["", ""], english: "", maths: "" });
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
   const closed = spotsLeft <= 0;
   const toggleWP = (key) => setF((p) => ({ ...p, widening_participation: { ...p.widening_participation, [key]: !p.widening_participation[key] } }));
-  const gradesToText = (rows) => rows.filter((r) => r.subject.trim() && r.grade).map((r) => `${r.subject.trim()}: ${r.grade}`).join(", ");
   const filledCount = [f.student_name, f.student_email, f.parent_name, f.parent_phone, f.parent_email, f.personal_statement, f.wp_note].filter((x) => x.trim()).length
-    + alevelGrades.filter((r) => r.subject.trim() && r.grade).length + (gcse.english && gcse.maths ? 1 : 0);
+    + (alevelGrades.biology.grade ? 1 : 0) + (alevelGrades.chemistry.grade ? 1 : 0) + (gcse.english && gcse.maths ? 1 : 0);
   const totalFields = 8;
   const progressPct = Math.min(Math.round((filledCount / totalFields) * 100), 100);
 
@@ -1056,7 +1093,7 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
         student_name: f.student_name.trim(), student_email: f.student_email.trim().toLowerCase(), student_phone: f.student_phone.trim(),
         parent_name: f.parent_name.trim(), parent_phone: f.parent_phone.trim(), parent_email: f.parent_email.trim().toLowerCase(),
         school: f.school.trim(), year_group: "Year 12", subjects: SCHOLARSHIP_FIXED_SUBJECTS,
-        predicted_grades: gradesToText(alevelGrades), gcse_summary: gcseToText(gcse), personal_statement: f.personal_statement.trim(),
+        predicted_grades: alevelToText(alevelGrades), gcse_summary: gcseToText(gcse), personal_statement: f.personal_statement.trim(),
         widening_participation: { ...f.widening_participation, note: f.wp_note.trim() || undefined },
         consent_public: f.consent_public, status: "pending",
       });
@@ -1130,6 +1167,29 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
     );
   }
 
+  if (existingApp === undefined) return <Spinner label="Checking your application…" />;
+
+  // One person, one application: if this account already has a row, show
+  // its status instead of letting them fill the form out again.
+  if (existingApp) {
+    const statusCopy = {
+      pending: ["Your application is being reviewed", "We'll email you and your parent/guardian if you're selected."],
+      featured: ["Your application has been featured", "Congratulations, check your email for next steps."],
+      accepted: ["You've been accepted", "Check your email, we'll be in touch to arrange your first sessions."],
+      declined: ["This application wasn't successful this time", "Message us via the Contact page with any questions."],
+    }[existingApp.status] || ["Application received", "We'll be in touch."];
+    return (
+      <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 20 }} onClick={() => go("scholarship")}>← Back to Scholarship</button>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="check" size={26} /></div>
+        <span className="it-chip" style={{ background: "var(--aqua)", color: "var(--mint-dark)", marginBottom: 10, display: "inline-block" }}>{existingApp.status}</span>
+        <h1 className="it-display" style={{ fontSize: 24, fontWeight: 800, margin: "6px 0 8px" }}>{statusCopy[0]}</h1>
+        <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>{statusCopy[1]} You applied as {existingApp.student_name}, one application per person.</p>
+        <button className="it-btn ghost" style={{ marginTop: 16 }} onClick={signOut}>Sign out</button>
+      </div>
+    );
+  }
+
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
@@ -1147,78 +1207,85 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
           <p style={{ color: "var(--ink-soft)", margin: "6px 0 0" }}>Message us via the Contact page to be notified when the next round opens.</p>
         </div>
       ) : (
-        <div className="it-card" style={{ padding: "22px 24px" }}>
+        <div className="it-card" style={{ padding: "26px 28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
             <strong className="it-display" style={{ fontSize: 15 }}>Application progress</strong>
             <span style={{ fontSize: 12, fontWeight: 700, color: progressPct === 100 ? "var(--mint-dark)" : "var(--ink-soft)" }}>{progressPct}% complete</span>
           </div>
-          <div style={{ height: 5, borderRadius: 999, background: "var(--aqua)", overflow: "hidden", marginBottom: 12 }}>
+          <div style={{ height: 6, borderRadius: 999, background: "var(--aqua)", overflow: "hidden", marginBottom: 28 }}>
             <div style={{ height: "100%", width: progressPct + "%", background: "var(--mint)", borderRadius: 999, transition: "width .3s ease" }} />
           </div>
-          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 16px" }}>A parent or guardian needs to be involved since we'll be in touch with them too.</p>
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Student</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
-            <input className="it-input" placeholder="Student full name" value={f.student_name} onChange={(e) => setF({ ...f, student_name: e.target.value })} />
-            <input className="it-input" title="Locked to the email on your account" disabled value={f.student_email} style={{ background: "var(--aqua)", color: "var(--ink-soft)" }} />
-            <input className="it-input" placeholder="Student phone (optional)" value={f.student_phone} onChange={(e) => setF({ ...f, student_phone: e.target.value })} />
-          </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-            {["Selective school", "Non-selective school"].map((opt) => (
-              <button key={opt} type="button" onClick={() => setF({ ...f, school: opt })}
-                style={{ flex: 1, padding: "9px 10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
-                  border: f.school === opt ? "1.5px solid var(--mint)" : "1.5px solid var(--line)",
-                  background: f.school === opt ? "var(--aqua)" : "#fff", color: f.school === opt ? "var(--mint-dark)" : "var(--ink-soft)" }}>
-                {opt}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Parent / guardian</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
-            <input className="it-input" placeholder="Parent/guardian name" value={f.parent_name} onChange={(e) => setF({ ...f, parent_name: e.target.value })} />
-            <input className="it-input" placeholder="Parent/guardian phone" value={f.parent_phone} onChange={(e) => setF({ ...f, parent_phone: e.target.value })} />
-            <input className="it-input" placeholder="Parent/guardian email" type="email" value={f.parent_email} onChange={(e) => setF({ ...f, parent_email: e.target.value })} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20, marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Predicted A-level grades</div>
-              <GradeList rows={alevelGrades} setRows={setAlevelGrades} gradeOptions={ALEVEL_GRADE_OPTIONS} subjectPlaceholder="Subject, e.g. Biology" />
+          <FieldGroup icon="users" title="Student" subtitle="A parent or guardian needs to be involved too, we'll be in touch with them separately.">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 10 }}>
+              <input className="it-input" placeholder="Student full name" value={f.student_name} onChange={(e) => setF({ ...f, student_name: e.target.value })} />
+              <input className="it-input" title="Locked to the email on your account" disabled value={f.student_email} style={{ background: "var(--aqua)", color: "var(--ink-soft)" }} />
+              <input className="it-input" placeholder="Student phone (optional)" value={f.student_phone} onChange={(e) => setF({ ...f, student_phone: e.target.value })} />
             </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>GCSE results</div>
-              <GcseScienceForm value={gcse} setValue={setGcse} />
-            </div>
-          </div>
-
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Why this place matters to you</div>
-          <textarea className="it-input" rows={4} placeholder="A few sentences on why you want to study medicine/dentistry and why this scholarship would help." value={f.personal_statement} onChange={(e) => setF({ ...f, personal_statement: e.target.value })} style={{ marginBottom: 16 }} />
-
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Widening participation</div>
-          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-2px 0 8px" }}>Tick anything that applies, this helps us prioritise fairly. Optional.</p>
-          <div className="it-card" style={{ padding: 14, marginBottom: 14, background: "var(--aqua)", border: "none" }}>
-            <div style={{ display: "grid", gap: 8 }}>
-              {WIDENING_CRITERIA.map(([key, label]) => (
-                <label key={key} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13.5, cursor: "pointer" }}>
-                  <input type="checkbox" checked={!!f.widening_participation[key]} onChange={() => toggleWP(key)} style={{ marginTop: 3 }} />
-                  {label}
-                </label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {["Selective school", "Non-selective school"].map((opt) => (
+                <button key={opt} type="button" onClick={() => setF({ ...f, school: opt })}
+                  style={{ flex: 1, padding: "9px 10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    border: f.school === opt ? "1.5px solid var(--mint)" : "1.5px solid var(--line)",
+                    background: f.school === opt ? "var(--aqua)" : "#fff", color: f.school === opt ? "var(--mint-dark)" : "var(--ink-soft)" }}>
+                  {opt}
+                </button>
               ))}
             </div>
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Contextual statement (required)</div>
-          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-2px 0 8px" }}>Tell us about your circumstances, in your own words. This is how we understand what "low income" or "widening participation" actually means for your family, it's the most important part of the form.</p>
-          <textarea className="it-input" rows={3} placeholder="Your circumstances, in your own words" value={f.wp_note} onChange={(e) => setF({ ...f, wp_note: e.target.value })} style={{ marginBottom: 16 }} />
+          </FieldGroup>
 
-          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
-            <input type="checkbox" checked={f.consent_privacy} onChange={(e) => setF({ ...f, consent_privacy: e.target.checked })} style={{ marginTop: 3 }} />
-            A parent/guardian and I have read the <button type="button" onClick={() => go("privacy")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Privacy Policy</button> and consent to this information being used to assess this application.
-          </label>
-          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 18, cursor: "pointer" }}>
-            <input type="checkbox" checked={f.consent_public} onChange={(e) => setF({ ...f, consent_public: e.target.checked })} style={{ marginTop: 3 }} />
-            Optional: if selected, the student's first name, subjects and a short blurb may be shown on this page. Never contact details or the answers above.
-          </label>
+          <FieldGroup icon="mail" title="Parent / guardian">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10 }}>
+              <input className="it-input" placeholder="Parent/guardian name" value={f.parent_name} onChange={(e) => setF({ ...f, parent_name: e.target.value })} />
+              <input className="it-input" placeholder="Parent/guardian phone" value={f.parent_phone} onChange={(e) => setF({ ...f, parent_phone: e.target.value })} />
+              <input className="it-input" placeholder="Parent/guardian email" type="email" value={f.parent_email} onChange={(e) => setF({ ...f, parent_email: e.target.value })} />
+            </div>
+          </FieldGroup>
+
+          <FieldGroup icon="star" title="Grades">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Predicted A-level grades</div>
+                <AlevelGradesForm value={alevelGrades} setValue={setAlevelGrades} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>GCSE results</div>
+                <GcseScienceForm value={gcse} setValue={setGcse} />
+              </div>
+            </div>
+          </FieldGroup>
+
+          <FieldGroup icon="target" title="Why this place matters to you">
+            <textarea className="it-input" rows={4} placeholder="A few sentences on why you want to study medicine/dentistry and why this scholarship would help." value={f.personal_statement} onChange={(e) => setF({ ...f, personal_statement: e.target.value })} />
+          </FieldGroup>
+
+          <FieldGroup icon="shield" title="Widening participation" subtitle="Tick anything that applies, this helps us prioritise fairly. Optional.">
+            <div style={{ background: "var(--aqua)", borderRadius: 10, padding: 14 }}>
+              <div style={{ display: "grid", gap: 8 }}>
+                {WIDENING_CRITERIA.map(([key, label]) => (
+                  <label key={key} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13.5, cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!f.widening_participation[key]} onChange={() => toggleWP(key)} style={{ marginTop: 3 }} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </FieldGroup>
+
+          <FieldGroup icon="heart" title="Contextual statement (required)" subtitle={'Tell us about your circumstances, in your own words. This is how we understand what "low income" or "widening participation" actually means for your family, it\'s the most important part of the form.'}>
+            <textarea className="it-input" rows={3} placeholder="Your circumstances, in your own words" value={f.wp_note} onChange={(e) => setF({ ...f, wp_note: e.target.value })} />
+          </FieldGroup>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.consent_privacy} onChange={(e) => setF({ ...f, consent_privacy: e.target.checked })} style={{ marginTop: 3 }} />
+              A parent/guardian and I have read the <button type="button" onClick={() => go("privacy")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Privacy Policy</button> and consent to this information being used to assess this application.
+            </label>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.consent_public} onChange={(e) => setF({ ...f, consent_public: e.target.checked })} style={{ marginTop: 3 }} />
+              Optional: if selected, the student's first name, subjects and a short blurb may be shown on this page. Never contact details or the answers above.
+            </label>
+          </div>
 
           <button className="it-btn" onClick={submit} disabled={busy} style={{ width: "100%" }}>{busy ? "Submitting…" : "Submit application"}</button>
         </div>

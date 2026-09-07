@@ -827,12 +827,12 @@ function AlevelGradesForm({ value, setValue }) {
       {[["biology", "Biology"], ["chemistry", "Chemistry"]].map(([key, label]) => (
         <div key={key} className="it-card" style={{ padding: 12 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 8 }}>{label}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <select className="it-input" value={value[key].grade} onChange={(e) => setSubject(key, { grade: e.target.value })} style={{ flex: 1 }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <select className="it-input" value={value[key].grade} onChange={(e) => setSubject(key, { grade: e.target.value })}>
               <option value="">Grade</option>
               {ALEVEL_GRADE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
-            <select className="it-input" value={value[key].board} onChange={(e) => setSubject(key, { board: e.target.value })} style={{ flex: 1 }}>
+            <select className="it-input" value={value[key].board} onChange={(e) => setSubject(key, { board: e.target.value })}>
               <option value="">Exam board</option>
               {EXAM_BOARDS.map((b) => <option key={b} value={b}>{b}</option>)}
             </select>
@@ -884,18 +884,18 @@ function GcseScienceForm({ value, setValue }) {
         ))}
       </div>
       {GCSE_SCIENCE_LABELS[value.type].map((label, i) => (
-        <div key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ flex: 2, fontSize: 13.5 }}>{label}</span>
-          <div style={{ flex: 1 }}><GradeSelect v={value.science[i] || ""} onChange={(g) => setScience(i, g)} /></div>
+        <div key={label} className="it-card" style={{ padding: 12 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 8 }}>{label}</div>
+          <GradeSelect v={value.science[i] || ""} onChange={(g) => setScience(i, g)} />
         </div>
       ))}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <span style={{ flex: 2, fontSize: 13.5 }}>English Language</span>
-        <div style={{ flex: 1 }}><GradeSelect v={value.english} onChange={(g) => setValue({ ...value, english: g })} /></div>
+      <div className="it-card" style={{ padding: 12 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 8 }}>English Language</div>
+        <GradeSelect v={value.english} onChange={(g) => setValue({ ...value, english: g })} />
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <span style={{ flex: 2, fontSize: 13.5 }}>Maths</span>
-        <div style={{ flex: 1 }}><GradeSelect v={value.maths} onChange={(g) => setValue({ ...value, maths: g })} /></div>
+      <div className="it-card" style={{ padding: 12 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 8 }}>Maths</div>
+        <GradeSelect v={value.maths} onChange={(g) => setValue({ ...value, maths: g })} />
       </div>
     </div>
   );

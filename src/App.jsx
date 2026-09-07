@@ -41,7 +41,7 @@ const STRIPE_TEST = {
 const STRIPE_MODE = "test"; // "test" | "live"
 const STRIPE = STRIPE_MODE === "test" ? STRIPE_TEST : STRIPE_LIVE;
 
-const CONTACT = { phone: "07477 514 013", phoneIntl: "+447477514013", email: "ishambari6@gmail.com" };
+const CONTACT = { email: "hello@ishamtuition.com" };
 const CAP = 20;
 const TERM_START = "2026-10-01"; // registration & payment are open now, but no lesson can be booked before this date
 
@@ -1750,7 +1750,7 @@ function BookSidebar({ tab, setTab }) {
       ))}
       <div className="it-sidebar-help">
         Need help?<br />
-        <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer">WhatsApp Isham</a>
+        <a href={"mailto:" + CONTACT.email}>Email Isham</a>
       </div>
     </nav>
   );
@@ -2390,11 +2390,7 @@ function Contact({ addMessage }) {
       <span className="it-tag">Get in touch</span>
       <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800, margin: "12px 0 6px" }}>Questions?</h1>
       <p style={{ color: "var(--ink-soft)" }}>Money worries, subjects, exam boards, availability, ask anything. I usually reply within a day.</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, margin: "16px 0 6px" }}>
-        <a href={"https://wa.me/" + CONTACT.phoneIntl.replace("+", "")} target="_blank" rel="noreferrer" className="it-card it-contact-tile">
-          <div className="it-step-icon"><Icon name="users" size={16} /></div>
-          <div><div style={{ fontSize: 12, color: "var(--ink-soft)", fontWeight: 600 }}>WhatsApp</div><div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mint-dark)" }}>Message directly</div></div>
-        </a>
+      <div style={{ margin: "16px 0 6px" }}>
         <a href={"mailto:" + CONTACT.email} className="it-card it-contact-tile">
           <div className="it-step-icon"><Icon name="check" size={16} /></div>
           <div><div style={{ fontSize: 12, color: "var(--ink-soft)", fontWeight: 600 }}>Email</div><div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mint-dark)" }}>{CONTACT.email}</div></div>

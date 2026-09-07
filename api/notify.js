@@ -1,7 +1,7 @@
 // Vercel serverless function — sends emails via Resend.
 // The API key lives in Vercel env vars (RESEND_API_KEY), never in the frontend.
 
-const OWNER = "ishambari6@gmail.com";
+const OWNER = "hello@ishamtuition.com";
 const FROM = "Isham Tuition <hello@ishamtuition.com>";
 const INK = "#0B1B33";
 const MINT = "#9BE13D";

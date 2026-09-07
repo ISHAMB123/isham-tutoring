@@ -105,6 +105,7 @@ const WIDENING_CRITERIA = [
   ["schoolAccess", "Attend a school with below-average GCSE/A-level results"],
   ["disability", "Long-term illness or disability affecting my studies"],
   ["refugee", "Refugee, asylum seeker, or newly arrived in the UK"],
+  ["noMedicalParent", "No parent or guardian has ever worked as a doctor or dentist"],
 ];
 
 const supa = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -917,25 +918,34 @@ function ScholarshipLanding({ store, go }) {
       <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
         <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
         <Accordion items={[
-          ["A-level subject support", "Regular one-to-one A-level teaching in Biology and Chemistry, same structure as the main A-level programme."],
-          ["UCAT strategy", "Timing, tactics and section-by-section technique for the sections that trip people up."],
-          ["Interview & personal statement workshops", "Mock questions, thinking-out-loud technique, and structured feedback on personal statement drafts."],
+          ["A-level Biology", "Weekly one-to-one teaching against your exact exam board specification (AQA, OCR or Edexcel), past-paper practice and mark-scheme technique for every topic, not a generic syllabus."],
+          ["A-level Chemistry", "Same structure as Biology: your exact board, topic-by-topic past-paper practice, and the exam technique that actually earns marks."],
+          ["UCAT strategy", "Section-by-section technique for Verbal Reasoning, Decision Making, Quantitative Reasoning and Situational Judgement, timed practice, and the tactics for the sections that trip people up."],
+          ["Interview & personal statement workshops", "MMI and panel-style mock interviews, ethical scenario practice, and structured line-by-line feedback on personal statement drafts."],
           ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay just £3.33 an hour of live teaching, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue."],
         ]} />
       </Reveal>
 
       <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22, border: "1.5px solid var(--mint)" }}>
-        <strong className="it-display" style={{ fontSize: 15 }}>Who this is for</strong>
+        <strong className="it-display" style={{ fontSize: 15 }}>Requirements to apply</strong>
+        <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 10, padding: "10px 12px", margin: "10px 0", fontSize: 13, color: "#7A5A2E" }}>
+          <strong>Year 12 only.</strong> This scholarship is not open to any other year group.
+        </div>
         <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
           {[
-            "Year 12 only, applying (or planning to apply) to medicine or dentistry",
-            "Open only to students studying A-level Biology and Chemistry, that's the tutoring on offer here",
-            "Aimed at low-income families: priority goes to applicants facing the widening-participation circumstances below",
-            "We don't rank or weight applications by grade: a straight-A applicant and one still building confidence are considered equally",
+            "In Year 12, applying (or planning to apply) to medicine or dentistry",
+            "Currently studying A-level Biology and Chemistry, that's the tutoring on offer here",
+            "A parent or guardian's details, we'll be in touch with them too",
+            "Predicted A-level grades and GCSE results",
+            "A required contextual statement, in your own words, about your circumstances",
+            "As many of the widening-participation factors as apply to you (optional but weighed heavily, including whether a parent or guardian has ever worked as a doctor or dentist)",
           ].map((l) => (
             <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 3 }}><Icon name="check" size={14} /></span>{l}</li>
           ))}
         </ul>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "12px 0 0" }}>
+          Aimed at low-income families: priority goes to applicants facing the circumstances above. We don't rank or weight applications by grade, a straight-A applicant and one still building confidence are considered equally.
+        </p>
       </Reveal>
 
       {store.featuredScholars && store.featuredScholars.length > 0 && (
@@ -1151,7 +1161,16 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
             <input className="it-input" placeholder="Student full name" value={f.student_name} onChange={(e) => setF({ ...f, student_name: e.target.value })} />
             <input className="it-input" title="Locked to the email on your account" disabled value={f.student_email} style={{ background: "var(--aqua)", color: "var(--ink-soft)" }} />
             <input className="it-input" placeholder="Student phone (optional)" value={f.student_phone} onChange={(e) => setF({ ...f, student_phone: e.target.value })} />
-            <input className="it-input" placeholder="School" value={f.school} onChange={(e) => setF({ ...f, school: e.target.value })} />
+          </div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+            {["Selective school", "Non-selective school"].map((opt) => (
+              <button key={opt} type="button" onClick={() => setF({ ...f, school: opt })}
+                style={{ flex: 1, padding: "9px 10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  border: f.school === opt ? "1.5px solid var(--mint)" : "1.5px solid var(--line)",
+                  background: f.school === opt ? "var(--aqua)" : "#fff", color: f.school === opt ? "var(--mint-dark)" : "var(--ink-soft)" }}>
+                {opt}
+              </button>
+            ))}
           </div>
 
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", margin: "0 0 8px" }}>Parent / guardian</div>
@@ -1203,6 +1222,39 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
           <button className="it-btn" onClick={submit} disabled={busy} style={{ width: "100%" }}>{busy ? "Submitting…" : "Submit application"}</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// Shown to a scholarship applicant once accepted. For now this is a static
+// page an accepted student is pointed to by email, not yet wired into real
+// auto-enrolment/booking (that would mean turning an accepted application
+// into a real students() row on its own plan, a bigger separate piece of
+// work). Admin has a "View welcome page →" link on Accepted applicants so
+// Isham can preview and check on this directly.
+function ScholarshipAccepted({ go }) {
+  return (
+    <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+      <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="heart" size={26} /></div>
+      <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Welcome to the scholarship</h1>
+      <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
+        You've been accepted onto the Medicine &amp; Dentistry Access Scholarship. We'll be in touch by email with your parent/guardian to arrange your first Biology and Chemistry sessions, UCAT strategy, and interview and personal statement workshops.
+      </p>
+      <div className="it-card" style={{ padding: 20, marginTop: 20, textAlign: "left" }}>
+        <strong className="it-display" style={{ fontSize: 15 }}>What happens next</strong>
+        <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
+          {[
+            "We'll email you to confirm your subjects and set up your regular sessions",
+            "You'll be added to the subsidised programme at £3.33 an hour, same rate as the rest of the site",
+            "Your lessons run on Google Meet, just like everyone else on a plan",
+          ].map((l) => (
+            <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 3 }}><Icon name="check" size={14} /></span>{l}</li>
+          ))}
+        </ul>
+      </div>
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 20 }}>
+        Questions in the meantime? <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 13 }} onClick={() => go("contact")}>Get in touch</button>.
+      </p>
     </div>
   );
 }
@@ -2564,7 +2616,7 @@ function RenewBadge({ paidUntil, plan }) {
   );
 }
 
-function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus }) {
+function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, go }) {
   const [step, setStep] = useState("checking"); // checking | login | challenge | in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -2949,6 +3001,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                         {a.status !== "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "accepted")}>Accept</button>}
                         {a.status !== "declined" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "declined")}>Decline</button>}
                         {a.status !== "pending" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "pending")}>Reset</button>}
+                        {a.status === "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => go("scholarship-accepted")}>View welcome page →</button>}
                       </div>
                     </div>
                   ))}
@@ -3334,10 +3387,12 @@ export default function App() {
         <ScholarshipLanding store={store} go={setPage} />
       ) : page === "scholarship-apply" ? (
         <ScholarshipApply store={store} addScholarshipApplication={addScholarshipApplication} go={setPage} />
+      ) : page === "scholarship-accepted" ? (
+        <ScholarshipAccepted go={setPage} />
       ) : page === "privacy" ? (
         <Privacy />
       ) : (
-        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} />
+        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} go={setPage} />
       )}
 
       {checkoutPlan && (

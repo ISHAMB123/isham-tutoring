@@ -1064,7 +1064,8 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
       setSent(true);
     } catch (e) {
       setBusy(false);
-      alert(String(e).includes("duplicate") ? "It looks like this email has already applied." : "Couldn't submit. Please try again.");
+      console.error("Scholarship application submit failed:", e);
+      alert(String(e).includes("duplicate") ? "It looks like this email has already applied." : `Couldn't submit: ${e.message || e}`);
     }
   };
 

@@ -80,6 +80,13 @@ function weekSubject(d, cycle = SUBJECT_CYCLE) {
   const week = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - CYCLE_EPOCH) / (7 * 864e5));
   return cycle[((week % cycle.length) + cycle.length) % cycle.length];
 }
+// Calendar-month rotation (e.g. scholarship: Biology one month, Chemistry the
+// next), not week-based like GCSE. An absolute month index naturally
+// alternates forever with no epoch needed for a short cycle like this.
+function monthSubject(d, cycle) {
+  const idx = d.getFullYear() * 12 + d.getMonth();
+  return cycle[((idx % cycle.length) + cycle.length) % cycle.length];
+}
 
 const SUBJECT_COLORS = {
   Maths:           { bg: "#E7F0FE", border: "#2E7CD6", text: "#1D5FAF" },
@@ -110,8 +117,8 @@ const PLANS = {
   },
   scholarship: {
     id: "scholarship", name: "Medicine & Dentistry Access Scholarship", price: 40, per: "/month", lessons: 8, months: 1,
-    blurb: "Weekly group Biology and Chemistry (groups of 5), booked around Saturday and Sunday evenings, plus UCAT strategy and interview/personal statement support arranged directly by email.",
-    subjects: ["Biology", "Chemistry"], perSubjectCap: 4, days: "weekend", blocks: SCHOLARSHIP_BLOCKS, rotates: false, seats: 5, dept: "stem",
+    blurb: "Weekly group lessons (groups of 5) around Saturday and Sunday evenings, on a monthly rotation: Biology one month, Chemistry the next, plus UCAT strategy and interview/personal statement support arranged directly by email.",
+    subjects: ["Biology", "Chemistry"], cycle: ["Biology", "Chemistry"], monthlyRotates: true, perSubjectCap: 8, days: "weekend", blocks: SCHOLARSHIP_BLOCKS, rotates: false, seats: 5, dept: "stem",
     hidden: true, // application-and-review only; never a self-serve checkout on the public Plans page
   },
 };
@@ -142,9 +149,10 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [st, bk, ms, ml, ts, caps, ln, wl, sa, sc, scc, scr, ga, gac] = await Promise.all([
+  const [st, bk, seatc, ms, ml, ts, caps, ln, wl, sa, sc, scc, scr, ga, gac] = await Promise.all([
     supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
-    supa.from("bookings").select("*").order("date"),
+    supa.from("bookings").select("*").order("date"),        // now requires being signed in; anonymous visitors get []
+    supa.rpc("get_seat_counts"),                              // safe public per-slot counts (no names), for seat availability
     supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
     supa.from("meet_links").select("*"),
     supa.from("testimonials").select("*").order("created"),
@@ -171,9 +179,20 @@ async function fetchAll() {
     const n = notesByBooking[b.id];
     return { ...b, attended: n ? n.attended : null, note: n ? n.note : null, topic: n ? n.topic : null, homework: n ? n.homework : null };
   });
+  // Aggregate, name-free seat counts (date+block+subject and date+block totals),
+  // safe to show anyone: how many seats are taken in a slot, never who's in it.
+  const seatCounts = {};
+  const seatCountsBySlot = {};
+  for (const r of seatc.data || []) {
+    seatCounts[`${r.date}|${r.block}|${r.subject || ""}`] = r.taken;
+    const k2 = `${r.date}|${r.block}`;
+    seatCountsBySlot[k2] = (seatCountsBySlot[k2] || 0) + r.taken;
+  }
   return {
     subscribers,
     bookings,
+    seatCounts,
+    seatCountsBySlot,
     messages: ms.data || [],
     meetLinks,
     testimonials: ts.data || [],
@@ -976,8 +995,7 @@ function ScholarshipLanding({ store, go }) {
       <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
         <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
         <Accordion items={[
-          ["A-level Biology", "Weekly group teaching (groups of 5) against your exact exam board specification (AQA, OCR or Edexcel), past-paper practice and mark-scheme technique for every topic, not a generic syllabus."],
-          ["A-level Chemistry", "Same structure as Biology: your exact board, topic-by-topic past-paper practice, and the exam technique that actually earns marks."],
+          ["Biology and Chemistry, monthly rotation", "Weekly group teaching (groups of 5) against your exact exam board specification (AQA, OCR or Edexcel), past-paper practice and mark-scheme technique for every topic. One subject at a time: Biology for a full month, then Chemistry the next, so each gets proper depth instead of splitting every session."],
           ["UCAT strategy", "Section-by-section technique for Verbal Reasoning, Decision Making, Quantitative Reasoning and Situational Judgement, timed practice, and the tactics for the sections that trip people up."],
           ["Interview & personal statement workshops", "MMI and panel-style mock interviews, ethical scenario practice, and structured line-by-line feedback on personal statement drafts."],
           ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay £40 a month, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue, and payment is arranged directly with Isham, not by card on this site."],
@@ -1340,14 +1358,14 @@ function ScholarshipAccepted({ go }) {
       <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="heart" size={26} /></div>
       <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Welcome to the scholarship</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
-        You've been accepted onto the Medicine &amp; Dentistry Access Scholarship. Your dashboard is ready, book your Biology and Chemistry sessions there. We'll also be in touch by email with your parent/guardian about UCAT strategy and interview/personal statement workshops.
+        You've been accepted onto the Medicine &amp; Dentistry Access Scholarship. Your dashboard is ready, book your sessions there. We'll also be in touch by email with your parent/guardian about UCAT strategy and interview/personal statement workshops.
       </p>
       <button className="it-btn" style={{ marginTop: 8 }} onClick={() => go("book")}>Go to your dashboard →</button>
       <div className="it-card" style={{ padding: 20, marginTop: 20, textAlign: "left" }}>
         <strong className="it-display" style={{ fontSize: 15 }}>What happens next</strong>
         <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
           {[
-            "Book your first Biology and Chemistry sessions from your dashboard, same as any other plan",
+            "Book your sessions from your dashboard, same as any other plan. Biology and Chemistry rotate monthly, one subject at a time",
             "You're on the subsidised programme at £40 a month, same rate as the rest of the site",
             "Your lessons run on Google Meet, the link appears on your booking page before each one",
             "We'll email you separately to arrange UCAT strategy and interview/personal statement workshops",
@@ -1775,7 +1793,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
   const left = plan.lessons - mineMonth.length;
   const subjectFor = (d) => (plan.rotates ? weekSubject(d, plan.cycle) : subject);
   const countAt = (dk, blockId, subj) =>
-    store.bookings.filter((b) => b.date === dk && b.block === blockId && (seats === 1 || b.subject === subj)).length;
+    seats === 1 ? (store.seatCountsBySlot[`${dk}|${blockId}`] || 0) : (store.seatCounts[`${dk}|${blockId}|${subj}`] || 0);
   const visibleBlocks = plan.blocks; // single tutor, no per-block ownership filtering needed
 
   // Group the bookable days into "weeks": a run of consecutive wanted days (Sat+Sun for
@@ -2144,7 +2162,7 @@ function ConfirmSheet({ sel, plan, lessonsLeft, repeatCount, repeatSubjects, rep
         <p style={{ margin: "0 0 4px", fontSize: 13, color: "var(--ink-soft)" }}>
           Uses {count} of your {lessonsLeft} remaining lesson{lessonsLeft === 1 ? "" : "s"} this period.
         </p>
-        <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--ink-soft)" }}>Free to cancel or change up to 24 hours before.</p>
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--ink-soft)" }}>Free to cancel or change up to 1 hour before.</p>
         {repeatCount > 1 && (
           <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -2183,6 +2201,9 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
   const [bookTab, setBookTab] = useState("home");
   const [repeat, setRepeat] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
+  const [topicInput, setTopicInput] = useState("");
+  const [topicSent, setTopicSent] = useState(false);
+  const [topicBusy, setTopicBusy] = useState(false);
   const bookingInFlight = React.useRef(false);
 
   useEffect(() => {
@@ -2199,7 +2220,10 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
       const { data } = await supa.rpc("find_student", { p_email: session.user.email.toLowerCase() });
       const s = data && data[0];
       setMe(s || null);
-      if (s) setSubject((PLANS[s.plan] || {}).subjects?.[0] || null);
+      if (s) {
+        const pl = PLANS[s.plan] || {};
+        setSubject(pl.monthlyRotates ? monthSubject(new Date(), pl.cycle) : (pl.subjects?.[0] || null));
+      }
       setMeChecked(true);
     })();
   }, [session]);
@@ -2380,7 +2404,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
       : "Change this lesson's time? It'll be freed up, and the calendar will open so you can pick a new slot, same subject.";
     if (!confirm(msg)) return;
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id });
-    if (error || data === false) { alert("Couldn't change. Lessons can only be changed more than 24 hours in advance."); return; }
+    if (error || data === false) { alert("Couldn't change. Lessons can only be changed more than 1 hour in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
     setSubject(b.subject);
@@ -2390,7 +2414,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
   const cancelLesson = async (b) => {
     if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed, you can rebook a different slot.")) return;
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id });
-    if (error || data === false) { alert("Couldn't cancel. Lessons can only be cancelled more than 24 hours in advance."); return; }
+    if (error || data === false) { alert("Couldn't cancel. Lessons can only be cancelled more than 1 hour in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
   };
@@ -2425,13 +2449,26 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     } catch (e) { alert("Couldn't open the billing portal. Message Isham for a receipt."); }
     setPortalBusy(false);
   };
+  const suggestTopic = async () => {
+    if (!topicInput.trim()) return;
+    setTopicBusy(true);
+    try {
+      const text = `Topic request from ${me.name}: ${topicInput.trim()}`;
+      await addMessage({ name: me.name, email: session.user.email, text });
+      notifyServer({ type: "message", name: me.name, email: session.user.email, text });
+      setTopicInput("");
+      setTopicSent(true);
+      setTimeout(() => setTopicSent(false), 3000);
+    } catch (e) { alert("Couldn't send that, please try again."); }
+    setTopicBusy(false);
+  };
 
   const LessonCard = ({ b, actions }) => {
     const link = store.meetLinks[slotKey(b.date, b.block)];
     const c = SUBJECT_COLORS[b.subject] || SUBJECT_COLORS.Maths;
     const blk = blockById(b.block);
     const startMs = new Date(b.date + "T00:00:00").getTime() + blk.s * 60000;
-    const cancellable = startMs - Date.now() > 24 * 3600 * 1000;
+    const cancellable = startMs - Date.now() > 1 * 3600 * 1000;
     return (
       <li style={{ background: c.bg, border: "1px solid " + c.border, borderRadius: 12, padding: "12px 14px", fontSize: 14, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <span>
@@ -2451,7 +2488,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
             )}
             {cancellable && <button className="it-btn" style={{ padding: "7px 12px", minHeight: 44, fontSize: 12.5 }} onClick={() => changeLesson(b)}>Reschedule</button>}
             {cancellable && <button className="it-btn ghost" style={{ padding: "7px 12px", minHeight: 44, fontSize: 12.5 }} onClick={() => cancelLesson(b)}>Cancel lesson</button>}
-            {!cancellable && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Inside the 24-hour window, message Isham if something's come up</span>}
+            {!cancellable && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Inside the 1-hour window, message Isham if something's come up</span>}
           </span>
         )}
       </li>
@@ -2502,7 +2539,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
                   <NextLessonCard
                     nextLesson={nextLesson}
                     meetLink={nextLesson ? store.meetLinks[slotKey(nextLesson.date, nextLesson.block)] : null}
-                    seatsTaken={nextLesson ? store.bookings.filter((b) => b.date === nextLesson.date && b.block === nextLesson.block && (plan.seats === 1 || b.subject === nextLesson.subject)).length : 0}
+                    seatsTaken={nextLesson ? (plan.seats === 1 ? (store.seatCountsBySlot[`${nextLesson.date}|${nextLesson.block}`] || 0) : (store.seatCounts[`${nextLesson.date}|${nextLesson.block}|${nextLesson.subject}`] || 0)) : 0}
                     seatsCap={plan.seats}
                     goBook={() => setBookTab("book")}
                   />
@@ -2543,6 +2580,18 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
                   </ul>
                 </div>
               )}
+
+              <div className="it-card" style={{ padding: "14px 18px", marginTop: 20 }}>
+                <p style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700 }}>Need help on something specific?</p>
+                <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--ink-soft)" }}>Suggest a topic and Isham will try to cover it in an upcoming lesson.</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input className="it-input" style={{ flex: 1, minWidth: 180 }} placeholder="e.g. quadratic equations, organic chemistry naming…"
+                    value={topicInput} onChange={(e) => setTopicInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && suggestTopic()} />
+                  <button className="it-btn" style={{ padding: "10px 18px" }} onClick={suggestTopic} disabled={topicBusy || !topicInput.trim()}>{topicBusy ? "Sending…" : "Suggest"}</button>
+                </div>
+                {topicSent && <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--mint-dark)", fontWeight: 700 }}>Sent, thanks!</p>}
+              </div>
             </div>
           )}
 
@@ -2558,7 +2607,12 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
                   {dateKey(new Date()) < TERM_START && (
                     <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>Lessons start 1 October, you're locking in your place now, and the calendar below opens straight on the first bookable week.</p>
                   )}
-                  {!plan.rotates && plan.subjects.length > 1 && (
+                  {plan.monthlyRotates && (
+                    <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 16px" }}>
+                      This month is <strong style={{ color: SUBJECT_COLORS[subject]?.text }}>{subject} month</strong>, every session covers {subject} until the rotation switches next month.
+                    </p>
+                  )}
+                  {!plan.rotates && !plan.monthlyRotates && plan.subjects.length > 1 && (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 20px" }}>
                       {plan.subjects.map((s) => {
                         const c = SUBJECT_COLORS[s];
@@ -3566,7 +3620,7 @@ function PasswordRecoveryOverlay({ onDone }) {
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState(() => (new URLSearchParams(window.location.search).get("paid") ? "book" : "home"));
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0, scholarshipRecentCount: 0, gcseApps: [], gcseSpotsTaken: 0 });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], seatCounts: {}, seatCountsBySlot: {}, messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0, scholarshipRecentCount: 0, gcseApps: [], gcseSpotsTaken: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);

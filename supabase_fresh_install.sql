@@ -133,10 +133,12 @@ create policy "insert own or tutor students" on students for insert with check (
 create policy "tutor update students" on students for update using (is_tutor());
 create policy "tutor delete students" on students for delete using (is_tutor());
 
--- bookings: needed publicly for the capacity/seat-taken checks on the
--- Book page before a student is necessarily "logged in" in the RLS
--- sense, and so a signed-in student's own dashboard can read their rows.
-create policy "public select bookings" on bookings for select using (true);
+-- bookings: full rows require being signed in (any signed-in student can
+-- currently see other students' bookings too, needed by the
+-- waitlist-promotion logic; fully locking to "own only" is a bigger future
+-- change). Anonymous seat-availability checks go through get_seat_counts()
+-- below instead, which only ever returns counts, never names.
+create policy "auth select bookings" on bookings for select using (auth.uid() is not null);
 create policy "public insert bookings" on bookings for insert with check (true);
 create policy "tutor update bookings" on bookings for update using (is_tutor());
 create policy "tutor delete bookings" on bookings for delete using (is_tutor());
@@ -185,12 +187,16 @@ create policy "own delete waitlist" on waitlist for delete
 -- 4. Functions
 -- ---------------------------------------------------------------------
 
--- Public-safe lookup used by the Book page: a student can find their own
--- plan by email without needing raw SELECT access to the students table.
+-- Lookup used by the Book page: a student can find their own plan by email
+-- without needing raw SELECT access to the students table. Only ever
+-- matches the CALLER's own authenticated email, never an arbitrary one —
+-- otherwise anyone could look up any other student's plan/payment status.
 create or replace function find_student(p_email text)
 returns table (id uuid, name text, plan text, paid_until date, cancelled boolean)
 language sql security definer set search_path = public as $$
-  select id, name, plan, paid_until, cancelled from students where lower(email) = lower(p_email);
+  select id, name, plan, paid_until, cancelled from students
+  where lower(email) = lower(p_email)
+    and lower(p_email) = lower(coalesce(auth.jwt() ->> 'email', ''));
 $$;
 
 -- Public-safe per-department seat counts for the capacity meters shown
@@ -202,6 +208,57 @@ language sql stable security definer set search_path = public as $$
   from students
   where paid_until is not null and paid_until >= current_date;
 $$;
+
+-- Aggregate, name-free seat counts per (date, block, subject), safe for
+-- anyone (including anonymous visitors) to call — all the public booking
+-- calendar needs to show "how many seats are left" is a number, never who.
+create or replace function get_seat_counts()
+returns table (date date, block text, subject text, taken bigint)
+language sql stable security definer set search_path = public as $$
+  select date, block, subject, count(*)::bigint as taken
+  from bookings
+  group by date, block, subject;
+$$;
+
+-- Server-side backstop so a booking can never be inserted past a plan's
+-- monthly lesson allowance, even via a direct API call that bypasses the
+-- app's own client-side checks. Approximated by calendar month, not the
+-- app's exact rolling-period math — a generous backstop, not the primary
+-- UX limit. Keep in sync with PLANS in src/App.jsx if those ever change.
+create or replace function enforce_monthly_booking_cap()
+returns trigger
+language plpgsql as $$
+declare
+  v_plan text;
+  v_cap int;
+  v_existing int;
+begin
+  select plan into v_plan from students where id = new.student_id;
+  v_cap := case v_plan
+    when 'gcse' then 4
+    when 'gcse3' then 4
+    when 'alevel' then 2
+    when 'scholarship' then 8
+    else 8
+  end;
+
+  select count(*) into v_existing
+  from bookings
+  where student_id = new.student_id
+    and date_trunc('month', date) = date_trunc('month', new.date::date);
+
+  if v_existing >= v_cap then
+    raise exception 'Monthly booking limit reached for this plan';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_monthly_booking_cap on bookings;
+create trigger trg_enforce_monthly_booking_cap
+  before insert on bookings
+  for each row execute function enforce_monthly_booking_cap();
 
 -- Lets a signed-in student cancel one of their own bookings by id, more
 -- than 24 hours before it starts. Uses the caller's own JWT email, never a
@@ -251,7 +308,7 @@ begin
 
   v_lesson_start := v_date::timestamptz + (v_start_minutes || ' minutes')::interval;
 
-  if v_lesson_start - now() <= interval '24 hours' then
+  if v_lesson_start - now() <= interval '1 hour' then
     return false;
   end if;
 

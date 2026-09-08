@@ -58,7 +58,7 @@ const EVENING_BLOCK = [
 // GCSE moved off weekend daytime to a single 90-minute evening slot, offered
 // Friday, Saturday AND Sunday so families can attend twice in a week (the
 // same subject both times, since subjects rotate weekly, not daily) to get
-// back to 8 lessons/month at £5 a lesson / £3.33 an hour, same as before
+// back to 8 lessons/month at £5 a lesson / £3 an hour, same as before
 // the schedule moved to evenings. Friday only has room for this one slot
 // before the existing A-level slot starts at 7pm; Saturday and Sunday are
 // free of that conflict, so a family picks whichever two of the three days
@@ -103,7 +103,7 @@ const GCSE_SPOTS = 10;
 const PLANS = {
   gcse: {
     id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
-    blurb: "8 group lessons a month (90 minutes each), 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered twice a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
+    blurb: "8 group lessons a month (90 minutes each), 12 hours of live teaching for £3 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered twice a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat-sun", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
     hidden: true, // application-and-review only, see GCSELanding/GCSEApply — never a self-serve Stripe checkout
   },
@@ -463,6 +463,20 @@ function EmptyState({ icon, text }) {
   );
 }
 
+function ConfirmDialog({ title, message, confirmLabel = "Confirm", cancelLabel = "Never mind", danger, busy, onConfirm, onCancel }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(11,27,51,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 80, padding: 20 }} onClick={onCancel}>
+      <div className="it-card it-fade" style={{ padding: 26, width: 400, maxWidth: "100%" }} onClick={(e) => e.stopPropagation()}>
+        {title && <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 800 }}>{title}</h3>}
+        <p style={{ color: "var(--ink-soft)", margin: "0 0 22px", fontSize: 14, lineHeight: 1.5 }}>{message}</p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="it-btn ghost" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+          <button className="it-btn" style={danger ? { background: "#C2402F" } : undefined} onClick={onConfirm} disabled={busy}>{busy ? "Working…" : confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function Spinner({ label }) {
   return (
     <div style={{ textAlign: "center", padding: 80 }}>
@@ -727,7 +741,7 @@ function Home({ go, taken, testimonials }) {
             ["65", "students I've personally tutored for the UCAT"],
             ["10", "GCSE places, kept small so everyone gets airtime"],
             ["5", "max per GCSE group, A-level is private 1-to-1"],
-            ["£3.33", "per hour of live teaching, around a tenth of a private tutor"],
+            ["£3", "per hour of live teaching, around a tenth of a private tutor"],
           ].map(([big, small], i) => (
             <Reveal key={big} style={{ transitionDelay: i * 0.07 + "s" }}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
@@ -2225,6 +2239,8 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
   const [topicInput, setTopicInput] = useState("");
   const [topicSent, setTopicSent] = useState(false);
   const [topicBusy, setTopicBusy] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // { kind: "cancel" | "change", booking } | null
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const bookingInFlight = React.useRef(false);
 
   useEffect(() => {
@@ -2419,12 +2435,11 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     bookingInFlight.current = false;
   };
 
-  const changeLesson = async (b) => {
-    const msg = plan.rotates
-      ? "Change this lesson? It'll be freed up and the calendar will open so you can pick a new date yourself. Heads up, subjects rotate weekly, so a different week may mean a different subject."
-      : "Change this lesson's time? It'll be freed up, and the calendar will open so you can pick a new slot, same subject.";
-    if (!confirm(msg)) return;
+  const runChangeLesson = async (b) => {
+    setConfirmBusy(true);
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id });
+    setConfirmBusy(false);
+    setConfirmAction(null);
     if (error || data === false) { alert("Couldn't change. Lessons can only be changed more than 1 hour in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
@@ -2432,13 +2447,17 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     setSel(null);
     setBookTab("book");
   };
-  const cancelLesson = async (b) => {
-    if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed, you can rebook a different slot.")) return;
+  const runCancelLesson = async (b) => {
+    setConfirmBusy(true);
     const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id });
+    setConfirmBusy(false);
+    setConfirmAction(null);
     if (error || data === false) { alert("Couldn't cancel. Lessons can only be cancelled more than 1 hour in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
   };
+  const changeLesson = (b) => setConfirmAction({ kind: "change", booking: b });
+  const cancelLesson = (b) => setConfirmAction({ kind: "cancel", booking: b });
   const cancelPlan = async () => {
     if (!confirm("Cancel your plan? You'll keep access to lessons you've already paid for, but it won't renew after that.")) return;
     try {
@@ -2743,6 +2762,24 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
         repeatEnd={repeatDates.length ? repeatDates[repeatDates.length - 1].date : null} periodEnd={period.end}
         repeat={repeat} setRepeat={setRepeat} busy={busy}
         onConfirm={() => confirmBooking(repeat)} onCancel={() => { setSel(null); setRepeat(false); }} />
+
+      {confirmAction && (
+        <ConfirmDialog
+          title={confirmAction.kind === "cancel" ? "Cancel this lesson?" : "Reschedule this lesson?"}
+          message={
+            confirmAction.kind === "cancel"
+              ? "The seat is freed and the lesson goes back to your allowance, ready to rebook a different slot. This only works more than 1 hour before it starts."
+              : plan.rotates
+                ? "It'll be freed up and the calendar will open so you can pick a new date yourself. Heads up, subjects rotate weekly, so a different week may mean a different subject. This only works more than 1 hour before it starts."
+                : "It'll be freed up, and the calendar will open so you can pick a new slot, same subject. This only works more than 1 hour before it starts."
+          }
+          confirmLabel={confirmAction.kind === "cancel" ? "Cancel lesson" : "Reschedule"}
+          danger={confirmAction.kind === "cancel"}
+          busy={confirmBusy}
+          onCancel={() => !confirmBusy && setConfirmAction(null)}
+          onConfirm={() => (confirmAction.kind === "cancel" ? runCancelLesson(confirmAction.booking) : runChangeLesson(confirmAction.booking))}
+        />
+      )}
     </div>
   );
 }
@@ -3051,7 +3088,7 @@ function RenewBadge({ paidUntil, plan }) {
   );
 }
 
-function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, acceptScholarship, updateGCSEStatus, acceptGCSE, go }) {
+function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, acceptScholarship, deleteScholarshipApp, updateGCSEStatus, acceptGCSE, deleteGCSEApp, go }) {
   const [step, setStep] = useState("checking"); // checking | login | challenge | in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -3470,6 +3507,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                         {a.status !== "declined" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "declined")}>Decline</button>}
                         {a.status !== "pending" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "pending")}>Reset</button>}
                         {a.status === "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => go("scholarship-accepted")}>View welcome page →</button>}
+                        <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5, color: "#C2402F" }} onClick={() => { if (confirm(`Delete ${a.student_name}'s application? This can't be undone.`)) deleteScholarshipApp(a.id); }}>Delete</button>
                       </div>
                     </div>
                   ))}
@@ -3528,6 +3566,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                         {a.status !== "declined" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateGCSEStatus(a.id, "declined")}>Decline</button>}
                         {a.status !== "pending" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateGCSEStatus(a.id, "pending")}>Reset</button>}
                         {a.status === "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => go("gcse-accepted")}>View welcome page →</button>}
+                        <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5, color: "#C2402F" }} onClick={() => { if (confirm(`Delete ${a.student_name}'s application? This can't be undone.`)) deleteGCSEApp(a.id); }}>Delete</button>
                       </div>
                     </div>
                   ))}
@@ -3853,6 +3892,12 @@ export default function App() {
     setStore((st) => ({ ...st, scholarshipApps: st.scholarshipApps.map((a) => a.id === id ? { ...a, status } : a) }));
     notify(status === "featured" ? "Applicant featured ✓" : status === "accepted" ? "Applicant accepted ✓" : status === "declined" ? "Applicant declined" : "Status updated");
   };
+  const deleteScholarshipApp = async (id) => {
+    const { error } = await supa.from("scholarship_applications").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, scholarshipApps: st.scholarshipApps.filter((a) => a.id !== id) }));
+    notify("Application deleted");
+  };
   // Accepting an applicant used to only flip a status label, with nowhere for
   // the student to actually land: no students() row meant Book always said
   // "we couldn't find a plan for you". This gives them the same real
@@ -3882,6 +3927,12 @@ export default function App() {
     if (error) throw new Error(error.message);
     setStore((st) => ({ ...st, gcseApps: st.gcseApps.map((a) => a.id === id ? { ...a, status } : a) }));
     notify(status === "accepted" ? "Applicant accepted ✓" : status === "declined" ? "Applicant declined" : "Status updated");
+  };
+  const deleteGCSEApp = async (id) => {
+    const { error } = await supa.from("gcse_applications").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, gcseApps: st.gcseApps.filter((a) => a.id !== id) }));
+    notify("Application deleted");
   };
   // Same pattern as acceptScholarship: accepting provisions real dashboard
   // access on the plan the application was for (gcse or gcse3), rather than
@@ -3974,7 +4025,7 @@ export default function App() {
       ) : page === "privacy" ? (
         <Privacy />
       ) : (
-        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} acceptScholarship={acceptScholarship} updateGCSEStatus={updateGCSEStatus} acceptGCSE={acceptGCSE} go={setPage} />
+        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} acceptScholarship={acceptScholarship} deleteScholarshipApp={deleteScholarshipApp} updateGCSEStatus={updateGCSEStatus} acceptGCSE={acceptGCSE} deleteGCSEApp={deleteGCSEApp} go={setPage} />
       )}
 
       {checkoutPlan && (

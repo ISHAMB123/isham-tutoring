@@ -63,9 +63,11 @@ const EVENING_BLOCK = [
 const GCSE_EVENING_BLOCK = [
   { id: "g1", label: "5:00 – 6:30pm", s: 1020, e: 1110 },
 ];
-// Scholarship (Y12) stays 1-to-1, now on Saturday evening (after the GCSE
-// slot ends) and all of Sunday evening, so it never collides with GCSE or
-// the existing Wed/Fri A-level slots.
+// Scholarship (Y12) runs in groups of 5, same as GCSE, on Saturday evening
+// (after the GCSE slot ends) and all of Sunday evening, so it never
+// collides with GCSE or the existing Wed/Fri A-level slots. Two groups of
+// 5 (10 students) each need a Biology slot and a Chemistry slot a week,
+// which is exactly the 4 slot-instances these two blocks give across Sat+Sun.
 const SCHOLARSHIP_BLOCKS = [
   { id: "sc1", label: "6:45 – 7:45pm", s: 1125, e: 1185 },
   { id: "sc2", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
@@ -108,8 +110,8 @@ const PLANS = {
   },
   scholarship: {
     id: "scholarship", name: "Medicine & Dentistry Access Scholarship", price: 40, per: "/month", lessons: 8, months: 1,
-    blurb: "One-to-one Biology and Chemistry, booked around Saturday and Sunday evenings, plus UCAT strategy and interview/personal statement support arranged directly by email.",
-    subjects: ["Biology", "Chemistry"], perSubjectCap: 4, days: "weekend", blocks: SCHOLARSHIP_BLOCKS, rotates: false, seats: 1, dept: "stem",
+    blurb: "Weekly group Biology and Chemistry (groups of 5), booked around Saturday and Sunday evenings, plus UCAT strategy and interview/personal statement support arranged directly by email.",
+    subjects: ["Biology", "Chemistry"], perSubjectCap: 4, days: "weekend", blocks: SCHOLARSHIP_BLOCKS, rotates: false, seats: 5, dept: "stem",
     hidden: true, // application-and-review only; never a self-serve checkout on the public Plans page
   },
 };
@@ -961,6 +963,10 @@ function ScholarshipLanding({ store, go }) {
           <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} left</div>
         </div>
         <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Group size</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>Max 5</div>
+        </div>
+        <div className="it-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Track record</div>
           <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>102 tutored</div>
         </div>
@@ -970,7 +976,7 @@ function ScholarshipLanding({ store, go }) {
       <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
         <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
         <Accordion items={[
-          ["A-level Biology", "Weekly one-to-one teaching against your exact exam board specification (AQA, OCR or Edexcel), past-paper practice and mark-scheme technique for every topic, not a generic syllabus."],
+          ["A-level Biology", "Weekly group teaching (groups of 5) against your exact exam board specification (AQA, OCR or Edexcel), past-paper practice and mark-scheme technique for every topic, not a generic syllabus."],
           ["A-level Chemistry", "Same structure as Biology: your exact board, topic-by-topic past-paper practice, and the exam technique that actually earns marks."],
           ["UCAT strategy", "Section-by-section technique for Verbal Reasoning, Decision Making, Quantitative Reasoning and Situational Judgement, timed practice, and the tactics for the sections that trip people up."],
           ["Interview & personal statement workshops", "MMI and panel-style mock interviews, ethical scenario practice, and structured line-by-line feedback on personal statement drafts."],
@@ -2710,7 +2716,7 @@ function Contact({ addMessage }) {
           ["When are GCSE lessons?", "Friday or Saturday evenings, one 90-minute group session a week from 5:00pm."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
           ["Where are lessons held?", "Live on Google Meet, your join link appears on your booking page before each lesson."],
-          ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level and the scholarship are private one-to-one."],
+          ["How big are the groups?", "GCSE and the scholarship both run in groups of 5 max, so everyone gets airtime. A-level is private one-to-one."],
           ["Can I cancel?", "Yes, there's a \"Cancel my plan\" button on your Book page under Account. You keep booking access through whatever you've already paid for, it just won't renew after that. No contract either way."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard. If your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want, just don't renew. For anything else, message, call or email and we'll talk like humans."],

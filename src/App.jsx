@@ -88,6 +88,12 @@ const PLANS = {
     blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject, just you and the tutor. Wednesdays & Fridays.",
     subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
   },
+  scholarship: {
+    id: "scholarship", name: "Medicine & Dentistry Access Scholarship", price: 27, per: "/month", lessons: 8, months: 1,
+    blurb: "Weekly one-to-one Biology and Chemistry (4 lessons a month each) at the scholarship's subsidised rate of £3.33 an hour, plus UCAT strategy and interview/personal statement support arranged directly by email.",
+    subjects: ["Biology", "Chemistry"], perSubjectCap: 4, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
+    hidden: true, // application-and-review only; never a self-serve checkout on the public Plans page
+  },
 };
 
 /* ---- Medicine & Dentistry Access Scholarship ----
@@ -1170,12 +1176,16 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
   if (existingApp === undefined) return <Spinner label="Checking your application…" />;
 
   // One person, one application: if this account already has a row, show
-  // its status instead of letting them fill the form out again.
+  // its status instead of letting them fill the form out again. Accepted
+  // gets its own fuller landing page (with a way into the dashboard) rather
+  // than this generic status block.
+  if (existingApp && existingApp.status === "accepted") {
+    return <ScholarshipAccepted go={go} />;
+  }
   if (existingApp) {
     const statusCopy = {
       pending: ["Your application is being reviewed", "We'll email you and your parent/guardian if you're selected."],
       featured: ["Your application has been featured", "Congratulations, check your email for next steps."],
-      accepted: ["You've been accepted", "Check your email, we'll be in touch to arrange your first sessions."],
       declined: ["This application wasn't successful this time", "Message us via the Contact page with any questions."],
     }[existingApp.status] || ["Application received", "We'll be in touch."];
     return (
@@ -1294,27 +1304,28 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
   );
 }
 
-// Shown to a scholarship applicant once accepted. For now this is a static
-// page an accepted student is pointed to by email, not yet wired into real
-// auto-enrolment/booking (that would mean turning an accepted application
-// into a real students() row on its own plan, a bigger separate piece of
-// work). Admin has a "View welcome page →" link on Accepted applicants so
-// Isham can preview and check on this directly.
+// Shown to a scholarship applicant once accepted. Accepting also creates
+// their students() row on the "scholarship" plan (see acceptScholarship),
+// so by the time a real applicant sees this page, Book already knows who
+// they are, hence the dashboard button below actually works. Admin also has
+// a "View welcome page →" preview link on Accepted applicants.
 function ScholarshipAccepted({ go }) {
   return (
     <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
       <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="heart" size={26} /></div>
       <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Welcome to the scholarship</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
-        You've been accepted onto the Medicine &amp; Dentistry Access Scholarship. We'll be in touch by email with your parent/guardian to arrange your first Biology and Chemistry sessions, UCAT strategy, and interview and personal statement workshops.
+        You've been accepted onto the Medicine &amp; Dentistry Access Scholarship. Your dashboard is ready, book your Biology and Chemistry sessions there. We'll also be in touch by email with your parent/guardian about UCAT strategy and interview/personal statement workshops.
       </p>
+      <button className="it-btn" style={{ marginTop: 8 }} onClick={() => go("book")}>Go to your dashboard →</button>
       <div className="it-card" style={{ padding: 20, marginTop: 20, textAlign: "left" }}>
         <strong className="it-display" style={{ fontSize: 15 }}>What happens next</strong>
         <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
           {[
-            "We'll email you to confirm your subjects and set up your regular sessions",
-            "You'll be added to the subsidised programme at £3.33 an hour, same rate as the rest of the site",
-            "Your lessons run on Google Meet, just like everyone else on a plan",
+            "Book your first Biology and Chemistry sessions from your dashboard, same as any other plan",
+            "You're on the subsidised programme at £3.33 an hour, same rate as the rest of the site",
+            "Your lessons run on Google Meet, the link appears on your booking page before each one",
+            "We'll email you separately to arrange UCAT strategy and interview/personal statement workshops",
           ].map((l) => (
             <li key={l} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 3 }}><Icon name="check" size={14} /></span>{l}</li>
           ))}
@@ -2680,7 +2691,7 @@ function RenewBadge({ paidUntil, plan }) {
   );
 }
 
-function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, go }) {
+function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, acceptScholarship, go }) {
   const [step, setStep] = useState("checking"); // checking | login | challenge | in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -3062,7 +3073,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>{(a.subjects || []).map((s) => <SubjectChip key={s} subject={s} />)}</div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {a.status !== "featured" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "featured")}>Feature publicly</button>}
-                        {a.status !== "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "accepted")}>Accept</button>}
+                        {a.status !== "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => acceptScholarship(a)}>Accept</button>}
                         {a.status !== "declined" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "declined")}>Decline</button>}
                         {a.status !== "pending" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateScholarshipStatus(a.id, "pending")}>Reset</button>}
                         {a.status === "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => go("scholarship-accepted")}>View welcome page →</button>}
@@ -3391,6 +3402,26 @@ export default function App() {
     setStore((st) => ({ ...st, scholarshipApps: st.scholarshipApps.map((a) => a.id === id ? { ...a, status } : a) }));
     notify(status === "featured" ? "Applicant featured ✓" : status === "accepted" ? "Applicant accepted ✓" : status === "declined" ? "Applicant declined" : "Status updated");
   };
+  // Accepting an applicant used to only flip a status label, with nowhere for
+  // the student to actually land: no students() row meant Book always said
+  // "we couldn't find a plan for you". This gives them the same real
+  // dashboard access a paid GCSE/A-level student gets, on the "scholarship"
+  // plan, so they can book their Biology/Chemistry sessions straight away.
+  const acceptScholarship = async (app) => {
+    await updateScholarshipStatus(app.id, "accepted");
+    const existing = store.subscribers.find((s) => s.email.toLowerCase() === app.student_email.toLowerCase());
+    try {
+      if (existing) {
+        const { error } = await supa.from("students").update({ plan: "scholarship", paid_until: addMonths(3), cancelled: false }).eq("id", existing.id);
+        if (error) throw new Error(error.message);
+        setStore((st) => ({ ...st, subscribers: st.subscribers.map((s) => s.id === existing.id ? { ...s, plan: "scholarship", paid_until: addMonths(3), cancelled: false } : s) }));
+      } else {
+        await addStudentManual({ name: app.student_name, email: app.student_email.toLowerCase(), phone: app.student_phone || null, plan: "scholarship", paid_until: addMonths(3), tutor: "isham" });
+      }
+    } catch (e) {
+      notify("Accepted, but couldn't set up their dashboard access, add them manually from the Students tab");
+    }
+  };
   const removeSubscriber = async (id) => {
     const gone = store.subscribers.find((s) => s.id === id);
     await supa.from("students").delete().eq("id", id);
@@ -3456,7 +3487,7 @@ export default function App() {
       ) : page === "privacy" ? (
         <Privacy />
       ) : (
-        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} go={setPage} />
+        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} acceptScholarship={acceptScholarship} go={setPage} />
       )}
 
       {checkoutPlan && (

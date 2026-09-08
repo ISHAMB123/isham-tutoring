@@ -987,7 +987,7 @@ function ScholarshipLanding({ store, go }) {
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
       <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
-      <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s aiming at medicine or dentistry</h1>
+      <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s going into Year 13, aiming at medicine or dentistry</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
         Taught by a UK dental student and a UCL medical student: A-level Biology and Chemistry, UCAT strategy, interview coaching and personal statement support, in one place. Built for families who couldn't otherwise afford this kind of help.
       </p>
@@ -1017,11 +1017,11 @@ function ScholarshipLanding({ store, go }) {
       <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22, border: "1.5px solid var(--mint)" }}>
         <strong className="it-display" style={{ fontSize: 15 }}>Requirements to apply</strong>
         <div style={{ background: "#FFF7E8", border: "1px solid #F6DDB2", borderRadius: 10, padding: "10px 12px", margin: "10px 0", fontSize: 13, color: "#7A5A2E" }}>
-          <strong>Year 12 only.</strong> This scholarship is not open to any other year group.
+          <strong>Year 12 going into Year 13 only.</strong> This scholarship is not open to any other year group.
         </div>
         <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
           {[
-            "In Year 12, applying (or planning to apply) to medicine or dentistry",
+            "In Year 12 going into Year 13, applying (or planning to apply) to medicine or dentistry",
             "Currently studying A-level Biology and Chemistry, that's the tutoring on offer here",
             "A parent or guardian's details, we'll be in touch with them too",
             "Predicted A-level grades and GCSE results",
@@ -1153,7 +1153,7 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
       await addScholarshipApplication({
         student_name: f.student_name.trim(), student_email: f.student_email.trim().toLowerCase(), student_phone: f.student_phone.trim(),
         parent_name: f.parent_name.trim(), parent_phone: f.parent_phone.trim(), parent_email: f.parent_email.trim().toLowerCase(),
-        school: f.school.trim(), year_group: "Year 12", subjects: SCHOLARSHIP_FIXED_SUBJECTS,
+        school: f.school.trim(), year_group: "Year 12 going into Year 13", subjects: SCHOLARSHIP_FIXED_SUBJECTS,
         predicted_grades: alevelToText(alevelGrades), gcse_summary: gcseToText(gcse), personal_statement: f.personal_statement.trim(),
         widening_participation: { ...f.widening_participation, note: f.wp_note.trim() || undefined },
         consent_public: f.consent_public, status: "pending",

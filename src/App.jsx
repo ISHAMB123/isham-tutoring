@@ -1954,13 +1954,19 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
 }
 
 /* ---------- admin bookings calendar ---------- */
-function AdminCalendar({ bookings, active, onPick }) {
+function AdminCalendar({ bookings, active, onPick, onToday }) {
   const [view, setView] = useState(() => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), 1); });
   const counts = {};
-  for (const b of bookings) counts[b.date] = (counts[b.date] || 0) + 1;
+  const subjectsByDate = {};
+  for (const b of bookings) {
+    counts[b.date] = (counts[b.date] || 0) + 1;
+    const set = subjectsByDate[b.date] || (subjectsByDate[b.date] = new Set());
+    set.add(b.subject);
+  }
   const cells = monthMatrix(view);
+  const todayKey = dateKey(new Date());
   return (
-    <div className="it-card" style={{ padding: 18, marginTop: 12, maxWidth: 420 }}>
+    <div className="it-card" style={{ padding: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <button className="it-btn ghost" style={{ padding: "5px 11px" }} onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))}>‹</button>
         <strong className="it-display" style={{ fontSize: 15 }}>{monthName(view)}</strong>
@@ -1973,22 +1979,34 @@ function AdminCalendar({ bookings, active, onPick }) {
           const dk = dateKey(d);
           const n = counts[dk] || 0;
           const on = active === dk;
+          const subjects = subjectsByDate[dk] ? [...subjectsByDate[dk]].slice(0, 3) : [];
           return (
             <button key={i} disabled={!n} onClick={() => onPick(dk)}
-              className={dk === dateKey(new Date()) ? "it-cal-day today" : ""}
+              className={dk === todayKey ? "it-cal-day today" : ""}
               style={{
-                aspectRatio: "1", minHeight: 30, borderRadius: 8, position: "relative", fontSize: 12, fontWeight: n ? 800 : 500,
+                aspectRatio: "1", minHeight: 34, borderRadius: 8, position: "relative", fontSize: 12, fontWeight: n ? 800 : 500,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
                 border: on ? "2px solid var(--mint-dark)" : n ? "1.5px solid var(--mint)" : "1px solid transparent",
                 background: on ? "var(--mint)" : n ? "var(--aqua)" : "transparent",
                 color: on ? "#fff" : n ? "var(--mint-dark)" : "#C6D4D1", cursor: n ? "pointer" : "default",
               }}>
               {d.getDate()}
+              {subjects.length > 0 && (
+                <span style={{ display: "flex", gap: 2 }}>
+                  {subjects.map((s) => (
+                    <span key={s} style={{ width: 5, height: 5, borderRadius: "50%", background: on ? "#fff" : (SUBJECT_COLORS[s] || SUBJECT_COLORS.Maths).border }} />
+                  ))}
+                </span>
+              )}
               {n > 0 && <span style={{ position: "absolute", top: 1, right: 3, fontSize: 8.5, fontWeight: 800 }}>{n}</span>}
             </button>
           );
         })}
       </div>
-      {active && <button className="it-btn ghost" style={{ marginTop: 10, padding: "6px 12px", fontSize: 12.5, width: "100%" }} onClick={() => onPick(active)}>Show all dates</button>}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5, flex: 1 }} onClick={onToday}>Today</button>
+        {active && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5, flex: 1 }} onClick={() => onPick(active)}>Show all dates</button>}
+      </div>
     </div>
   );
 }
@@ -3042,6 +3060,8 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const [nf, setNf] = useState({ name: "", email: "", phone: "", plan: "gcse3", paid_until: addMonths(3) });
   const [tf, setTf] = useState({ name: "", quote: "", detail: "" });
   const [calFilter, setCalFilter] = useState(null);
+  const [showAllDates, setShowAllDates] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
   const [scholarFilter, setScholarFilter] = useState("all");
   const [gcseFilter, setGcseFilter] = useState("all");
   const [enroll, setEnroll] = useState(null); // {factorId, qr, secret}
@@ -3280,30 +3300,49 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       <ChatPanel sender={role.name} isTutor={true} />
 
       <h2 id="admin-timetable" className="it-display" style={{ fontSize: 20, fontWeight: 800, scrollMarginTop: 90 }}>Timetable: who booked what & when</h2>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Dates with bookings light up on the calendar (the little number is how many). Tap a date to see just that day. Paste a Google Meet link into any session, students instantly see it on their booking page.</p>
-      <AdminCalendar bookings={store.bookings} active={calFilter} onPick={(dk) => setCalFilter(calFilter === dk ? null : dk)} />
-      {dates.length === 0 && <EmptyState icon="calendar" text="No bookings yet." />}
-      {(calFilter ? dates.filter((d) => d === calFilter) : dates).map((dk) => {
-        const d = new Date(dk + "T00:00:00");
-        const total = Object.values(byDate[dk]).reduce((t, l) => t + l.length, 0);
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4 }}>Click a date to see who's scheduled, like a normal calendar. The dots are which subjects, the number is how many bookings. Paste a Google Meet link into any session, students instantly see it on their booking page.</p>
+      {dates.length === 0 ? <EmptyState icon="calendar" text="No bookings yet." /> : (() => {
+        const todayKey = dateKey(new Date());
+        const agendaDates = showAllDates ? dates : calFilter ? [calFilter] : (byDate[todayKey] ? [todayKey] : (dates.find((d) => d >= todayKey) ? [dates.find((d) => d >= todayKey)] : [dates[0]]));
         return (
-          <div key={dk} className="it-card" style={{ padding: 18, marginTop: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <strong className="it-display" style={{ fontSize: 16 }}>{prettyDate(d)}</strong>
-              <span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 700 }}>{total} booking{total === 1 ? "" : "s"}</span>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap", marginTop: 12 }}>
+            <div style={{ flex: "none", width: 340, maxWidth: "100%" }}>
+              <AdminCalendar bookings={store.bookings} active={calFilter}
+                onPick={(dk) => { setShowAllDates(false); setCalFilter(calFilter === dk ? null : dk); }}
+                onToday={() => { setShowAllDates(false); setCalFilter(null); }} />
             </div>
-            {Object.entries(byDate[dk]).sort().map(([blockId, list]) => (
-              <SessionCard key={blockId} dk={dk} block={blockDef(blockId)} list={list} subj={list[0].subject}
-                link={store.meetLinks[slotKey(dk, blockId)]}
-                saveLink={(l) => saveMeet(slotKey(dk, blockId), l)} onMove={setMoving}
-                saveNote={saveLessonNote}
-                emails={list.map((b) => (subs.find((s) => s.id === b.subscriberId) || {}).email)}
-                waitlist={store.waitlist.filter((w) => w.date === dk && w.block === blockId)}
-                removeWaitlistEntry={removeWaitlistEntry} />
-            ))}
+            <div style={{ flex: 1, minWidth: 280 }}>
+              {showAllDates && (
+                <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 10 }} onClick={() => setShowAllDates(false)}>← Back to calendar view</button>
+              )}
+              {!showAllDates && (
+                <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 10 }} onClick={() => setShowAllDates(true)}>View every date instead →</button>
+              )}
+              {agendaDates.map((dk) => {
+                const d = new Date(dk + "T00:00:00");
+                const total = Object.values(byDate[dk]).reduce((t, l) => t + l.length, 0);
+                return (
+                  <div key={dk} className="it-card" style={{ padding: 18, marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                      <strong className="it-display" style={{ fontSize: 16 }}>{dk === todayKey ? "Today, " : ""}{prettyDate(d)}</strong>
+                      <span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 700 }}>{total} booking{total === 1 ? "" : "s"}</span>
+                    </div>
+                    {Object.entries(byDate[dk]).sort().map(([blockId, list]) => (
+                      <SessionCard key={blockId} dk={dk} block={blockDef(blockId)} list={list} subj={list[0].subject}
+                        link={store.meetLinks[slotKey(dk, blockId)]}
+                        saveLink={(l) => saveMeet(slotKey(dk, blockId), l)} onMove={setMoving}
+                        saveNote={saveLessonNote}
+                        emails={list.map((b) => (subs.find((s) => s.id === b.subscriberId) || {}).email)}
+                        waitlist={store.waitlist.filter((w) => w.date === dk && w.block === blockId)}
+                        removeWaitlistEntry={removeWaitlistEntry} />
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
-      })}
+      })()}
 
       <h2 id="admin-students" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Students</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
@@ -3329,11 +3368,17 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         </div>
       </div>
       <div className="it-card" style={{ padding: 18, marginTop: 12, overflowX: "auto" }}>
-        {subs.length === 0 ? <EmptyState icon="users" text="No sign-ups yet." /> : (
+        {subs.length === 0 ? <EmptyState icon="users" text="No sign-ups yet." /> : (() => {
+          const q = studentSearch.trim().toLowerCase();
+          const filteredSubs = q ? subs.filter((s) => (s.name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q)) : subs;
+          return (
+          <>
+          <input className="it-input" style={{ marginBottom: 12, maxWidth: 320 }} placeholder="Search by name or email…" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} />
+          {filteredSubs.length === 0 ? <EmptyState icon="users" text="No students match that search." /> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 6 }}>Name</th><th style={{ padding: 6 }}>Email</th><th style={{ padding: 6 }}>Plan</th><th style={{ padding: 6 }}>Joined</th><th style={{ padding: 6 }}>Renewal</th><th /></tr></thead>
             <tbody>
-              {subs.map((s) => (
+              {filteredSubs.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid var(--line)" }}>
                   <td style={{ padding: 6, fontWeight: 600 }}>
                     {s.name}
@@ -3358,7 +3403,10 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
               ))}
             </tbody>
           </table>
-        )}
+          )}
+          </>
+          );
+        })()}
       </div>
 
       <h2 id="admin-scholarship" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Scholarship applications</h2>

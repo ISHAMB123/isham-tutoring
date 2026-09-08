@@ -740,8 +740,7 @@ function Home({ go, taken, testimonials }) {
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["65", "students I've personally tutored for the UCAT"],
             ["10", "GCSE places, kept small so everyone gets airtime"],
-            ["5", "max per GCSE group, A-level is private 1-to-1"],
-            ["£3", "per hour of live teaching, around a tenth of a private tutor"],
+            ["£3", "an hour of GCSE tuition, about a tenth of a private tutor's rate"],
           ].map(([big, small], i) => (
             <Reveal key={big} style={{ transitionDelay: i * 0.07 + "s" }}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
@@ -997,10 +996,6 @@ function ScholarshipLanding({ store, go }) {
         <div className="it-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
           <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} left</div>
-        </div>
-        <div className="it-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Group size</div>
-          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>Max 5</div>
         </div>
         <div className="it-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Track record</div>
@@ -1419,10 +1414,6 @@ function GCSELanding({ store, go }) {
         <div className="it-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
           <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {GCSE_SPOTS} left</div>
-        </div>
-        <div className="it-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Group size</div>
-          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>Max 5</div>
         </div>
       </Reveal>
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-12px 0 22px" }}>Rolling admissions, no fixed deadline: applications close automatically the moment all {GCSE_SPOTS} spots are filled, so earlier is better.</p>

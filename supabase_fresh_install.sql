@@ -235,8 +235,8 @@ declare
 begin
   select plan into v_plan from students where id = new.student_id;
   v_cap := case v_plan
-    when 'gcse' then 4
-    when 'gcse3' then 4
+    when 'gcse' then 8
+    when 'gcse3' then 8
     when 'alevel' then 2
     when 'scholarship' then 8
     else 8

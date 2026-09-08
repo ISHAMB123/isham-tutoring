@@ -56,10 +56,13 @@ const EVENING_BLOCK = [
   { id: "e2", label: "8:15 – 9:15pm",  s: 1215, e: 1275 },
 ];
 // GCSE moved off weekend daytime to a single 90-minute evening slot, offered
-// on both Friday and Saturday so two groups of 5 (10 students) can each pick
-// whichever day suits them. Friday only has room for one GCSE group before
-// the existing A-level slot starts at 7pm, so the second group falls on
-// Saturday, the exact "weekend as fallback" spillover asked for.
+// Friday, Saturday AND Sunday so families can attend twice in a week (the
+// same subject both times, since subjects rotate weekly, not daily) to get
+// back to 8 lessons/month at £5 a lesson / £3.33 an hour, same as before
+// the schedule moved to evenings. Friday only has room for this one slot
+// before the existing A-level slot starts at 7pm; Saturday and Sunday are
+// free of that conflict, so a family picks whichever two of the three days
+// suit them that week.
 const GCSE_EVENING_BLOCK = [
   { id: "g1", label: "5:00 – 6:30pm", s: 1020, e: 1110 },
 ];
@@ -99,15 +102,15 @@ const GCSE_SPOTS = 10;
 
 const PLANS = {
   gcse: {
-    id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 4, months: 1,
-    blurb: "Weekly group lessons (90 minutes each), 6 hours of live teaching for £6.67 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered once a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
-    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
+    id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
+    blurb: "8 group lessons a month (90 minutes each), 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered twice a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
+    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat-sun", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
     hidden: true, // application-and-review only, see GCSELanding/GCSEApply — never a self-serve Stripe checkout
   },
   gcse3: {
-    id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 12, months: 3,
-    blurb: "The same subsidised GCSE sciences plan, paid for the term: 12 lessons across 3 months for £110 instead of £120. Sort it once and forget it.",
-    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
+    id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 24, months: 3,
+    blurb: "The same subsidised GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120. Sort it once and forget it.",
+    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat-sun", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
     hidden: true, // kept for admin to assign manually; not offered on the public application form
   },
   alevel: {
@@ -263,7 +266,7 @@ const classroomKey = (planId) => {
 };
 
 function daysOfWeekFor(mode) {
-  return mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : mode === "fri-sat" ? [5, 6] : [3, 5];
+  return mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : mode === "fri-sat" ? [5, 6] : mode === "fri-sat-sun" ? [5, 6, 0] : [3, 5];
 }
 function upcomingDays(mode, count = 8) {
   const wanted = daysOfWeekFor(mode);
@@ -594,10 +597,10 @@ function Home({ go, taken, testimonials }) {
           <div>
             <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> Dental student · ranked top of my school for grades</span>
             <h1 className="it-display" style={{ fontSize: "clamp(34px,4.6vw,58px)", lineHeight: 1.05, margin: "18px 0 10px", fontWeight: 800 }}>
-              GCSE tuition for <span className="it-grad">£10 a lesson.</span>
+              GCSE tuition for <span className="it-grad">£5 a lesson.</span>
             </h1>
             <p style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", maxWidth: 560, lineHeight: 1.5, margin: "0 0 14px" }}>
-              Serious GCSE support without the serious price tag: £40/month for 4 weekly lessons.
+              Serious GCSE support without the serious price tag: £40/month for 8 lessons.
               I subsidise it myself: no premises, no staff, just me teaching straight after school, so the saving goes to your family, not cut from the lessons.
             </p>
             <p style={{ fontSize: 15, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.65 }}>
@@ -605,7 +608,7 @@ function Home({ go, taken, testimonials }) {
               and this September I start dental school. Now I'm doing the same for the next kid like me.
             </p>
             <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
-              <button className="it-btn" onClick={() => go("gcse")}>Apply now, from £10 a lesson</button>
+              <button className="it-btn" onClick={() => go("gcse")}>Apply now, from £5 a lesson</button>
               <button className="it-btn ghost" onClick={() => go("book")}>Already a student? Book</button>
             </div>
             <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
@@ -660,7 +663,7 @@ function Home({ go, taken, testimonials }) {
                   {i < 3 && <span style={{ color: "var(--ink-soft)" }}>→</span>}
                 </React.Fragment>
               ))}
-              <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>→ repeat. Every subject, once a month, no clashes.</span>
+              <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>→ repeat. Every subject, twice a month, no clashes.</span>
             </div>
             <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
               This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
@@ -724,7 +727,7 @@ function Home({ go, taken, testimonials }) {
             ["65", "students I've personally tutored for the UCAT"],
             ["10", "GCSE places, kept small so everyone gets airtime"],
             ["5", "max per GCSE group, A-level is private 1-to-1"],
-            ["£6.67", "per hour of live teaching, well below a private tutor"],
+            ["£3.33", "per hour of live teaching, around a tenth of a private tutor"],
           ].map(([big, small], i) => (
             <Reveal key={big} style={{ transitionDelay: i * 0.07 + "s" }}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
@@ -1395,7 +1398,7 @@ function GCSELanding({ store, go }) {
       <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> GCSE Sciences &amp; Maths</span>
       <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>Subsidised GCSE group tuition, £40 a month</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
-        Weekly live group lessons in Maths, Biology, Chemistry and Physics, taught by a dental student who ranked top of his school. Friday or Saturday evenings, from 5:00pm.
+        Live group lessons in Maths, Biology, Chemistry and Physics, twice a week, taught by a dental student who ranked top of his school. Friday, Saturday and Sunday evenings, from 5:00pm.
       </p>
 
       <Reveal style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, margin: "22px 0" }}>
@@ -1413,7 +1416,7 @@ function GCSELanding({ store, go }) {
       <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
         <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
         <Accordion items={[
-          ["Weekly group lessons", "90-minute live sessions, groups of up to 5 so everyone gets airtime, Friday or Saturday evening from 5:00pm."],
+          ["8 group lessons a month", "90-minute live sessions, groups of up to 5 so everyone gets airtime, twice a week from Friday, Saturday and Sunday evenings, 5:00pm."],
           ["All four subjects", "Maths, Biology, Chemistry and Physics rotate weekly, so every subject is covered on a regular cycle."],
           ["Exam-board specific", "Taught to your exact spec, AQA, Edexcel or OCR, not generic content."],
           ["How this is funded", "This is a subsidised place, not a fully-funded free one: you pay £40 a month, well below what tutoring normally costs. Nothing is charged until you're accepted, and payment is arranged directly with Isham, not by card on this site."],
@@ -1631,7 +1634,7 @@ function GCSEAccepted({ go }) {
       <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="cap" size={26} /></div>
       <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Welcome to GCSE tuition</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
-        You've been accepted. Your dashboard is ready, book your weekly Friday or Saturday evening session there. Payment (£40 a month) is arranged directly with Isham, not by card on this site, we'll be in touch about that separately.
+        You've been accepted. Your dashboard is ready, book your sessions there, twice a week from Friday, Saturday and Sunday evenings. Payment (£40 a month) is arranged directly with Isham, not by card on this site, we'll be in touch about that separately.
       </p>
       <button className="it-btn" style={{ marginTop: 8 }} onClick={() => go("book")}>Go to your dashboard →</button>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 20 }}>
@@ -2782,10 +2785,10 @@ function Contact({ addMessage }) {
       <div style={{ marginTop: 32 }}>
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
         <Accordion items={[
-          ["Is this a scholarship?", "It's run like one: every GCSE place is funded down to £10 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
+          ["Is this a scholarship?", "It's run like one: every GCSE place is funded down to £5 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
           ["How do I join GCSE or the scholarship?", "Both are apply-and-be-accepted, not a card checkout: fill in a short form, Isham reviews it, and you're emailed once there's a decision. Payment for GCSE places is then arranged directly, not by card on the site."],
-          ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject once a month."],
-          ["When are GCSE lessons?", "Friday or Saturday evenings, one 90-minute group session a week from 5:00pm."],
+          ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
+          ["When are GCSE lessons?", "Friday, Saturday and Sunday evenings, two 90-minute group sessions a week from 5:00pm, pick whichever two days suit you."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
           ["Where are lessons held?", "Live on Google Meet, your join link appears on your booking page before each lesson."],
           ["How big are the groups?", "GCSE and the scholarship both run in groups of 5 max, so everyone gets airtime. A-level is private one-to-one."],

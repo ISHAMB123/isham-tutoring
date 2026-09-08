@@ -923,7 +923,6 @@ function alevelToText(v) {
 function ScholarshipLanding({ store, go }) {
   const spotsLeft = Math.max(SCHOLARSHIP_SPOTS - (store.scholarshipSpotsTaken || 0), 0);
   const closed = spotsLeft <= 0;
-  const recent = store.scholarshipRecentCount || 0;
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
       <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
@@ -936,10 +935,6 @@ function ScholarshipLanding({ store, go }) {
         <div className="it-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
           <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {SCHOLARSHIP_SPOTS} left</div>
-        </div>
-        <div className="it-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>This week</div>
-          <div className="it-display" style={{ fontSize: 24, fontWeight: 800 }}>{recent} applied</div>
         </div>
         <div className="it-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Track record</div>

@@ -55,7 +55,22 @@ const EVENING_BLOCK = [
   { id: "e1", label: "7:00 – 8:00pm",  s: 1140, e: 1200 },
   { id: "e2", label: "8:15 – 9:15pm",  s: 1215, e: 1275 },
 ];
-const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK];
+// GCSE moved off weekend daytime to a single 90-minute evening slot, offered
+// on both Friday and Saturday so two groups of 5 (10 students) can each pick
+// whichever day suits them. Friday only has room for one GCSE group before
+// the existing A-level slot starts at 7pm, so the second group falls on
+// Saturday, the exact "weekend as fallback" spillover asked for.
+const GCSE_EVENING_BLOCK = [
+  { id: "g1", label: "5:00 – 6:30pm", s: 1020, e: 1110 },
+];
+// Scholarship (Y12) stays 1-to-1, now on Saturday evening (after the GCSE
+// slot ends) and all of Sunday evening, so it never collides with GCSE or
+// the existing Wed/Fri A-level slots.
+const SCHOLARSHIP_BLOCKS = [
+  { id: "sc1", label: "6:45 – 7:45pm", s: 1125, e: 1185 },
+  { id: "sc2", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
+];
+const ALL_BLOCKS = [...WEEKEND_BLOCKS, ...EVENING_BLOCK, ...GCSE_EVENING_BLOCK, ...SCHOLARSHIP_BLOCKS];
 
 const SUBJECT_CYCLE = ["Maths", "Biology", "Chemistry", "Physics"];
 const CYCLE_EPOCH = Date.UTC(2026, 0, 5);
@@ -71,17 +86,20 @@ const SUBJECT_COLORS = {
   Physics:         { bg: "#FEF0E4", border: "#E8842E", text: "#9C4E10" }, // darkened from #B85F14 since that stop was 4.01:1 on the tint, below the 4.5:1 floor
 };
 
+const GCSE_SPOTS = 10;
+
 const PLANS = {
   gcse: {
-    id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 8, months: 1,
-    blurb: "8 group lessons a month (90 minutes each), 12 hours of live teaching for £3.33 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered twice a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
-    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
-    deal: "Scholarship place · £5 a lesson",
+    id: "gcse", name: "GCSE Sciences & Maths", price: 40, per: "/month", lessons: 4, months: 1,
+    blurb: "Weekly group lessons (90 minutes each), 6 hours of live teaching for £6.67 an hour. Subjects rotate weekly: Maths, Biology, Chemistry, Physics, everything covered once a month. Every place is subsidised, priced well below what tutoring normally costs, on purpose, so any family can afford it.",
+    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
+    hidden: true, // application-and-review only, see GCSELanding/GCSEApply — never a self-serve Stripe checkout
   },
   gcse3: {
-    id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 8, months: 3,
-    blurb: "The same subsidised GCSE sciences plan, paid for the term: 24 lessons across 3 months for £110 instead of £120. Sort it once and forget it.",
-    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "weekend", blocks: WEEKEND_BLOCKS, rotates: true, seats: 5, dept: "stem",
+    id: "gcse3", name: "Term Deal (Sciences)", price: 110, per: " / 3 months", lessons: 12, months: 3,
+    blurb: "The same subsidised GCSE sciences plan, paid for the term: 12 lessons across 3 months for £110 instead of £120. Sort it once and forget it.",
+    subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
+    hidden: true, // kept for admin to assign manually; not offered on the public application form
   },
   alevel: {
     id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
@@ -89,9 +107,9 @@ const PLANS = {
     subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
   },
   scholarship: {
-    id: "scholarship", name: "Medicine & Dentistry Access Scholarship", price: 27, per: "/month", lessons: 8, months: 1,
-    blurb: "Weekly one-to-one Biology and Chemistry (4 lessons a month each) at the scholarship's subsidised rate of £3.33 an hour, plus UCAT strategy and interview/personal statement support arranged directly by email.",
-    subjects: ["Biology", "Chemistry"], perSubjectCap: 4, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
+    id: "scholarship", name: "Medicine & Dentistry Access Scholarship", price: 40, per: "/month", lessons: 8, months: 1,
+    blurb: "One-to-one Biology and Chemistry, booked around Saturday and Sunday evenings, plus UCAT strategy and interview/personal statement support arranged directly by email.",
+    subjects: ["Biology", "Chemistry"], perSubjectCap: 4, days: "weekend", blocks: SCHOLARSHIP_BLOCKS, rotates: false, seats: 1, dept: "stem",
     hidden: true, // application-and-review only; never a self-serve checkout on the public Plans page
   },
 };
@@ -122,7 +140,7 @@ const mapBooking = (r) => ({
 });
 
 async function fetchAll() {
-  const [st, bk, ms, ml, ts, caps, ln, wl, sa, sc, scc, scr] = await Promise.all([
+  const [st, bk, ms, ml, ts, caps, ln, wl, sa, sc, scc, scr, ga, gac] = await Promise.all([
     supa.from("students").select("*").order("joined"),      // returns [] unless logged in as tutor
     supa.from("bookings").select("*").order("date"),
     supa.from("messages").select("*").order("created"),      // returns [] unless logged in as tutor
@@ -135,6 +153,8 @@ async function fetchAll() {
     supa.rpc("get_featured_scholars"),                        // safe public showcase: only consented, non-sensitive fields
     supa.rpc("get_scholarship_count"),                        // safe public "spots taken" count
     supa.rpc("get_scholarship_recent_count"),                 // safe public "applications this week" count, for urgency copy
+    supa.from("gcse_applications").select("*").order("created"), // returns [] unless logged in as tutor
+    supa.rpc("get_gcse_count"),                               // safe public "spots taken" count for GCSE
   ]);
   const meetLinks = {};
   for (const l of ml.data || []) meetLinks[l.slot] = l.link;
@@ -161,6 +181,8 @@ async function fetchAll() {
     featuredScholars: sc.data || [],
     scholarshipSpotsTaken: typeof scc.data === "number" ? scc.data : 0,
     scholarshipRecentCount: typeof scr.data === "number" ? scr.data : 0,
+    gcseApps: ga.data || [],
+    gcseSpotsTaken: typeof gac.data === "number" ? gac.data : 0,
   };
 }
 
@@ -219,8 +241,11 @@ const classroomKey = (planId) => {
   return "classroom-" + (p && p.rotates ? "gcse-group" : planId);
 };
 
+function daysOfWeekFor(mode) {
+  return mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : mode === "fri-sat" ? [5, 6] : [3, 5];
+}
 function upcomingDays(mode, count = 8) {
-  const wanted = mode === "weekend" ? [6, 0] : mode === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
+  const wanted = daysOfWeekFor(mode);
   const days = [];
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const termStart = new Date(TERM_START + "T00:00:00");
@@ -466,17 +491,17 @@ function Accordion({ items }) {
   );
 }
 
-function CapacityMeter({ taken }) {
+function CapacityMeter({ taken, cap = CAP }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }}>
-        {Array.from({ length: CAP }).map((_, i) => (
+        {Array.from({ length: cap }).map((_, i) => (
           <div key={i} className={"it-pip" + (i < taken ? " on" : "")} style={{ width: 10, height: 14, transitionDelay: `${i * 25}ms` }} />
         ))}
       </div>
       <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-        {taken < CAP && <span className="it-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--mint)", flex: "none" }} />}
-        <span><strong style={{ color: taken >= CAP ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(CAP - taken, 0)} of {CAP} places left</strong>, capped so groups stay tiny and prices stay low.</span>
+        {taken < cap && <span className="it-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--mint)", flex: "none" }} />}
+        <span><strong style={{ color: taken >= cap ? "var(--coral)" : "var(--mint-dark)" }}>{Math.max(cap - taken, 0)} of {cap} places left</strong>, capped so groups stay tiny and prices stay low.</span>
       </p>
     </div>
   );
@@ -548,10 +573,10 @@ function Home({ go, taken, testimonials }) {
           <div>
             <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> Dental student · ranked top of my school for grades</span>
             <h1 className="it-display" style={{ fontSize: "clamp(34px,4.6vw,58px)", lineHeight: 1.05, margin: "18px 0 10px", fontWeight: 800 }}>
-              GCSE tuition for <span className="it-grad">£5 a lesson.</span>
+              GCSE tuition for <span className="it-grad">£10 a lesson.</span>
             </h1>
             <p style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", maxWidth: 560, lineHeight: 1.5, margin: "0 0 14px" }}>
-              Serious GCSE support without the serious price tag: £40/month for 8 lessons.
+              Serious GCSE support without the serious price tag: £40/month for 4 weekly lessons.
               I subsidise it myself: no premises, no staff, just me teaching straight after school, so the saving goes to your family, not cut from the lessons.
             </p>
             <p style={{ fontSize: 15, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.65 }}>
@@ -559,13 +584,13 @@ function Home({ go, taken, testimonials }) {
               and this September I start dental school. Now I'm doing the same for the next kid like me.
             </p>
             <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
-              <button className="it-btn" onClick={() => go("pricing")}>Start learning, from £5 a lesson</button>
+              <button className="it-btn" onClick={() => go("gcse")}>Apply now, from £10 a lesson</button>
               <button className="it-btn ghost" onClick={() => go("book")}>Already a student? Book</button>
             </div>
             <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>
-              Live group lessons, taught by real tutors. No contract, cancel any month. See exactly what's included on the <button onClick={() => go("pricing")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Plans page</button>.
+              Live group lessons, taught by real tutors. No contract, cancel any month. See exactly what's included on the <button onClick={() => go("gcse")} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--mint-dark)", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>GCSE page</button>.
             </p>
-            <CapacityMeter taken={taken} />
+            <CapacityMeter taken={taken} cap={GCSE_SPOTS} />
           </div>
           <DashboardPreview />
         </div>
@@ -576,7 +601,7 @@ function Home({ go, taken, testimonials }) {
           {[
             ["cap", "Dental student, from Sept"],
             ["star", "Predicted A*A*A"],
-            ["users", "20 places"],
+            ["users", "10 places"],
           ].map(([icon, label], i) => (
             <Reveal key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--mint-dark)", transitionDelay: i * 0.08 + "s" }}>
               <Icon name={icon} size={17} />
@@ -614,7 +639,7 @@ function Home({ go, taken, testimonials }) {
                   {i < 3 && <span style={{ color: "var(--ink-soft)" }}>→</span>}
                 </React.Fragment>
               ))}
-              <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>→ repeat. Every subject, twice a month, no clashes.</span>
+              <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>→ repeat. Every subject, once a month, no clashes.</span>
             </div>
             <p style={{ margin: "10px 0 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
               This week is <strong style={{ color: SUBJECT_COLORS[weekSubject(new Date())].text }}>{weekSubject(new Date())} week</strong>.
@@ -676,9 +701,9 @@ function Home({ go, taken, testimonials }) {
           {[
             ["50/mo", "students I taught on average running my previous tutoring service"],
             ["65", "students I've personally tutored for the UCAT"],
-            ["20", "places, kept small so everyone gets airtime"],
+            ["10", "GCSE places, kept small so everyone gets airtime"],
             ["5", "max per GCSE group, A-level is private 1-to-1"],
-            ["£3.33", "per hour of live teaching, around a tenth of a private tutor"],
+            ["£6.67", "per hour of live teaching, well below a private tutor"],
           ].map(([big, small], i) => (
             <Reveal key={big} style={{ transitionDelay: i * 0.07 + "s" }}>
               <div className="it-display" style={{ fontSize: 34, fontWeight: 800, color: "var(--mint-dark)" }}>{big}</div>
@@ -763,15 +788,14 @@ function Home({ go, taken, testimonials }) {
 
 const PLAN_ICON = { gcse: "users", gcse3: "calendar", alevel: "target" };
 
-function Pricing({ startCheckout, taken }) {
-  const fullFor = (p) => taken >= CAP;
+function Pricing({ startCheckout }) {
+  const fullFor = () => false; // no shared cap on this page any more, GCSE/scholarship have their own apply-and-accept spot counters
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1120, margin: "0 auto" }}>
       <span className="it-tag">Plans &amp; pricing</span>
       <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 8px" }}>Simple, transparent plans</h1>
       <p style={{ color: "var(--ink-soft)", marginBottom: 28, maxWidth: 620 }}>
-        Priced for families who can't stretch to normal tutoring. No contracts, cancel any month.{" "}
-        {`${Math.max(CAP - taken, 0)} of ${CAP} places left.`}
+        Priced for families who can't stretch to normal tutoring. No contracts, cancel any month.
       </p>
       <div className="it-steps">
         {[
@@ -950,7 +974,7 @@ function ScholarshipLanding({ store, go }) {
           ["A-level Chemistry", "Same structure as Biology: your exact board, topic-by-topic past-paper practice, and the exam technique that actually earns marks."],
           ["UCAT strategy", "Section-by-section technique for Verbal Reasoning, Decision Making, Quantitative Reasoning and Situational Judgement, timed practice, and the tactics for the sections that trip people up."],
           ["Interview & personal statement workshops", "MMI and panel-style mock interviews, ethical scenario practice, and structured line-by-line feedback on personal statement drafts."],
-          ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay just £3.33 an hour of live teaching, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue."],
+          ["How this is funded", "This is a partial scholarship, not a fully-funded free place: you pay £40 a month, we subsidise the rest, the same subsidised rate used across the site, well below normal tutoring prices. Nothing is charged until you're actually accepted and choose to continue, and payment is arranged directly with Isham, not by card on this site."],
         ]} />
       </Reveal>
 
@@ -1318,7 +1342,7 @@ function ScholarshipAccepted({ go }) {
         <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8, fontSize: 14, color: "var(--ink-soft)" }}>
           {[
             "Book your first Biology and Chemistry sessions from your dashboard, same as any other plan",
-            "You're on the subsidised programme at £3.33 an hour, same rate as the rest of the site",
+            "You're on the subsidised programme at £40 a month, same rate as the rest of the site",
             "Your lessons run on Google Meet, the link appears on your booking page before each one",
             "We'll email you separately to arrange UCAT strategy and interview/personal statement workshops",
           ].map((l) => (
@@ -1326,6 +1350,266 @@ function ScholarshipAccepted({ go }) {
           ))}
         </ul>
       </div>
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 20 }}>
+        Questions in the meantime? <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 13 }} onClick={() => go("contact")}>Get in touch</button>.
+      </p>
+    </div>
+  );
+}
+
+const fieldLabel = { fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", margin: "0 0 5px", display: "block" };
+
+// GCSE moved off self-serve Stripe checkout to the exact same
+// apply-and-be-accepted format as the scholarship: a parent applies, Isham
+// reviews and accepts, payment is arranged directly (bank transfer), not by
+// card on the site.
+function GCSELanding({ store, go }) {
+  const spotsLeft = Math.max(GCSE_SPOTS - (store.gcseSpotsTaken || 0), 0);
+  const closed = spotsLeft <= 0;
+  return (
+    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
+      <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> GCSE Sciences &amp; Maths</span>
+      <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>Subsidised GCSE group tuition, £40 a month</h1>
+      <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
+        Weekly live group lessons in Maths, Biology, Chemistry and Physics, taught by a dental student who ranked top of his school. Friday or Saturday evenings, from 5:00pm.
+      </p>
+
+      <Reveal style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, margin: "22px 0" }}>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Spots</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: spotsLeft <= 3 ? "var(--coral)" : "var(--mint-dark)" }}>{spotsLeft} of {GCSE_SPOTS} left</div>
+        </div>
+        <div className="it-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 }}>Group size</div>
+          <div className="it-display" style={{ fontSize: 24, fontWeight: 800, color: "var(--mint-dark)" }}>Max 5</div>
+        </div>
+      </Reveal>
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-12px 0 22px" }}>Rolling admissions, no fixed deadline: applications close automatically the moment all {GCSE_SPOTS} spots are filled, so earlier is better.</p>
+
+      <Reveal className="it-card" style={{ padding: "18px 20px", marginBottom: 22 }}>
+        <strong className="it-display" style={{ fontSize: 15 }}>What's included</strong>
+        <Accordion items={[
+          ["Weekly group lessons", "90-minute live sessions, groups of up to 5 so everyone gets airtime, Friday or Saturday evening from 5:00pm."],
+          ["All four subjects", "Maths, Biology, Chemistry and Physics rotate weekly, so every subject is covered on a regular cycle."],
+          ["Exam-board specific", "Taught to your exact spec, AQA, Edexcel or OCR, not generic content."],
+          ["How this is funded", "This is a subsidised place, not a fully-funded free one: you pay £40 a month, well below what tutoring normally costs. Nothing is charged until you're accepted, and payment is arranged directly with Isham, not by card on this site."],
+        ]} />
+      </Reveal>
+
+      {closed ? (
+        <div className="it-card" style={{ padding: 20, textAlign: "center" }}>
+          <strong>Applications are currently closed</strong>
+          <p style={{ color: "var(--ink-soft)", margin: "6px 0 0" }}>All {GCSE_SPOTS} spots are filled. Message us via the Contact page to be notified when a spot opens up.</p>
+        </div>
+      ) : (
+        <div className="it-card" style={{ padding: "22px 24px", textAlign: "center" }}>
+          <strong className="it-display" style={{ fontSize: 17 }}>Ready to apply?</strong>
+          <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "6px 0 16px" }}>Takes about 2 minutes. You'll need to sign in or create a free account first.</p>
+          <button className="it-btn" onClick={() => go("gcse-apply")} style={{ width: "100%" }}>Start application →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GCSEApply({ store, addGCSEApplication, go }) {
+  const [session, setSession] = useState(undefined);
+  const [authMode, setAuthMode] = useState("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authErr, setAuthErr] = useState("");
+
+  useEffect(() => {
+    supa.auth.getSession().then(({ data: { session } }) => setSession(session || null));
+    const { data: sub } = supa.auth.onAuthStateChange((_evt, sess) => setSession(sess || null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const [existingApp, setExistingApp] = useState(undefined);
+  useEffect(() => {
+    if (!session || !session.user || !session.user.email) { setExistingApp(session === null ? null : undefined); return; }
+    (async () => {
+      const { data } = await supa.from("gcse_applications").select("*").eq("student_email", session.user.email.toLowerCase()).maybeSingle();
+      setExistingApp(data || null);
+    })();
+  }, [session]);
+
+  const doSignIn = async () => {
+    if (!authEmail.includes("@") || !authPassword) return setAuthErr("Enter your email and password.");
+    setAuthBusy(true); setAuthErr("");
+    const { error } = await supa.auth.signInWithPassword({ email: authEmail.trim().toLowerCase(), password: authPassword });
+    setAuthBusy(false);
+    if (error) setAuthErr(/confirm/i.test(error.message) ? "Check your inbox and click the verification link before signing in." : "Wrong email or password.");
+  };
+  const doSignUp = async () => {
+    if (!authEmail.includes("@") || authPassword.length < 8) return setAuthErr("Enter your email and a password of at least 8 characters.");
+    setAuthBusy(true); setAuthErr("");
+    const { error } = await supa.auth.signUp({ email: authEmail.trim().toLowerCase(), password: authPassword, options: { emailRedirectTo: "https://www.ishamtuition.com" } });
+    setAuthBusy(false);
+    if (error) return setAuthErr(error.message);
+    alert("Check your inbox to verify your email, then sign in.");
+    setAuthMode("signin");
+  };
+  const signOut = async () => { await supa.auth.signOut(); };
+
+  const blank = { student_name: "", student_email: "", student_phone: "", parent_name: "", parent_phone: "", parent_email: "", school: "" };
+  const [f, setF] = useState(blank);
+  useEffect(() => {
+    if (session && session.user && session.user.email) setF((p) => ({ ...p, student_email: session.user.email }));
+  }, [session]);
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const spotsLeft = Math.max(GCSE_SPOTS - (store.gcseSpotsTaken || 0), 0);
+
+  const submit = async () => {
+    if (!f.student_name.trim() || !f.student_email.includes("@")) return alert("Please add the student's name and email.");
+    if (!f.parent_name.trim() || !f.parent_phone.trim() || !f.parent_email.includes("@")) return alert("Please add a parent/guardian name, phone and email, we'll need to reach them too.");
+    setBusy(true);
+    try {
+      await addGCSEApplication({
+        student_name: f.student_name.trim(), student_email: f.student_email.trim().toLowerCase(), student_phone: f.student_phone.trim(),
+        parent_name: f.parent_name.trim(), parent_phone: f.parent_phone.trim(), parent_email: f.parent_email.trim().toLowerCase(),
+        school: f.school.trim(), plan: "gcse", status: "pending",
+      });
+      notifyServer({ type: "message", name: f.parent_name, email: f.parent_email, text: `GCSE application from ${f.student_name} (student: ${f.student_email}).` });
+      setSent(true);
+    } catch (e) {
+      setBusy(false);
+      console.error("GCSE application submit failed:", e);
+      alert(String(e).includes("duplicate") ? "It looks like this email has already applied." : `Couldn't submit: ${e.message || e}`);
+    }
+  };
+
+  if (session === undefined) return <Spinner label="Loading…" />;
+
+  if (!session) {
+    return (
+      <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 420, margin: "0 auto" }}>
+        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 10 }} onClick={() => go("gcse")}>← Back to GCSE</button>
+        <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> GCSE Sciences &amp; Maths</span>
+        <div className="it-card" style={{ padding: 32, marginTop: 16 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--ink)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            <Icon name="shield" size={21} />
+          </div>
+          <h1 className="it-display" style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>{authMode === "signup" ? "Create an account to apply" : "Login to apply"}</h1>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, margin: "0 0 20px" }}>
+            An account keeps your application safe and lets you come back to check its status.
+          </p>
+          <div style={{ display: "flex", background: "var(--aqua)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
+            <button type="button" onClick={() => { setAuthMode("signin"); setAuthErr(""); }}
+              style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
+                background: authMode === "signin" ? "#fff" : "transparent", color: authMode === "signin" ? "var(--ink)" : "var(--ink-soft)",
+                boxShadow: authMode === "signin" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Login</button>
+            <button type="button" onClick={() => { setAuthMode("signup"); setAuthErr(""); }}
+              style={{ flex: 1, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
+                background: authMode === "signup" ? "#fff" : "transparent", color: authMode === "signup" ? "var(--ink)" : "var(--ink-soft)",
+                boxShadow: authMode === "signup" ? "0 1px 4px rgba(15,42,67,.12)" : "none" }}>Sign up</button>
+          </div>
+          <div style={{ display: "grid", gap: 12 }}>
+            <input className="it-input" placeholder="Email" type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+            <PasswordField placeholder="Password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (authMode === "signup" ? doSignUp() : doSignIn())} />
+            <button className="it-btn" onClick={authMode === "signup" ? doSignUp : doSignIn} disabled={authBusy}>
+              {authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Login"}
+            </button>
+            {authErr && <p style={{ color: "var(--coral)", fontSize: 13, margin: 0 }}>{authErr}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (sent) {
+    return (
+      <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="check" size={26} /></div>
+        <h1 className="it-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 8px" }}>You're on the list</h1>
+        <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
+          Thanks, {f.student_name.split(" ")[0]}. We'll email {f.parent_email || "your parent/guardian"} and {f.student_email} once it's reviewed.
+        </p>
+        <div className="it-card" style={{ padding: 16, marginTop: 20, display: "inline-block" }}>
+          <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Spots remaining right now</span>{" "}
+          <strong className="it-display" style={{ color: "var(--mint-dark)" }}>{spotsLeft} of {GCSE_SPOTS}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (existingApp === undefined) return <Spinner label="Checking your application…" />;
+
+  if (existingApp && existingApp.status === "accepted") {
+    return <GCSEAccepted go={go} />;
+  }
+
+  if (existingApp) {
+    const statusCopy = {
+      pending: ["Your application is being reviewed", "We'll email you and your parent/guardian once it's been looked at."],
+      declined: ["This application wasn't successful this time", "Message us via the Contact page with any questions."],
+    }[existingApp.status] || ["Application received", "We'll be in touch."];
+    return (
+      <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 20 }} onClick={() => go("gcse")}>← Back to GCSE</button>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="check" size={26} /></div>
+        <span className="it-chip" style={{ background: "var(--aqua)", color: "var(--mint-dark)", marginBottom: 10, display: "inline-block" }}>{existingApp.status}</span>
+        <h1 className="it-display" style={{ fontSize: 24, fontWeight: 800, margin: "6px 0 8px" }}>{statusCopy[0]}</h1>
+        <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>{statusCopy[1]} You applied as {existingApp.student_name}, one application per person.</p>
+        <button className="it-btn ghost" style={{ marginTop: 16 }} onClick={signOut}>Sign out</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 560, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+        <button className="it-navlink" style={{ padding: 0, fontSize: 12.5 }} onClick={() => go("gcse")}>← Back to GCSE</button>
+        <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          Signed in as {session.user.email} · <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12.5 }} onClick={signOut}>Sign out</button>
+        </span>
+      </div>
+      <h1 className="it-display" style={{ fontSize: 24, fontWeight: 800, margin: "10px 0 4px" }}>Apply for GCSE tuition</h1>
+      <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginBottom: 20 }}>{spotsLeft} of {GCSE_SPOTS} spots left. Takes about 2 minutes.</p>
+
+      <div className="it-card" style={{ padding: 24, display: "grid", gap: 14 }}>
+        <div>
+          <label style={fieldLabel}>Student name</label>
+          <input className="it-input" placeholder="Full name" value={f.student_name} onChange={(e) => setF({ ...f, student_name: e.target.value })} />
+        </div>
+        <div>
+          <label style={fieldLabel}>Student phone (optional)</label>
+          <input className="it-input" placeholder="07…" type="tel" value={f.student_phone} onChange={(e) => setF({ ...f, student_phone: e.target.value })} />
+        </div>
+        <div>
+          <label style={fieldLabel}>School (optional)</label>
+          <input className="it-input" placeholder="School name" value={f.school} onChange={(e) => setF({ ...f, school: e.target.value })} />
+        </div>
+        <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+          <label style={fieldLabel}>Parent/guardian name</label>
+          <input className="it-input" placeholder="Full name" value={f.parent_name} onChange={(e) => setF({ ...f, parent_name: e.target.value })} />
+        </div>
+        <div>
+          <label style={fieldLabel}>Parent/guardian phone</label>
+          <input className="it-input" placeholder="07…" type="tel" value={f.parent_phone} onChange={(e) => setF({ ...f, parent_phone: e.target.value })} />
+        </div>
+        <div>
+          <label style={fieldLabel}>Parent/guardian email</label>
+          <input className="it-input" placeholder="you@example.com" type="email" value={f.parent_email} onChange={(e) => setF({ ...f, parent_email: e.target.value })} />
+        </div>
+        <button className="it-btn" onClick={submit} disabled={busy} style={{ width: "100%" }}>{busy ? "Submitting…" : "Submit application"}</button>
+      </div>
+    </div>
+  );
+}
+
+function GCSEAccepted({ go }) {
+  return (
+    <div className="it-fade" style={{ padding: "72px 24px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+      <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="cap" size={26} /></div>
+      <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Welcome to GCSE tuition</h1>
+      <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
+        You've been accepted. Your dashboard is ready, book your weekly Friday or Saturday evening session there. Payment (£40 a month) is arranged directly with Isham, not by card on this site, we'll be in touch about that separately.
+      </p>
+      <button className="it-btn" style={{ marginTop: 8 }} onClick={() => go("book")}>Go to your dashboard →</button>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 20 }}>
         Questions in the meantime? <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 13 }} onClick={() => go("contact")}>Get in touch</button>.
       </p>
@@ -1391,7 +1675,6 @@ function Checkout({ planId, onDone, onFinish, onCancel }) {
     );
   }
 
-  const fieldLabel = { fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", margin: "0 0 5px", display: "block" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
       <div className="it-card it-fade" style={{ padding: 32, width: 440, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto" }}>
@@ -1479,7 +1762,7 @@ function BookLessonsPicker({ plan, store, subject, sel, setSel, mine, me, email,
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const earliestBookable = new Date(Math.max(today, new Date(TERM_START + "T00:00:00")));
   const horizon = new Date(earliestBookable); horizon.setDate(horizon.getDate() + 56);
-  const wanted = plan.days === "weekend" ? [6, 0] : plan.days === "weekday" ? [1, 2, 3, 4, 5] : [3, 5];
+  const wanted = daysOfWeekFor(plan.days);
   const seats = plan.seats || 5;
   const period = periodFor(me);
   const mineMonth = mine.filter((b) => b.date >= period.start && b.date < period.end);
@@ -2421,12 +2704,13 @@ function Contact({ addMessage }) {
       <div style={{ marginTop: 32 }}>
         <h3 className="it-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Quick answers</h3>
         <Accordion items={[
-          ["Is this a scholarship?", "It's run like one: every GCSE place is funded down to £5 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
-          ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
-          ["When are GCSE lessons?", "Weekends, in 90-minute sessions between 9:00am and 4:15pm, with 15-minute breaks between groups."],
+          ["Is this a scholarship?", "It's run like one: every GCSE place is funded down to £10 a lesson, well below what tutoring normally costs. You still pay the £40/month listed price (it's not free or means-tested), but that price is subsidised on purpose so any family can access it. Think scholarship-style funding, not a discount."],
+          ["How do I join GCSE or the scholarship?", "Both are apply-and-be-accepted, not a card checkout: fill in a short form, Isham reviews it, and you're emailed once there's a decision. Payment for GCSE places is then arranged directly, not by card on the site."],
+          ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject once a month."],
+          ["When are GCSE lessons?", "Friday or Saturday evenings, one 90-minute group session a week from 5:00pm."],
           ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
           ["Where are lessons held?", "Live on Google Meet, your join link appears on your booking page before each lesson."],
-          ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level sessions are private one-to-one."],
+          ["How big are the groups?", "GCSE runs in groups of 5 max, so everyone gets airtime. A-level and the scholarship are private one-to-one."],
           ["Can I cancel?", "Yes, there's a \"Cancel my plan\" button on your Book page under Account. You keep booking access through whatever you've already paid for, it just won't renew after that. No contract either way."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard. If your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want, just don't renew. For anything else, message, call or email and we'll talk like humans."],
@@ -2457,11 +2741,11 @@ function Privacy() {
         <p style={{ marginTop: 8 }}>When you book: the lessons you book, which subject, and which dates, used to run the timetable and know who's expected in each session.</p>
         <p style={{ marginTop: 8 }}>During term: attendance (present/absent) and short tutor notes on what was covered or set as homework, used so you can see your own progress, and as a basic safeguarding record of who attended what.</p>
         <p style={{ marginTop: 8 }}>If you message or ask a question: the text of that message, tied to your name and email, so it can be answered.</p>
-        <p style={{ marginTop: 8 }}>Payment itself is handled entirely by Stripe. Card details never reach Isham Tuition's own systems, only a confirmation that payment succeeded, and (if Stripe creates one) a customer reference used to show you your own billing portal.</p>
+        <p style={{ marginTop: 8 }}>For plans paid by card, payment is handled entirely by Stripe, card details never reach Isham Tuition's own systems, only a confirmation that payment succeeded, and (if Stripe creates one) a customer reference used to show you your own billing portal. GCSE places are paid for directly (bank transfer), Isham never asks for or stores card details for those.</p>
       </Section>
 
-      <Section title="If you apply for the scholarship">
-        <p>The scholarship application form collects more than a normal sign-up: the student's name, email and (optional) phone; a parent or guardian's name, phone and email; school and year group; predicted grades and GCSE results as you choose to describe them; a short personal statement; and, optionally, self-declared widening-participation circumstances (for example free school meals eligibility, care experience, or similar), used only to help prioritise limited places fairly. Nobody but Isham can read these, and they're never used for anything except reviewing that application. Only the students actually selected can be shown publicly, and only if that box was ticked on the form, and even then only a first name, chosen subjects and a short blurb, never contact details or the widening-participation answers.</p>
+      <Section title="If you apply for GCSE or the scholarship">
+        <p>Applying collects more than a normal sign-up: the student's name, email and (optional) phone; a parent or guardian's name, phone and email; and school. The scholarship application also asks for year group, predicted grades and GCSE results as you choose to describe them, a short personal statement, and, optionally, self-declared widening-participation circumstances (for example free school meals eligibility, care experience, or similar), used only to help prioritise limited places fairly. Nobody but Isham can read these, and they're never used for anything except reviewing that application. For the scholarship, only students actually selected can be shown publicly, and only if that box was ticked on the form, and even then only a first name, chosen subjects and a short blurb, never contact details or the widening-participation answers.</p>
       </Section>
 
       <Section title="Where it's stored">
@@ -2686,7 +2970,7 @@ function RenewBadge({ paidUntil, plan }) {
   );
 }
 
-function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, acceptScholarship, go }) {
+function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, moveBooking, addStudentManual, updatePaidUntil, addTestimonial, removeTestimonial, removeWaitlistEntry, updateScholarshipStatus, acceptScholarship, updateGCSEStatus, acceptGCSE, go }) {
   const [step, setStep] = useState("checking"); // checking | login | challenge | in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -2699,6 +2983,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const [tf, setTf] = useState({ name: "", quote: "", detail: "" });
   const [calFilter, setCalFilter] = useState(null);
   const [scholarFilter, setScholarFilter] = useState("all");
+  const [gcseFilter, setGcseFilter] = useState("all");
   const [enroll, setEnroll] = useState(null); // {factorId, qr, secret}
   const [enrollCode, setEnrollCode] = useState("");
   const [hasMfa, setHasMfa] = useState(true);
@@ -2854,7 +3139,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       </div>
 
       <div className="it-admin-jumpnav">
-        {[["overview", "Overview"], ["timetable", "Timetable"], ["students", "Students"], ["scholarship", "Scholarship"], ["testimonials", "Testimonials"], ["messages", "Messages"]].map(([id, label]) => (
+        {[["overview", "Overview"], ["timetable", "Timetable"], ["students", "Students"], ["gcse", "GCSE"], ["scholarship", "Scholarship"], ["testimonials", "Testimonials"], ["messages", "Messages"]].map(([id, label]) => (
           <button key={id} onClick={() => document.getElementById("admin-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{label}</button>
         ))}
       </div>
@@ -2908,7 +3193,9 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
       <div id="admin-overview" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 30, scrollMarginTop: 90 }}>
         {(isMaster ? [
           ["My gross / month", "£" + grossFor("isham").toFixed(0), "💷"],
-          ["Places", `${store.takenCount || 0} / ${CAP}`, "🎓"],
+          ["Active places", `${store.takenCount || 0} / ${CAP}`, "🎓"],
+          ["GCSE spots", `${store.gcseSpotsTaken || 0} / ${GCSE_SPOTS}`, "📘"],
+          ["Scholarship spots", `${store.scholarshipSpotsTaken || 0} / ${SCHOLARSHIP_SPOTS}`, "❤️"],
           ["Registered students", String(store.subscribers.length), "👥"],
           ["Lessons booked", String(store.bookings.length), "📅"],
           ["Messages", String(store.messages.length), "✉️"],
@@ -3082,6 +3369,64 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
         );
       })()}
 
+      <h2 id="admin-gcse" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>GCSE applications</h2>
+      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 4, marginBottom: 12 }}>
+        {GCSE_SPOTS - (store.gcseApps || []).filter((a) => a.status === "accepted").length} of {GCSE_SPOTS} spots still open.
+        Accepting sets them up with real dashboard access on the plan applied for; payment is then arranged directly with you, not by card on the site.
+      </p>
+      {(() => {
+        const apps = store.gcseApps || [];
+        const counts = { all: apps.length, pending: 0, accepted: 0, declined: 0 };
+        for (const a of apps) counts[a.status] = (counts[a.status] || 0) + 1;
+        const shown = gcseFilter === "all" ? apps : apps.filter((a) => a.status === gcseFilter);
+        return (
+          <>
+            <div className="it-admin-jumpnav" style={{ position: "static", borderBottom: "none", marginBottom: 14, padding: 0 }}>
+              {[["all", "All"], ["pending", "Pending"], ["accepted", "Accepted"], ["declined", "Declined"]].map(([id, label]) => (
+                <button key={id} onClick={() => setGcseFilter(id)}
+                  style={{ background: gcseFilter === id ? "var(--mint)" : "var(--aqua)", color: gcseFilter === id ? "#fff" : "var(--mint-dark)" }}>
+                  {label} ({counts[id] || 0})
+                </button>
+              ))}
+            </div>
+            <div className="it-card" style={{ padding: 18, overflowX: "auto" }}>
+              {shown.length === 0 ? (
+                <EmptyState icon="cap" text={apps.length === 0 ? "No GCSE applications yet." : "Nothing in this filter."} />
+              ) : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {shown.map((a) => (
+                    <div key={a.id} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                        <div>
+                          <strong style={{ fontSize: 14.5 }}>{a.student_name}</strong>{" "}
+                          <span className="it-chip" style={{
+                            background: a.status === "accepted" ? "#E8F8EC" : a.status === "declined" ? "#FFF1EF" : "#F4F4F4",
+                            color: a.status === "accepted" ? "#1F7A41" : a.status === "declined" ? "#8A3126" : "var(--ink-soft)",
+                          }}>{a.status}</span>
+                        </div>
+                        <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{(a.created || "").slice(0, 10)}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 8, display: "grid", gap: 3 }}>
+                        <div>Student: {a.student_email} {a.student_phone && `· ${a.student_phone}`}</div>
+                        <div>Parent/guardian: {a.parent_name} · {a.parent_phone} · {a.parent_email}</div>
+                        {a.school && <div>School: {a.school}</div>}
+                        <div>Plan: {(PLANS[a.plan] || {}).name || a.plan}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {a.status !== "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => acceptGCSE(a)}>Accept</button>}
+                        {a.status !== "declined" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateGCSEStatus(a.id, "declined")}>Decline</button>}
+                        {a.status !== "pending" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => updateGCSEStatus(a.id, "pending")}>Reset</button>}
+                        {a.status === "accepted" && <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => go("gcse-accepted")}>View welcome page →</button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
+
       {isMaster && (<>
       <h2 id="admin-testimonials" className="it-display" style={{ fontSize: 20, fontWeight: 800, marginTop: 34, scrollMarginTop: 90 }}>Testimonials</h2>
       <div className="it-card" style={{ padding: 18, marginTop: 12 }}>
@@ -3215,7 +3560,7 @@ function PasswordRecoveryOverlay({ onDone }) {
 /* ---------- app shell ---------- */
 export default function App() {
   const [page, setPage] = useState(() => (new URLSearchParams(window.location.search).get("paid") ? "book" : "home"));
-  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0, scholarshipRecentCount: 0 });
+  const [store, setStore] = useState({ subscribers: [], bookings: [], messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0, scholarshipRecentCount: 0, gcseApps: [], gcseSpotsTaken: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
@@ -3417,6 +3762,37 @@ export default function App() {
       notify("Accepted, but couldn't set up their dashboard access, add them manually from the Students tab");
     }
   };
+  const addGCSEApplication = async (a) => {
+    const { error } = await supa.from("gcse_applications").insert(a);
+    if (error) throw new Error(error.message);
+  };
+  const updateGCSEStatus = async (id, status) => {
+    const { error } = await supa.from("gcse_applications").update({ status }).eq("id", id);
+    if (error) throw new Error(error.message);
+    setStore((st) => ({ ...st, gcseApps: st.gcseApps.map((a) => a.id === id ? { ...a, status } : a) }));
+    notify(status === "accepted" ? "Applicant accepted ✓" : status === "declined" ? "Applicant declined" : "Status updated");
+  };
+  // Same pattern as acceptScholarship: accepting provisions real dashboard
+  // access on the plan the application was for (gcse or gcse3), rather than
+  // just flipping a status label. Payment itself is arranged directly with
+  // Isham (bank transfer), not through the site, so there's no Stripe step.
+  const acceptGCSE = async (app) => {
+    await updateGCSEStatus(app.id, "accepted");
+    const plan = PLANS[app.plan] || PLANS.gcse;
+    const paidUntil = addMonths(plan.months);
+    const existing = store.subscribers.find((s) => s.email.toLowerCase() === app.student_email.toLowerCase());
+    try {
+      if (existing) {
+        const { error } = await supa.from("students").update({ plan: plan.id, paid_until: paidUntil, cancelled: false }).eq("id", existing.id);
+        if (error) throw new Error(error.message);
+        setStore((st) => ({ ...st, subscribers: st.subscribers.map((s) => s.id === existing.id ? { ...s, plan: plan.id, paid_until: paidUntil, cancelled: false } : s) }));
+      } else {
+        await addStudentManual({ name: app.student_name, email: app.student_email.toLowerCase(), phone: app.student_phone || null, plan: plan.id, paid_until: paidUntil, tutor: "isham" });
+      }
+    } catch (e) {
+      notify("Accepted, but couldn't set up their dashboard access, add them manually from the Students tab");
+    }
+  };
   const removeSubscriber = async (id) => {
     const gone = store.subscribers.find((s) => s.id === id);
     await supa.from("students").delete().eq("id", id);
@@ -3428,8 +3804,7 @@ export default function App() {
     }));
   };
 
-  const taken = store.takenCount || 0;
-  const nav = [["home", "Home", "home"], ["pricing", "Plans", "star"], ["scholarship", "Scholarship", "heart"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
+  const nav = [["home", "Home", "home"], ["gcse", "GCSE", "cap"], ["scholarship", "Scholarship", "heart"], ["pricing", "A-level", "star"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
 
   return (
     <div className="it-app">
@@ -3466,9 +3841,9 @@ export default function App() {
       {!loaded ? (
         <Spinner label="Loading…" />
       ) : page === "home" ? (
-        <Home go={setPage} taken={taken} testimonials={store.testimonials || []} />
+        <Home go={setPage} taken={store.gcseSpotsTaken || 0} testimonials={store.testimonials || []} />
       ) : page === "pricing" ? (
-        <Pricing taken={taken} startCheckout={(id) => setCheckoutPlan(id)} />
+        <Pricing startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
         <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} joinWaitlist={joinWaitlist} removeWaitlistEntry={removeWaitlistEntry} promoteWaitlist={promoteWaitlist} refresh={refresh} />
       ) : page === "contact" ? (
@@ -3479,10 +3854,16 @@ export default function App() {
         <ScholarshipApply store={store} addScholarshipApplication={addScholarshipApplication} go={setPage} />
       ) : page === "scholarship-accepted" ? (
         <ScholarshipAccepted go={setPage} />
+      ) : page === "gcse" ? (
+        <GCSELanding store={store} go={setPage} />
+      ) : page === "gcse-apply" ? (
+        <GCSEApply store={store} addGCSEApplication={addGCSEApplication} go={setPage} />
+      ) : page === "gcse-accepted" ? (
+        <GCSEAccepted go={setPage} />
       ) : page === "privacy" ? (
         <Privacy />
       ) : (
-        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} acceptScholarship={acceptScholarship} go={setPage} />
+        <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} acceptScholarship={acceptScholarship} updateGCSEStatus={updateGCSEStatus} acceptGCSE={acceptGCSE} go={setPage} />
       )}
 
       {checkoutPlan && (
@@ -3505,7 +3886,7 @@ export default function App() {
             TikTok <a href="https://www.tiktok.com/@ishamdoesdentistry" target="_blank" rel="noreferrer" style={{ color: "var(--mint-dark)", fontWeight: 700 }}>@ishamdoesdentistry</a>
           </span>
           <span style={{ display: "block", width: "100%", fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Privacy: we collect names, emails and bookings for every student, plus parent/guardian contact details and the information you choose to share if you apply for the scholarship. Never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
+            Privacy: we collect names, emails and bookings for every student, plus parent/guardian contact details and the information you choose to share if you apply for GCSE or the scholarship. Never sold or shared. Cancel your plan or request your data be deleted any time from your Book page account settings, or email me. Full details in the{" "}
             <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 12, fontWeight: 700 }} onClick={() => setPage("privacy")}>privacy policy</button>.
           </span>
           <button className="it-navlink" style={{ fontSize: 13.5 }} onClick={() => setPage("admin")}>Tutor login</button>

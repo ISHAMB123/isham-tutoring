@@ -92,6 +92,49 @@ create table if not exists waitlist (
   created timestamptz not null default now()
 );
 
+-- Medicine & Dentistry Access Scholarship applications. Holds sensitive
+-- info (a minor's parent/guardian contact details, self-declared
+-- widening-participation circumstances) — nobody gets public SELECT on the
+-- raw table, ever. The public "Featured Scholars" showcase is served by
+-- get_featured_scholars() below instead, which only ever returns first
+-- name, subjects and headline for applicants who consented to be public.
+create table if not exists scholarship_applications (
+  id uuid primary key default gen_random_uuid(),
+  student_name text not null,
+  student_email text not null,
+  student_phone text,
+  parent_name text not null,
+  parent_phone text not null,
+  parent_email text not null,
+  school text,
+  year_group text not null default 'Year 12',
+  subjects text[] not null default '{}',
+  predicted_grades text,
+  gcse_summary text,
+  personal_statement text,
+  widening_participation jsonb not null default '{}'::jsonb,
+  consent_public boolean not null default false,
+  status text not null default 'pending', -- pending | waiting | featured | accepted | declined
+  headline text, -- short public blurb, only ever set/edited by the tutor, only shown if featured
+  created timestamptz not null default now()
+);
+
+-- GCSE applications: same apply-and-review model as the scholarship above,
+-- payment arranged directly (bank transfer), not through the site.
+create table if not exists gcse_applications (
+  id uuid primary key default gen_random_uuid(),
+  student_name text not null,
+  student_email text not null,
+  student_phone text,
+  parent_name text not null,
+  parent_phone text not null,
+  parent_email text not null,
+  school text,
+  plan text not null default 'gcse', -- 'gcse' or 'gcse3', which plan to provision on acceptance
+  status text not null default 'pending', -- pending | accepted | declined
+  created timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------
 -- 2. is_tutor() helper — used by every tutor-only RLS policy below.
 --    Add every tutor email here. Only Isham for now.
@@ -183,6 +226,36 @@ create policy "tutor delete waitlist" on waitlist for delete using (is_tutor());
 create policy "own delete waitlist" on waitlist for delete
   using (lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
 
+-- scholarship_applications / gcse_applications: a signed-in applicant can
+-- submit their own application (and only for their own email), read their
+-- own status, but never anyone else's — only a tutor gets full access.
+-- One application per student account on each table.
+alter table scholarship_applications enable row level security;
+create policy "auth insert scholarship_applications" on scholarship_applications for insert with check (
+  auth.uid() is not null and lower(student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+);
+create unique index if not exists scholarship_applications_student_email_key
+  on scholarship_applications (lower(student_email));
+create policy "tutor select scholarship_applications" on scholarship_applications for select using (is_tutor());
+create policy "own select scholarship_applications" on scholarship_applications for select using (
+  lower(student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+);
+create policy "tutor update scholarship_applications" on scholarship_applications for update using (is_tutor());
+create policy "tutor delete scholarship_applications" on scholarship_applications for delete using (is_tutor());
+
+alter table gcse_applications enable row level security;
+create policy "auth insert gcse_applications" on gcse_applications for insert with check (
+  auth.uid() is not null and lower(student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+);
+create unique index if not exists gcse_applications_student_email_key
+  on gcse_applications (lower(student_email));
+create policy "tutor select gcse_applications" on gcse_applications for select using (is_tutor());
+create policy "own select gcse_applications" on gcse_applications for select using (
+  lower(student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+);
+create policy "tutor update gcse_applications" on gcse_applications for update using (is_tutor());
+create policy "tutor delete gcse_applications" on gcse_applications for delete using (is_tutor());
+
 -- ---------------------------------------------------------------------
 -- 4. Functions
 -- ---------------------------------------------------------------------
@@ -218,6 +291,37 @@ language sql stable security definer set search_path = public as $$
   select date, block, subject, count(*)::bigint as taken
   from bookings
   group by date, block, subject;
+$$;
+
+-- Public-safe counts for the "X of 10 spots" meters on the Scholarship and
+-- GCSE landing pages, and the public "Featured Scholars" showcase (only
+-- ever the fields an applicant explicitly consented to show — first name
+-- only, since these are minors, never contact info or WP answers).
+create or replace function get_scholarship_count()
+returns integer
+language sql stable security definer set search_path = public as $$
+  select count(*)::int from scholarship_applications where status in ('featured', 'accepted');
+$$;
+
+create or replace function get_scholarship_recent_count()
+returns integer
+language sql stable security definer set search_path = public as $$
+  select count(*)::int from scholarship_applications where created >= now() - interval '7 days';
+$$;
+
+create or replace function get_featured_scholars()
+returns table (id uuid, student_name text, subjects text[], headline text)
+language sql stable security definer set search_path = public as $$
+  select id, split_part(student_name, ' ', 1) as student_name, subjects, headline
+  from scholarship_applications
+  where status in ('featured', 'accepted') and consent_public = true
+  order by created desc;
+$$;
+
+create or replace function get_gcse_count()
+returns integer
+language sql stable security definer set search_path = public as $$
+  select count(*)::int from gcse_applications where status = 'accepted';
 $$;
 
 -- Server-side backstop so a booking can never be inserted past a plan's
@@ -343,7 +447,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['bookings', 'students', 'meet_links', 'lesson_notes', 'waitlist'] loop
+  foreach t in array array['bookings', 'students', 'meet_links', 'lesson_notes', 'waitlist', 'scholarship_applications', 'gcse_applications'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t

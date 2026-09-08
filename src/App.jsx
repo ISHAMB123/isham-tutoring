@@ -611,7 +611,7 @@ function Home({ go, taken, testimonials }) {
           <div>
             <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="cap" size={13} /> Dental student · ranked top of my school for grades</span>
             <h1 className="it-display" style={{ fontSize: "clamp(34px,4.6vw,58px)", lineHeight: 1.05, margin: "18px 0 10px", fontWeight: 800 }}>
-              GCSE tuition for <span className="it-grad">£5 a lesson.</span>
+              GCSE tuition for <span className="it-grad">£3 an hour.</span>
             </h1>
             <p style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", maxWidth: 560, lineHeight: 1.5, margin: "0 0 14px" }}>
               Serious GCSE support without the serious price tag: £40/month for 8 lessons.
@@ -622,7 +622,7 @@ function Home({ go, taken, testimonials }) {
               and this September I start dental school. Now I'm doing the same for the next kid like me.
             </p>
             <div style={{ display: "flex", gap: 12, margin: "26px 0 14px", flexWrap: "wrap" }}>
-              <button className="it-btn" onClick={() => go("gcse")}>Apply now, from £5 a lesson</button>
+              <button className="it-btn" onClick={() => go("gcse")}>Apply now, from £3 an hour</button>
               <button className="it-btn ghost" onClick={() => go("book")}>Already a student? Book</button>
             </div>
             <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 26px" }}>

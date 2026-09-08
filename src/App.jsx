@@ -1014,7 +1014,7 @@ function ScholarshipLanding({ store, go }) {
               <div key={s.id} className="it-card" style={{ padding: 14 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
                   <Avatar initials={(s.student_name[0] || "?").toUpperCase()} size={30} />
-                  <strong style={{ fontSize: 13.5 }}>{s.student_name}</strong>
+                  <strong style={{ fontSize: 13.5 }}>{(s.student_name[0] || "?").toUpperCase()}****</strong>
                 </div>
                 {s.headline && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0" }}>{s.headline}</p>}
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(s.subjects || []).map((sub) => <SubjectChip key={sub} subject={sub} />)}</div>
@@ -2379,7 +2379,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
       ? "Change this lesson? It'll be freed up and the calendar will open so you can pick a new date yourself. Heads up, subjects rotate weekly, so a different week may mean a different subject."
       : "Change this lesson's time? It'll be freed up, and the calendar will open so you can pick a new slot, same subject.";
     if (!confirm(msg)) return;
-    const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
+    const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id });
     if (error || data === false) { alert("Couldn't change. Lessons can only be changed more than 24 hours in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);
@@ -2389,7 +2389,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
   };
   const cancelLesson = async (b) => {
     if (!confirm("Cancel this lesson? The lesson returns to your allowance and the seat is freed, you can rebook a different slot.")) return;
-    const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id, p_email: session.user.email });
+    const { data, error } = await supa.rpc("cancel_booking", { p_booking: b.id });
     if (error || data === false) { alert("Couldn't cancel. Lessons can only be cancelled more than 24 hours in advance."); return; }
     await refresh();
     promoteWaitlist(b.date, b.block, b.blockLabel);

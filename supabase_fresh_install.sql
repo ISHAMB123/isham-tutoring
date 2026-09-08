@@ -122,7 +122,14 @@ alter table waitlist enable row level security;
 -- Sign-up needs a public INSERT so new students can register before they
 -- have a session.
 create policy "tutor select students" on students for select using (is_tutor());
-create policy "public insert students" on students for insert with check (true);
+-- Anyone can create the initial row (needed for the public Checkout
+-- signup step, before payment), but only leaving paid_until unset and
+-- cancelled false — a direct API call can't grant itself paid access.
+-- Only a signed-in tutor (Admin's manual-add/accept flows) or the
+-- service-role Stripe webhook can set paid_until.
+create policy "insert own or tutor students" on students for insert with check (
+  (paid_until is null and cancelled = false) or is_tutor()
+);
 create policy "tutor update students" on students for update using (is_tutor());
 create policy "tutor delete students" on students for delete using (is_tutor());
 
@@ -166,7 +173,9 @@ create policy "public select chat_messages" on chat_messages for select using (t
 create policy "public insert chat_messages" on chat_messages for insert with check (true);
 
 -- waitlist: anyone can join it (writing their own request), only tutors can see who's on it.
-create policy "public insert waitlist" on waitlist for insert with check (true);
+create policy "own insert waitlist" on waitlist for insert with check (
+  lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+);
 create policy "tutor select waitlist" on waitlist for select using (is_tutor());
 create policy "tutor delete waitlist" on waitlist for delete using (is_tutor());
 create policy "own delete waitlist" on waitlist for delete
@@ -194,18 +203,60 @@ language sql stable security definer set search_path = public as $$
   where paid_until is not null and paid_until >= current_date;
 $$;
 
--- Lets a signed-in student cancel one of their own bookings by id,
--- checked against their own email so one student can't cancel another's.
-create or replace function cancel_booking(p_booking uuid, p_email text)
+-- Lets a signed-in student cancel one of their own bookings by id, more
+-- than 24 hours before it starts. Uses the caller's own JWT email, never a
+-- client-supplied parameter — otherwise anyone who knew a student's email
+-- could cancel that student's booking without ever logging in as them.
+create or replace function cancel_booking(p_booking uuid)
 returns boolean
 language plpgsql security definer set search_path = public as $$
+declare
+  v_date date;
+  v_block text;
+  v_student_id uuid;
+  v_start_minutes int;
+  v_lesson_start timestamptz;
+  v_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
 begin
-  delete from bookings b
-  using students s
-  where b.id = p_booking
-    and b.student_id = s.id
-    and lower(s.email) = lower(p_email);
-  return found;
+  if v_email = '' then
+    return false;
+  end if;
+
+  select date, block, student_id into v_date, v_block, v_student_id
+  from bookings where id = p_booking;
+
+  if v_student_id is null then
+    return false;
+  end if;
+
+  if not exists (
+    select 1 from students where id = v_student_id and lower(email) = v_email
+  ) then
+    return false;
+  end if;
+
+  -- Start-time offsets (minutes since midnight) must mirror the block
+  -- definitions in src/App.jsx — keep the two in sync if slots ever change.
+  v_start_minutes := case v_block
+    when 'b1' then 540  when 'b2' then 645  when 'b3' then 780  when 'b4' then 885
+    when 'e1' then 1140 when 'e2' then 1215
+    when 'g1' then 1020
+    when 'sc1' then 1125 when 'sc2' then 1200
+    else null
+  end;
+
+  if v_start_minutes is null then
+    return false;
+  end if;
+
+  v_lesson_start := v_date::timestamptz + (v_start_minutes || ' minutes')::interval;
+
+  if v_lesson_start - now() <= interval '24 hours' then
+    return false;
+  end if;
+
+  delete from bookings where id = p_booking;
+  return true;
 end;
 $$;
 

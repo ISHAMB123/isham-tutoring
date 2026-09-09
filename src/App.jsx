@@ -5,41 +5,20 @@ import { createClient } from "@supabase/supabase-js";
    Isham Tutoring: LIVE version, connected to Supabase.
    Every booking / sign-up / message saves to your database.
    GCSE weekends rotate: Wk1 Maths → Bio → Chem → Physics.
-   NOTE: payments still simulated, swap in Stripe Payment
-   Links where marked STRIPE below.
+   Every plan is apply-and-be-accepted, payment is arranged
+   directly with Isham, not by self-serve card checkout.
    ============================================================ */
 
 /* ---- YOUR DATABASE ---- */
 const SUPABASE_URL = "https://nhgaolgdzekzwywwdgat.supabase.co";
 const SUPABASE_KEY = "sb_publishable_jLvc4iVio_-0ciLN5oPaSA_JsMr4Dej";
 
-/* ---- TUTOR & STRIPE ---- */
+/* ---- TUTOR ---- */
 const TUTORS = {
   isham: { id: "isham", name: "Isham Bari", email: "ishambari6@gmail.com", dept: "stem", master: true },
 };
 const FEES = { isham: 0 };
 const feeRate = (tid) => FEES[tid] || 0;
-
-const STRIPE_LIVE = {
-  isham: {
-    gcse:  "https://buy.stripe.com/dRm3cudfR5297eHdT0es000",
-    gcse3: "https://buy.stripe.com/8x200i6RtgKR8iL02aes001",
-    alevel:"https://buy.stripe.com/5kQ4gy4JlfGN9mP6qyes002",
-  },
-};
-
-/* Stripe TEST-mode links, pay with card 4242 4242 4242 4242, any future
-   expiry/CVC, nothing real is charged. Plans with no test link below fall
-   back to the demo-checkout notice while STRIPE_MODE is "test". Flip
-   STRIPE_MODE back to "live" once you're done testing. */
-const STRIPE_TEST = {
-  isham: {
-    gcse: "https://buy.stripe.com/test_dRm3cudfR5297eHdT0es000",
-  },
-};
-
-const STRIPE_MODE = "test"; // "test" | "live"
-const STRIPE = STRIPE_MODE === "test" ? STRIPE_TEST : STRIPE_LIVE;
 
 const CONTACT = { email: "hello@ishamtuition.com" };
 const CAP = 20;
@@ -59,18 +38,16 @@ const EVENING_BLOCK = [
 // Friday, Saturday AND Sunday so families can attend twice in a week (the
 // same subject both times, since subjects rotate weekly, not daily) to get
 // back to 8 lessons/month at £5 a lesson / £3 an hour, same as before
-// the schedule moved to evenings. Friday only has room for this one slot
-// before the existing A-level slot starts at 7pm; Saturday and Sunday are
-// free of that conflict, so a family picks whichever two of the three days
-// suit them that week.
+// the schedule moved to evenings. A family picks whichever two of the
+// three days suit them that week.
 const GCSE_EVENING_BLOCK = [
   { id: "g1", label: "5:00 – 6:30pm", s: 1020, e: 1110 },
 ];
-// Scholarship (Y12) runs in groups of 5, same as GCSE, on Saturday evening
+// Scholarship (Y13) runs in groups of 5, same as GCSE, on Saturday evening
 // (after the GCSE slot ends) and all of Sunday evening, so it never
-// collides with GCSE or the existing Wed/Fri A-level slots. Two groups of
-// 5 (10 students) each need a Biology slot and a Chemistry slot a week,
-// which is exactly the 4 slot-instances these two blocks give across Sat+Sun.
+// collides with GCSE. Two groups of 5 (10 students) each need a Biology
+// slot and a Chemistry slot a week, which is exactly the 4 slot-instances
+// these two blocks give across Sat+Sun.
 const SCHOLARSHIP_BLOCKS = [
   { id: "sc1", label: "6:45 – 7:45pm", s: 1125, e: 1185 },
   { id: "sc2", label: "8:00 – 9:00pm", s: 1200, e: 1260 },
@@ -113,13 +90,8 @@ const PLANS = {
     subjects: SUBJECT_CYCLE, cycle: SUBJECT_CYCLE, perSubjectCap: 2, days: "fri-sat-sun", blocks: GCSE_EVENING_BLOCK, rotates: true, seats: 5, dept: "stem",
     hidden: true, // kept for admin to assign manually; not offered on the public application form
   },
-  alevel: {
-    id: "alevel", name: "A-level STEM Support", price: 40, per: "/month", lessons: 2, months: 1,
-    blurb: "2 private one-to-one evening lessons a month (1 hour each) in your chosen subject, just you and the tutor. Wednesdays & Fridays.",
-    subjects: ["Maths", "Biology", "Chemistry"], perSubjectCap: 2, days: "evening", blocks: EVENING_BLOCK, rotates: false, seats: 1, dept: "stem",
-  },
   scholarship: {
-    id: "scholarship", name: "Medicine & Dentistry Access Scholarship", price: 40, per: "/month", lessons: 8, months: 1,
+    id: "scholarship", name: "Year 13 Medicine & Dentistry Scholarship", price: 40, per: "/month", lessons: 8, months: 1,
     blurb: "Weekly group lessons (groups of 5) around Saturday and Sunday evenings, on a monthly rotation: Biology one month, Chemistry the next, plus UCAT strategy and interview/personal statement support arranged directly by email.",
     subjects: ["Biology", "Chemistry"], cycle: ["Biology", "Chemistry"], monthlyRotates: true, perSubjectCap: 8, days: "weekend", blocks: SCHOLARSHIP_BLOCKS, rotates: false, seats: 5, dept: "stem",
     hidden: true, // application-and-review only; never a self-serve checkout on the public Plans page
@@ -750,6 +722,19 @@ function Home({ go, taken, testimonials }) {
         </Reveal>
       </section>
 
+      <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
+        <Reveal className="it-card" style={{ padding: "26px 28px", display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", border: "1.5px solid var(--mint)" }}>
+          <div style={{ maxWidth: 620 }}>
+            <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 8 }}><Icon name="heart" size={13} /> Y13 Scholarship</span>
+            <h2 className="it-display" style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px" }}>Aiming at medicine or dentistry? There's a funded place for that.</h2>
+            <p style={{ color: "var(--ink-soft)", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+              For Year 12s going into Year 13: Biology, Chemistry, UCAT strategy and interview coaching, built for families who couldn't otherwise afford this kind of help.
+            </p>
+          </div>
+          <button className="it-btn" onClick={() => go("scholarship")} style={{ flex: "none" }}>See the Y13 Scholarship →</button>
+        </Reveal>
+      </section>
+
       {testimonials.length > 0 && (
         <section style={{ padding: "56px 24px 0", maxWidth: 1120, margin: "0 auto" }}>
           <h2 className="it-display" style={{ fontSize: 26, fontWeight: 800, marginBottom: 18 }}>What students say</h2>
@@ -819,64 +804,6 @@ function Home({ go, taken, testimonials }) {
           </p>
         </Reveal>
       </section>
-    </div>
-  );
-}
-
-const PLAN_ICON = { gcse: "users", gcse3: "calendar", alevel: "target" };
-
-function Pricing({ startCheckout }) {
-  const fullFor = () => false; // no shared cap on this page any more, GCSE/scholarship have their own apply-and-accept spot counters
-  return (
-    <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 1120, margin: "0 auto" }}>
-      <span className="it-tag">Plans &amp; pricing</span>
-      <h1 className="it-display" style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 8px" }}>Simple, transparent plans</h1>
-      <p style={{ color: "var(--ink-soft)", marginBottom: 28, maxWidth: 620 }}>
-        Priced for families who can't stretch to normal tutoring. No contracts, cancel any month.
-      </p>
-      <div className="it-steps">
-        {[
-          ["users", "Pick a plan & create your account"],
-          ["shield", "Verify your email and pay securely with Stripe"],
-          ["check", "Booking unlocks the moment payment is confirmed (usually within hours)"],
-        ].map(([icon, t], i, arr) => (
-          <React.Fragment key={t}>
-            <div className="it-step">
-              <div className="it-step-icon"><Icon name={icon} size={17} /></div>
-              <span style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{t}</span>
-            </div>
-            {i < arr.length - 1 && <div className="it-step-connector" />}
-          </React.Fragment>
-        ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 20, marginTop: 30 }}>
-        {Object.values(PLANS).filter((p) => !p.hidden).map((p) => (
-          <div key={p.id} className={"it-card it-plan-card" + (p.id === "gcse" ? " featured" : "")} style={{ padding: 28, display: "flex", flexDirection: "column" }}>
-            {p.id === "gcse" && <div className="it-plan-ribbon">Most popular</div>}
-            <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-              <Icon name={PLAN_ICON[p.id] || "star"} size={20} />
-            </div>
-            {p.deal && <span className="it-tag" style={{ alignSelf: "flex-start", marginBottom: 10, background: "#FFEDE9", color: "#C2402F" }}>{p.deal}, places go fast</span>}
-            <h3 className="it-display" style={{ fontSize: 21, fontWeight: 800, margin: "0 0 6px" }}>{p.name}</h3>
-            <div style={{ margin: "6px 0 12px" }}>
-              <span className="it-display" style={{ fontSize: 38, fontWeight: 800 }}>{gbp(p.price)}</span>
-              <span style={{ color: "var(--ink-soft)" }}>{p.per}</span>
-            </div>
-            <p style={{ fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6, flex: 1 }}>{p.blurb}</p>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              {p.subjects.map((s) => <SubjectChip key={s} subject={s} />)}
-            </div>
-            <ul style={{ padding: 0, listStyle: "none", margin: "0 0 18px", fontSize: 14, color: "var(--ink-soft)", lineHeight: 2 }}>
-              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.months === 3 ? "24 × 90-min lessons (8 / month)" : p.days === "weekend" ? "8 × 90-min lessons / month" : `${p.lessons} × 1-hour 1-to-1 lesson${p.lessons > 1 ? "s" : ""} / month`}</li>
-              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.days === "weekend" ? "Weekends, 9:00am–4:15pm" : "Wed & Fri evenings, 7:00–9:15pm"}</li>
-              <li style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><span style={{ color: "var(--mint)", flex: "none", marginTop: 4 }}><Icon name="check" size={13} /></span>{p.seats === 1 ? "Private 1-to-1" : `Groups of ${p.seats} max`} · Google Meet</li>
-            </ul>
-            <button className="it-btn" disabled={fullFor(p)} onClick={() => startCheckout(p.id)}>
-              {fullFor(p) ? "Programme full" : "Join plan"}
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -986,7 +913,7 @@ function ScholarshipLanding({ store, go }) {
   const closed = spotsLeft <= 0;
   return (
     <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 760, margin: "0 auto" }}>
-      <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
+      <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Y13 Scholarship · Medicine &amp; Dentistry</span>
       <h1 className="it-display" style={{ fontSize: 32, fontWeight: 800, margin: "12px 0 8px" }}>A funded place for Year 12s going into Year 13, aiming at medicine or dentistry</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 640 }}>
         Taught by a UK dental student and a UCL medical student: A-level Biology and Chemistry, UCAT strategy, interview coaching and personal statement support, in one place. Built for families who couldn't otherwise afford this kind of help.
@@ -1173,7 +1100,7 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
     return (
       <div className="it-fade" style={{ padding: "56px 24px", maxWidth: 420, margin: "0 auto" }}>
         <button className="it-navlink" style={{ padding: 0, fontSize: 12.5, marginBottom: 10 }} onClick={() => go("scholarship")}>← Back to Scholarship</button>
-        <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Medicine &amp; Dentistry Access Scholarship</span>
+        <span className="it-tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="heart" size={13} /> Y13 Scholarship · Medicine &amp; Dentistry</span>
         <div className="it-card" style={{ padding: 32, marginTop: 16 }}>
           <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--pop)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
             <Icon name="shield" size={21} />
@@ -1370,7 +1297,7 @@ function ScholarshipAccepted({ go }) {
       <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--aqua)", color: "var(--mint-dark)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Icon name="heart" size={26} /></div>
       <h1 className="it-display" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Welcome to the scholarship</h1>
       <p style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
-        You've been accepted onto the Medicine &amp; Dentistry Access Scholarship. Your dashboard is ready, book your sessions there. We'll also be in touch by email with your parent/guardian about UCAT strategy and interview/personal statement workshops.
+        You've been accepted onto the Y13 Medicine &amp; Dentistry Scholarship. Your dashboard is ready, book your sessions there. We'll also be in touch by email with your parent/guardian about UCAT strategy and interview/personal statement workshops.
       </p>
       <button className="it-btn" style={{ marginTop: 8 }} onClick={() => go("book")}>Go to your dashboard →</button>
       <div className="it-card" style={{ padding: 20, marginTop: 20, textAlign: "left" }}>
@@ -1645,102 +1572,6 @@ function GCSEAccepted({ go }) {
       <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 20 }}>
         Questions in the meantime? <button className="it-navlink" style={{ padding: 0, display: "inline", fontSize: 13 }} onClick={() => go("contact")}>Get in touch</button>.
       </p>
-    </div>
-  );
-}
-
-function Checkout({ planId, onDone, onFinish, onCancel }) {
-  const plan = PLANS[planId];
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [paying, setPaying] = useState(false);
-  const [done, setDone] = useState(false);
-  const payLink = (STRIPE.isham || {})[planId] || null;
-  const submit = async () => {
-    if (!name.trim() || !email.includes("@")) return alert("Please enter your name and a valid email.");
-    if (password.length < 8) return alert("Password must be at least 8 characters.");
-    setPaying(true);
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const { data: authData, error: authErr } = await supa.auth.signUp({
-        email: cleanEmail, password, options: { emailRedirectTo: "https://www.ishamtuition.com" },
-      });
-      if (authErr) throw authErr;
-      // paid_until stays null until Isham confirms the payment in the dashboard
-      await onDone({ name: name.trim(), email: cleanEmail, phone: phone.trim() || null, plan: planId, paid_until: null });
-      notifyServer({ type: "signup", name: name.trim(), email: cleanEmail, plan: plan.name });
-      if (payLink) window.open(payLink, "_blank");
-      if (authData && authData.session) {
-        // email confirmation isn't required on this project; already signed in, skip straight to the dashboard
-        onFinish();
-      } else {
-        setDone(true);
-      }
-    } catch (e) {
-      setPaying(false);
-      console.error("Checkout failed:", e); // full detail for diagnosing; never rely on the alert text alone
-      const raw = (e && e.message) || "";
-      const msg = raw && raw !== "{}" ? raw : "";
-      if (String(e).includes("duplicate") || e.status === 409) {
-        alert("That email already has a plan, go to Book and sign in there.");
-      } else if (msg) {
-        alert(msg);
-      } else {
-        alert("Something went wrong saving your details. This usually means a temporary connection hiccup. Please wait a few seconds and try again, and message Isham if it keeps happening.");
-      }
-    }
-  };
-
-  if (done) {
-    return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
-        <div className="it-card it-fade" style={{ padding: 30, width: 440, maxWidth: "100%" }}>
-          <h3 className="it-display" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800 }}>Almost there ✓</h3>
-          <p style={{ color: "var(--ink-soft)", margin: "0 0 20px" }}>
-            Check your inbox to verify your email. Booking unlocks the moment payment is confirmed, usually within hours.
-          </p>
-          <button className="it-btn" onClick={onFinish}>Done</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,67,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
-      <div className="it-card it-fade" style={{ padding: 32, width: 440, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-          <h3 className="it-display" style={{ margin: 0, fontSize: 21, fontWeight: 800 }}>{plan.name}</h3>
-          <span className="it-display" style={{ fontSize: 22, fontWeight: 800, whiteSpace: "nowrap" }}>{gbp(plan.price)}<span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>{plan.per}</span></span>
-        </div>
-        <p style={{ color: "var(--ink-soft)", fontSize: 13, margin: "0 0 22px" }}>Enter your details to set up your login, then continue to payment.</p>
-        <div style={{ display: "grid", gap: 16 }}>
-          <div>
-            <label style={fieldLabel}>Student name</label>
-            <input className="it-input" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <label style={fieldLabel}>Email</label>
-            <input className="it-input" placeholder="you@example.com" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <label style={fieldLabel}>Phone number (optional)</label>
-            <input className="it-input" placeholder="07…" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          <div>
-            <label style={fieldLabel}>Password</label>
-            <PasswordField placeholder="Min 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          {!payLink && (
-            <div style={{ background: "var(--aqua)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
-              Demo checkout: no card is charged yet. Payment details will be arranged by email until online payment goes live.
-            </div>
-          )}
-          <button className="it-btn" onClick={submit} disabled={paying}>{paying ? "Saving…" : payLink ? `Continue to payment, ${gbp(plan.price)}` : `Join, ${gbp(plan.price)}`}</button>
-          <button className="it-btn ghost" onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2331,7 +2162,7 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
 
         <div className="it-card" style={{ padding: "14px 18px", marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>New to Isham Tuition?</span>
-          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={() => go("pricing")}>See plans & join first →</button>
+          <button className="it-btn ghost" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={() => go("home")}>Apply for GCSE or the scholarship →</button>
         </div>
       </div>
     );
@@ -2340,9 +2171,9 @@ function Book({ store, addBooking, addMessage, joinWaitlist, removeWaitlistEntry
     return (
       <div className="it-fade" style={{ padding: "64px 24px", maxWidth: 460, margin: "0 auto" }}>
         <h1 className="it-display" style={{ fontSize: 30, fontWeight: 800 }}>No plan found yet</h1>
-        <p style={{ color: "var(--ink-soft)" }}>We couldn't find a plan for {session.user.email}. Join a plan first on the Plans page.</p>
+        <p style={{ color: "var(--ink-soft)" }}>We couldn't find a plan for {session.user.email}. Every plan here is apply-and-be-accepted, not instant sign-up, apply for GCSE or the scholarship first.</p>
         <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-          <button className="it-btn" onClick={() => go("pricing")}>See plans</button>
+          <button className="it-btn" onClick={() => go("home")}>Apply for GCSE or the scholarship</button>
           <button className="it-btn ghost" onClick={signOut}>Sign out</button>
         </div>
       </div>
@@ -2817,9 +2648,9 @@ function Contact({ addMessage }) {
           ["How do I join GCSE or the scholarship?", "Both are apply-and-be-accepted, not a card checkout: fill in a short form, Isham reviews it, and you're emailed once there's a decision. Payment for GCSE places is then arranged directly, not by card on the site."],
           ["How do GCSE subjects work?", "One subject per week on rotation: Maths week → Biology → Chemistry → Physics → repeat. You get every subject twice a month."],
           ["When are GCSE lessons?", "Friday, Saturday and Sunday evenings, two 90-minute group sessions a week from 5:00pm, pick whichever two days suit you."],
-          ["When are A-level sessions?", "Wednesday and Friday evenings, private 1-hour slots."],
+          ["When are Y13 Scholarship lessons?", "Saturday and Sunday evenings, weekly group sessions."],
           ["Where are lessons held?", "Live on Google Meet, your join link appears on your booking page before each lesson."],
-          ["How big are the groups?", "GCSE and the scholarship both run in groups of 5 max, so everyone gets airtime. A-level is private one-to-one."],
+          ["How big are the groups?", "GCSE and the Y13 Scholarship both run in groups of 5 max, so everyone gets airtime."],
           ["Can I cancel?", "Yes, there's a \"Cancel my plan\" button on your Book page under Account. You keep booking access through whatever you've already paid for, it just won't renew after that. No contract either way."],
           ["What's the Grade A Guarantee?", "Be enrolled 6+ months, attend your lessons, follow the guidance and hand in all homework on time to a genuine standard. If your assessment average still isn't a grade 7 (A) or above, your most recent 3 months of fees are refunded."],
           ["Can I get a refund for another reason?", "Plans have no contract, so you never pay for a month you don't want, just don't renew. For anything else, message, call or email and we'll talk like humans."],
@@ -3028,7 +2859,6 @@ function MoveModal({ booking, onClose, onSave }) {
 function ClassroomLinksCard({ meetLinks, saveMeet }) {
   const groups = [
     { key: classroomKey("gcse"), label: "GCSE group class (GCSE & Term Deal)" },
-    { key: classroomKey("alevel"), label: "A-level STEM Support" },
   ];
   const [drafts, setDrafts] = useState({});
   const [saving, setSaving] = useState(null);
@@ -3704,7 +3534,6 @@ export default function App() {
   const [store, setStore] = useState({ subscribers: [], bookings: [], seatCounts: {}, seatCountsBySlot: {}, messages: [], meetLinks: {}, testimonials: [], waitlist: [], takenCount: 0, scholarshipApps: [], featuredScholars: [], scholarshipSpotsTaken: 0, scholarshipRecentCount: 0, gcseApps: [], gcseSpotsTaken: 0 });
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
-  const [checkoutPlan, setCheckoutPlan] = useState(null);
   const [toast, setToast] = useState(null);
   // Read this synchronously off the URL, not from the "PASSWORD_RECOVERY" auth
   // event: that event fires as soon as Supabase's client is created (module load,
@@ -3749,15 +3578,6 @@ export default function App() {
     }
   }, []);
 
-  const addStudent = async (s) => {
-    const { error } = await supa.from("students").insert(s);
-    if (error) { const e = new Error(error.message); e.status = error.code === "23505" ? 409 : 500; throw e; }
-    const { data } = await supa.rpc("find_student", { p_email: s.email });
-    const row = (data && data[0]) || { id: null, name: s.name, plan: s.plan, paid_until: s.paid_until };
-    // unconfirmed sign-ups do NOT count toward the cap until payment is confirmed
-    setStore((st) => ({ ...st, subscribers: [...st.subscribers, { ...s, ...row }] }));
-    return row;
-  };
   const addBooking = async (b) => {
     const pl = PLANS[b.plan] || PLANS.gcse;
     // Optimistic UI: show the booking as placed immediately (the slot/list update
@@ -3892,7 +3712,7 @@ export default function App() {
   // Accepting an applicant used to only flip a status label, with nowhere for
   // the student to actually land: no students() row meant Book always said
   // "we couldn't find a plan for you". This gives them the same real
-  // dashboard access a paid GCSE/A-level student gets, on the "scholarship"
+  // dashboard access a paid GCSE student gets, on the "scholarship"
   // plan, so they can book their Biology/Chemistry sessions straight away.
   const acceptScholarship = async (app) => {
     await updateScholarshipStatus(app.id, "accepted");
@@ -3957,7 +3777,7 @@ export default function App() {
     }));
   };
 
-  const nav = [["home", "Home", "home"], ["gcse", "GCSE", "cap"], ["scholarship", "Scholarship", "heart"], ["pricing", "A-level", "star"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
+  const nav = [["home", "Home", "home"], ["gcse", "GCSE", "cap"], ["scholarship", "Y13 Scholarship", "heart"], ["book", "Book", "calendar"], ["contact", "FAQ & Contact", "mail"]];
 
   return (
     <div className="it-app">
@@ -3995,8 +3815,6 @@ export default function App() {
         <Spinner label="Loading…" />
       ) : page === "home" ? (
         <Home go={setPage} taken={store.gcseSpotsTaken || 0} testimonials={store.testimonials || []} />
-      ) : page === "pricing" ? (
-        <Pricing startCheckout={(id) => setCheckoutPlan(id)} />
       ) : page === "book" ? (
         <Book store={store} go={setPage} addBooking={addBooking} addMessage={addMessage} joinWaitlist={joinWaitlist} removeWaitlistEntry={removeWaitlistEntry} promoteWaitlist={promoteWaitlist} refresh={refresh} />
       ) : page === "contact" ? (
@@ -4019,11 +3837,6 @@ export default function App() {
         <Admin store={store} saveMeet={saveMeet} saveLessonNote={saveLessonNote} removeSubscriber={removeSubscriber} refresh={refresh} moveBooking={moveBooking} addStudentManual={addStudentManual} updatePaidUntil={updatePaidUntil} addTestimonial={addTestimonial} removeTestimonial={removeTestimonial} removeWaitlistEntry={removeWaitlistEntry} updateScholarshipStatus={updateScholarshipStatus} acceptScholarship={acceptScholarship} deleteScholarshipApp={deleteScholarshipApp} updateGCSEStatus={updateGCSEStatus} acceptGCSE={acceptGCSE} deleteGCSEApp={deleteGCSEApp} go={setPage} />
       )}
 
-      {checkoutPlan && (
-        <Checkout planId={checkoutPlan} onCancel={() => setCheckoutPlan(null)}
-          onDone={async (s) => { await addStudent(s); }}
-          onFinish={() => { setCheckoutPlan(null); setPage("book"); }} />
-      )}
 
       {toast && (
         <div className="it-fade" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "#fff", padding: "12px 20px", borderRadius: 12, fontSize: 14.5, zIndex: 60, boxShadow: "0 2px 10px rgba(0,0,0,.15)" }}>

@@ -88,13 +88,13 @@ export default async function handler(req, res) {
   } else if (type === "applied") {
     const plan = clip(req.body.plan, 60);
     to = [email]; bcc = [OWNER];
-    subject = "You're in, one last step (72 hours) — Isham Tuition";
+    subject = "Welcome to Isham Tuition, join our WhatsApp (72 hours)";
     html = wrapEmail(`
       <p style="margin:0 0 14px;">Hi ${name},</p>
-      <p style="margin:0 0 14px;">Good news, you've been accepted onto the <strong>${plan}</strong>.</p>
-      <p style="margin:0 0 14px;">One last step to confirm your place: join the WhatsApp group below within the next <strong>72 hours</strong>. It's how we send lesson reminders, links and updates.</p>
+      <p style="margin:0 0 14px;"><strong>Welcome to Isham Tuition!</strong> You've been accepted onto the <strong>${plan}</strong>.</p>
+      <p style="margin:0 0 14px;">To get you properly set up, join our WhatsApp group below, that's where everyone gets gathered, and how we send lesson links, reminders and updates.</p>
       ${button("Join the WhatsApp group", WHATSAPP_LINK)}
-      <p style="margin:0 0 14px;">If we haven't heard from you in 72 hours, we'll assume the place isn't needed any more and offer it to the next family on the list, so please don't leave it too late.</p>
+      <p style="margin:0 0 14px;">Please join within the next <strong>72 hours</strong> to confirm your place. If we haven't heard from you by then, we'll assume it isn't needed any more and offer it to the next family on the list.</p>
       <p style="margin:0 0 14px;">Questions? Just reply to this email.</p>
       <p style="margin:0;">Isham</p>
     `);

@@ -1086,6 +1086,7 @@ function ScholarshipApply({ store, addScholarshipApplication, go }) {
         consent_public: f.consent_public, status: "pending",
       });
       notifyServer({ type: "message", name: f.parent_name, email: f.parent_email, text: `Scholarship application from ${f.student_name} (student: ${f.student_email}).` });
+      notifyServer({ type: "applied", name: f.parent_name, email: f.parent_email, plan: PLANS.scholarship.name });
       setSent(true);
     } catch (e) {
       setBusy(false);
@@ -1432,6 +1433,7 @@ function GCSEApply({ store, addGCSEApplication, go }) {
         school: f.school.trim(), plan: "gcse", status: "pending",
       });
       notifyServer({ type: "message", name: f.parent_name, email: f.parent_email, text: `GCSE application from ${f.student_name} (student: ${f.student_email}).` });
+      notifyServer({ type: "applied", name: f.parent_name, email: f.parent_email, plan: PLANS.gcse.name });
       setSent(true);
     } catch (e) {
       setBusy(false);

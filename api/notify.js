@@ -3,10 +3,12 @@
 
 const OWNER = "hello@ishamtuition.com";
 const FROM = "Isham Tuition <hello@ishamtuition.com>";
+const WHATSAPP_LINK = "https://chat.whatsapp.com/EZPjHGM5zlq5yt4RyFbrFO?s=cl&p=i&mlu=4&ilr=4";
 const INK = "#0B1B33";
-const MINT = "#9BE13D";
-const MINT_DARK = "#5C9A1B";
-const PAPER = "#FBF9F3";
+const MINT = "#0E7C86";
+const MINT_DARK = "#0B5F68";
+const PAPER = "#FAFAFA";
+const LINE = "#E5E7EB";
 const clip = (s, n) => String(s || "").slice(0, n);
 
 // Shared branded shell so every email looks like it came from the same site,
@@ -19,12 +21,12 @@ function wrapEmail(bodyHtml) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #E6E1D2;">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${LINE};">
             <tr>
               <td style="background:${INK};padding:20px 28px;">
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="background:${MINT};width:28px;height:28px;border-radius:8px;text-align:center;vertical-align:middle;font-weight:800;font-size:16px;color:${INK};font-family:Arial,sans-serif;">i</td>
+                    <td style="background:${MINT};width:28px;height:28px;border-radius:8px;text-align:center;vertical-align:middle;font-weight:800;font-size:16px;color:#ffffff;font-family:Arial,sans-serif;">i</td>
                     <td style="padding-left:10px;color:#ffffff;font-weight:700;font-size:16px;letter-spacing:.02em;">Isham Tuition</td>
                   </tr>
                 </table>
@@ -36,8 +38,8 @@ function wrapEmail(bodyHtml) {
               </td>
             </tr>
             <tr>
-              <td style="padding:16px 28px;border-top:1px solid #E6E1D2;font-size:12px;color:#8A8878;">
-                Isham Tuition · online GCSE &amp; A-level tuition ·
+              <td style="padding:16px 28px;border-top:1px solid ${LINE};font-size:12px;color:#8A8878;">
+                Isham Tuition · GCSE group tuition &amp; the Y13 Scholarship ·
                 <a href="https://www.ishamtuition.com" style="color:${MINT_DARK};text-decoration:none;">ishamtuition.com</a>
               </td>
             </tr>
@@ -80,6 +82,19 @@ export default async function handler(req, res) {
         <li>Your Google Meet link appears on your booking page before each lesson.</li>
       </ol>
       ${button("Book your lessons", "https://www.ishamtuition.com")}
+      <p style="margin:0 0 14px;">Questions? Just reply to this email.</p>
+      <p style="margin:0;">Isham</p>
+    `);
+  } else if (type === "applied") {
+    const plan = clip(req.body.plan, 60);
+    to = [email]; bcc = [OWNER];
+    subject = "You're in, one last step (72 hours) — Isham Tuition";
+    html = wrapEmail(`
+      <p style="margin:0 0 14px;">Hi ${name},</p>
+      <p style="margin:0 0 14px;">Good news, you've been accepted onto the <strong>${plan}</strong>.</p>
+      <p style="margin:0 0 14px;">One last step to confirm your place: join the WhatsApp group below within the next <strong>72 hours</strong>. It's how we send lesson reminders, links and updates.</p>
+      ${button("Join the WhatsApp group", WHATSAPP_LINK)}
+      <p style="margin:0 0 14px;">If we haven't heard from you in 72 hours, we'll assume the place isn't needed any more and offer it to the next family on the list, so please don't leave it too late.</p>
       <p style="margin:0 0 14px;">Questions? Just reply to this email.</p>
       <p style="margin:0;">Isham</p>
     `);

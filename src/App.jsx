@@ -2930,6 +2930,7 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   const [enroll, setEnroll] = useState(null); // {factorId, qr, secret}
   const [enrollCode, setEnrollCode] = useState("");
   const [hasMfa, setHasMfa] = useState(true);
+  const [invitingPlan, setInvitingPlan] = useState(null);
 
   const [role, setRole] = useState(null);
   const finishLogin = async () => {
@@ -3047,6 +3048,19 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   // must not see or manage another tutor's students, even within the same subject.
   const subs = store.subscribers.filter((s) => isMaster || tutorOf(s) === role.id);
   const mySubIds = new Set(subs.map((s) => s.id));
+  const sendWhatsAppInvite = (s) => notifyServer({ type: "applied", name: s.name, email: s.email, plan: (PLANS[s.plan] || {}).name || s.plan });
+  const sendWhatsAppInviteToAll = async (planId) => {
+    const targets = subs.filter((s) => s.plan === planId && !s.cancelled);
+    if (targets.length === 0) return alert("No current students on that plan.");
+    if (!confirm(`Email the WhatsApp invite (with the 72-hour join deadline) to all ${targets.length} students on ${(PLANS[planId] || {}).name || planId}?`)) return;
+    setInvitingPlan(planId);
+    for (const s of targets) {
+      sendWhatsAppInvite(s);
+      await new Promise((r) => setTimeout(r, 250)); // small stagger, not a burst of 10 at once
+    }
+    setInvitingPlan(null);
+    alert(`Sent to ${targets.length} students.`);
+  };
   const deptBookings = store.bookings.filter((b) => isMaster || mySubIds.has(b.subscriberId));
   const thisMonth = new Date().toISOString().slice(0, 7);
   const grossFor = (tid) => store.subscribers.reduce((t, s) => {
@@ -3236,7 +3250,13 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
           const filteredSubs = q ? subs.filter((s) => (s.name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q)) : subs;
           return (
           <>
-          <input className="it-input" style={{ marginBottom: 12, maxWidth: 320 }} placeholder="Search by name or email…" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+            <input className="it-input" style={{ maxWidth: 320, flex: 1, minWidth: 200 }} placeholder="Search by name or email…" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} />
+            <button className="it-btn ghost" style={{ padding: "9px 14px", fontSize: 13 }} disabled={invitingPlan === "scholarship"}
+              onClick={() => sendWhatsAppInviteToAll("scholarship")}>
+              {invitingPlan === "scholarship" ? "Sending…" : "Email WhatsApp invite to all Y13 Scholarship students"}
+            </button>
+          </div>
           {filteredSubs.length === 0 ? <EmptyState icon="users" text="No students match that search." /> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ textAlign: "left", color: "var(--ink-soft)" }}><th style={{ padding: 6 }}>Name</th><th style={{ padding: 6 }}>Email</th><th style={{ padding: 6 }}>Plan</th><th style={{ padding: 6 }}>Joined</th><th style={{ padding: 6 }}>Renewal</th><th /></tr></thead>
@@ -3261,7 +3281,11 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                         onClick={async () => { const nd = prompt("Paid until (YYYY-MM-DD):", s.paid_until || addMonths(1)); if (nd) await updatePaidUntil(s.id, nd); }}>edit</button>
                     )}
                   </td>
-                  <td style={{ padding: 6 }}><button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => { if (confirm(`Remove ${s.name} and all their bookings?`)) removeSubscriber(s.id); }}>Remove</button></td>
+                  <td style={{ padding: 6, whiteSpace: "nowrap" }}>
+                    <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13, marginRight: 6 }}
+                      onClick={() => { sendWhatsAppInvite(s); alert(`Sent to ${s.email}.`); }}>Invite</button>
+                    <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => { if (confirm(`Remove ${s.name} and all their bookings?`)) removeSubscriber(s.id); }}>Remove</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

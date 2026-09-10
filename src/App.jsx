@@ -3048,18 +3048,31 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
   // must not see or manage another tutor's students, even within the same subject.
   const subs = store.subscribers.filter((s) => isMaster || tutorOf(s) === role.id);
   const mySubIds = new Set(subs.map((s) => s.id));
-  const sendWhatsAppInvite = (s) => notifyServer({ type: "applied", name: s.name, email: s.email, plan: (PLANS[s.plan] || {}).name || s.plan });
+  // Awaits the real response instead of firing-and-forgetting, so a broken
+  // RESEND_API_KEY or a Resend rejection shows up as a real error message in
+  // the admin's alert, not a false "Sent" the instant the button is clicked.
+  const sendWhatsAppInvite = async (s) => {
+    const r = await fetch("/api/notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "applied", name: s.name, email: s.email, plan: (PLANS[s.plan] || {}).name || s.plan }),
+    });
+    let data = {};
+    try { data = await r.json(); } catch (e) { /* non-JSON error body, fall through to status-only message */ }
+    if (!r.ok) throw new Error(data.error || `Request failed (HTTP ${r.status})`);
+  };
   const sendWhatsAppInviteToAll = async (planId) => {
     const targets = subs.filter((s) => s.plan === planId && !s.cancelled);
     if (targets.length === 0) return alert("No current students on that plan.");
     if (!confirm(`Email the WhatsApp invite (with the 72-hour join deadline) to all ${targets.length} students on ${(PLANS[planId] || {}).name || planId}?`)) return;
     setInvitingPlan(planId);
+    let ok = 0; const failed = [];
     for (const s of targets) {
-      sendWhatsAppInvite(s);
+      try { await sendWhatsAppInvite(s); ok++; }
+      catch (e) { failed.push(`${s.email} (${e.message})`); }
       await new Promise((r) => setTimeout(r, 250)); // small stagger, not a burst of 10 at once
     }
     setInvitingPlan(null);
-    alert(`Sent to ${targets.length} students.`);
+    alert(failed.length === 0 ? `Sent to all ${ok} students.` : `Sent to ${ok}, failed for:\n${failed.join("\n")}`);
   };
   const deptBookings = store.bookings.filter((b) => isMaster || mySubIds.has(b.subscriberId));
   const thisMonth = new Date().toISOString().slice(0, 7);
@@ -3283,7 +3296,10 @@ function Admin({ store, saveMeet, saveLessonNote, removeSubscriber, refresh, mov
                   </td>
                   <td style={{ padding: 6, whiteSpace: "nowrap" }}>
                     <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13, marginRight: 6 }}
-                      onClick={() => { sendWhatsAppInvite(s); alert(`Sent to ${s.email}.`); }}>Invite</button>
+                      onClick={async () => {
+                        try { await sendWhatsAppInvite(s); alert(`Sent to ${s.email}.`); }
+                        catch (e) { alert(`Couldn't send to ${s.email}: ${e.message}`); }
+                      }}>Invite</button>
                     <button className="it-btn ghost" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => { if (confirm(`Remove ${s.name} and all their bookings?`)) removeSubscriber(s.id); }}>Remove</button>
                   </td>
                 </tr>
